@@ -1,0 +1,44 @@
+name: build
+# Windows 版と同じコア・常駐エンジンを、macOS / Linux / Android 向けにも自動でビルドして成果物にする。
+# 共通のフロントエンドは、エンジンが配る Web UI(/ui)。OS 専用の薄いクライアントはこの上に載せる。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: git clone --depth 1 https://github.com/aon-co-jp/RPoem ../RPoem
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --release -p aruaru-ime-core
+      - run: cargo build --release -p aruaru-ime-daemon -p aruaru-ime-cli
+      - run: cargo run --release -p aruaru-ime-cli -- frontends dist/frontends
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: aruaru-ime-frontends
+          path: dist/frontends
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aruaru-ime-engine-${{ matrix.os }}
+          path: |
+            target/release/aruaru-ime-daemon*
+            target/release/aruaru-ime*
+            !target/release/*.d
+            !target/release/*.pdb
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git clone --depth 1 https://github.com/aon-co-jp/RPoem ../RPoem
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - run: cargo install cargo-ndk --locked
+      - run: cargo ndk -t arm64-v8a build --release -p aruaru-ime-core

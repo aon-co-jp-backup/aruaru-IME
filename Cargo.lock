@@ -31,6 +31,7 @@ name = "aruaru-ime-cli"
 version = "0.1.0"
 dependencies = [
  "aruaru-ime-core",
+ "open-runo-crossui",
 ]
 
 [[package]]
@@ -56,6 +57,7 @@ version = "0.1.0"
 dependencies = [
  "aruaru-ime-core",
  "image",
+ "open-runo-crossui",
  "serde",
  "serde_json",
  "tiny_http",
@@ -697,6 +699,17 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "open-runo-crossui"
+version = "0.1.0"
+dependencies = [
+ "open-runo-view",
+]
+
+[[package]]
+name = "open-runo-view"
+version = "0.1.0"
 
 [[package]]
 name = "percent-encoding"

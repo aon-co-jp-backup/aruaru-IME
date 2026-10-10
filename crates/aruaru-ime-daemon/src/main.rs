@@ -498,6 +498,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
         let _ = std::io::Read::read_to_string(req.as_reader(), &mut body);
         let path = req.url().to_string();
         let (code, out) = match (req.method().as_str(), path.as_str()) {
+            ("GET", "/ui") => (200, open_runo_crossui::page_html(&open_runo_crossui::ime_app("", env!("CARGO_PKG_VERSION")), "")),
             ("GET", "/health") => (200, format!("ok dict={} v={} proto=1", dict.as_ref().as_ref().map_or(0, |d| d.len()), env!("CARGO_PKG_VERSION"))),
             ("GET", "/stats") => {
                 let s = state.lock().unwrap();
@@ -618,7 +619,8 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
             _ => (404, "not found".into()),
         };
         let mut resp = tiny_http::Response::from_string(out).with_status_code(code);
-        resp.add_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/json; charset=utf-8"[..]).unwrap());
+        let ctype: &[u8] = if path == "/ui" { b"text/html; charset=utf-8" } else { b"application/json; charset=utf-8" };
+        resp.add_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], ctype).unwrap());
         let _ = req.respond(resp);
     }
 }

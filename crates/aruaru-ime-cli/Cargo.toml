@@ -8,3 +8,4 @@ name = "aruaru-ime"
 path = "src/main.rs"
 [dependencies]
 aruaru-ime-core = { path = "../aruaru-ime-core" }
+open-runo-crossui = { path = "../../../RPoem/crates/open-runo-crossui" }

@@ -81,6 +81,15 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("frontends") {
+        // aruaru-ime frontends [出力先]: 共有のフロントエンドを Windows / macOS / Linux / Android / Web 向けに一括で生成する(RPoem の open-runo-crossui)
+        let out = std::path::PathBuf::from(args.get(1).map(String::as_str).unwrap_or("dist/frontends"));
+        match open_runo_crossui::generate(&open_runo_crossui::ime_app("http://127.0.0.1:4660", env!("CARGO_PKG_VERSION")), open_runo_crossui::ALL_TARGETS, &out) {
+            Ok(f) => println!("{} ファイルを {} に生成しました", f.len(), out.display()),
+            Err(e) => eprintln!("生成できませんでした: {e}"),
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("knowledge") {
         // aruaru-ime knowledge add <本文> [タグ…] | search <キーワード> | import <knowledge.json>
         use aruaru_ime_core::knowledge as kb;

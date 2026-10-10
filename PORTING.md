@@ -92,3 +92,9 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - TSF DLL: フォーカス中のEdit欄が `ES_PASSWORD` なら `password:true` をデーモンへ通知(取り込み・学習を止める)。Win32 Edit のみ。ブラウザ等の独自描画欄は未対応。
 - `core/src/knowledge.rs`: open-english と同形式の `knowledge.json`。`aruaru-ime knowledge add|search|import`。候補ウィンドウへの補足表示、aruaru-llm連携、自動学習は未実装。
 - 残り(未実装): 準備中言語エンジン/全言語選択UI、タスクバー右クリック、32bit DLL、macOS/Linux/Android、インストーラー実機試験(UAC要)。
+
+## 共有フロントエンドの自動生成 / Shared front end auto-generation (2026-10-11)
+- RPoemに新クレート `open-runo-crossui`(Rust)を追加。フロントエンドを1回(`open-runo-view`のVNode+エンジンとの橋渡し)書けば、Windows/macOS/Linux/Android/Web向けに共通ページ(SSR)と各OSの起動・配布記述を一括生成する。
+- aruaru-IME: 常駐エンジンの `GET /ui` が同じ画面を配り、`aruaru-ime frontends [出力先]` が全OS分を `dist/frontends` に生成。`.github/workflows/build.yml` が3OSでエンジン/CLIをビルドし、フロントエンド一式を成果物にする(RPoemを兄弟ディレクトリにcloneして使う)。
+- 残: macOS/Linuxの実機検証、AndroidのWebViewシェル(アプリ化)、OS固有のIME統合(macOS InputMethodKit・Linux IBus/Fcitx・Android InputMethodService)はまだ無く、現状は常駐エンジン+Web画面経由で使う。
+- RPoem `open-runo-crossui` generates the shared page and per-OS launchers from one definition; aruaru-IME serves it at `/ui` and emits all targets with `aruaru-ime frontends`. OS-native IME integration is still to do.
