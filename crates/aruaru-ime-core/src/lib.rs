@@ -18,6 +18,7 @@ pub mod settings;
 pub mod update;
 pub mod uservocab;
 pub mod userdict;
+pub mod languages;
 pub mod wish;
 pub mod zh;
 

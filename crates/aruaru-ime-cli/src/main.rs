@@ -11,6 +11,12 @@ fn main() {
         let st = aruaru_ime_core::settings::Settings::load();
         let chosen = st.selected_languages();
         match args.get(1).map(String::as_str) {
+            Some("all") => {
+                for (code, ja, native) in aruaru_ime_core::languages::LANGUAGES {
+                    let st = if aruaru_ime_core::languages::engine(code).is_some() { "対応 / ready" } else { "準備中 / planned" };
+                    println!("{code}	{ja}	{native}	{st}");
+                }
+            }
             Some("apply") => {
                 let clsid = "{B7C2A1E4-5D3F-4F7A-9A61-0C8E2D4B6A11}";
                 let entries: Vec<String> = translit::ALL

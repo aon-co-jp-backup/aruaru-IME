@@ -78,3 +78,7 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 ## 中国語ピンイン入力 / Chinese pinyin input (2026-10-11)
 - 日本語: 簡体字・繁体字のピンイン入力に対応。辞書 `zh.tsv`(jieba頻度・pinyin-data読み・OpenCC繁体化、MIT/Apache-2.0、`ZH-LICENSES.txt`)を初回起動時に自動取得して作成。候補は数字キー/Space/Enterで確定、入力の一部だけ使う候補は残りを続けて変換(部分確定)。
 - English: Simplified/Traditional pinyin input. `zh.tsv` is built automatically on first run from jieba, pinyin-data and OpenCC. Digits/Space/Enter commit; partial-length candidates keep the rest of the input.
+
+## 世界130言語の一覧 / 132-language registry (2026-10-11)
+- `core/src/languages.rs`: 132言語の一覧(出典 realdata.pro)。入力エンジンがある15言語は「対応」、他は「準備中」。`aruaru-ime languages all` で表示。残: 準備中言語のエンジン、トレイの全言語一覧UI。
+- 132 languages listed; 15 have input engines, the rest are "planned". Remaining: engines for the rest and a full-list tray UI.
