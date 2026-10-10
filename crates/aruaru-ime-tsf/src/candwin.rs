@@ -12,6 +12,8 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 const ROW_H: i32 = 26;
 const MAX_ROWS: usize = 9;
 const FLASH_TIMER: usize = 1;
+/// 見出し行右端の配色切替ボタンの幅。
+const BUTTON_W: i32 = 110;
 
 struct Palette {
     bg: u32,
@@ -37,6 +39,18 @@ thread_local! {
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+        WM_LBUTTONDOWN => {
+            // 見出し行の右側のボタンをワンクリックで、黒背景・白文字 ⇔ 白背景・黒文字 を切り替える
+            let y = ((lp.0 >> 16) & 0xFFFF) as i16 as i32;
+            let x = (lp.0 & 0xFFFF) as i16 as i32;
+            let mut rc = RECT::default();
+            let _ = GetClientRect(hwnd, &mut rc);
+            if y < ROW_H && x > rc.right - BUTTON_W {
+                Settings::load().toggle_theme();
+                let _ = InvalidateRect(hwnd, None, true);
+            }
+            LRESULT(0)
+        }
         WM_TIMER => {
             let _ = KillTimer(hwnd, FLASH_TIMER);
             let _ = ShowWindow(hwnd, SW_HIDE);
@@ -58,10 +72,22 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 let (cands, sel, header) = &*s.borrow();
                 // 見出し行: 予測した入力モード(間違っていたら F6〜F10 で直せる)
                 SetTextColor(hdc, COLORREF(pal.header));
-                let hint = if cands.is_empty() { String::new() } else { "  F6あ F7ア F9Ａ F10A F2配色".to_string() };
+                let hint = if cands.is_empty() { String::new() } else { "  F6あ F7ア F9Ａ F10A".to_string() };
                 let mut ht: Vec<u16> = format!(" [{header}]{hint}").encode_utf16().collect();
                 let mut hr = RECT { left: 0, top: 0, right: rc.right, bottom: ROW_H };
                 DrawTextW(hdc, &mut ht, &mut hr, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+                if !cands.is_empty() {
+                    // 配色切替ボタン(押すと反対の配色になる)
+                    let to_light = Settings::load().dark();
+                    let br = RECT { left: rc.right - BUTTON_W, top: 2, right: rc.right - 4, bottom: ROW_H - 2 };
+                    let bb = CreateSolidBrush(COLORREF(if to_light { 0x00F0_F0F0 } else { 0x0030_3030 }));
+                    FillRect(hdc, &br, bb);
+                    let _ = DeleteObject(bb);
+                    SetTextColor(hdc, COLORREF(if to_light { 0x0020_2020 } else { 0x00FF_FFFF }));
+                    let mut bt: Vec<u16> = (if to_light { "白背景・黒文字" } else { "黒背景・白文字" }).encode_utf16().collect();
+                    let mut br2 = br;
+                    DrawTextW(hdc, &mut bt, &mut br2, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+                }
                 // 選択位置を含む9件のページを表示
                 let page = sel.map_or(0, |i| i / MAX_ROWS) * MAX_ROWS;
                 for (row, (i, c)) in cands.iter().enumerate().skip(page).take(MAX_ROWS).enumerate() {
@@ -116,7 +142,7 @@ pub fn show(cands: &[String], sel: Option<usize>, header: &str, x: i32, y: i32) 
     let widest = cands.iter().skip(page).take(MAX_ROWS).map(|c| c.chars().map(|ch| if ch.is_ascii() { 10 } else { 19 }).sum::<i32>()).max().unwrap_or(60);
     unsafe {
         let _ = KillTimer(hw, FLASH_TIMER);
-        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, (widest + 56).max(300), (rows + 1) * ROW_H + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, (widest + 56).max(380), (rows + 1) * ROW_H + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         let _ = InvalidateRect(hw, None, true);
         let _ = UpdateWindow(hw);
     }
