@@ -72,6 +72,7 @@ impl Client {
             .query("client", "firefox")
             .query("hl", lang)
             .query("q", &q)
+            .timeout(Duration::from_secs(3))
             .call()
         else {
             return vec![];

@@ -112,6 +112,13 @@ pub fn predict(buffer: &str, ctx: &Context) -> Prediction {
     let mut score_kana = 0f32;
     let mut why: Vec<&str> = vec![];
 
+    let langs = crate::code::detect(ctx);
+    let code_word = crate::code::is_code_word_for_alpha(&lower, !langs.is_empty())
+        || (!langs.is_empty() && lower.chars().count() >= 3 && !crate::code::complete(&lower, &langs, 1).is_empty());
+    if code_word {
+        score_alpha += 1.3;
+        why.push("プログラミング用語");
+    }
     let known_en = COMMON_EN.contains(&lower.as_str());
     let en_like = looks_english(&lower);
     if known_en {
@@ -148,7 +155,7 @@ pub fn predict(buffer: &str, ctx: &Context) -> Prediction {
         return Prediction {
             mode: Mode::Alpha,
             confidence: (score_alpha / total).min(0.99),
-            english_word: en_like || known_en,
+            english_word: en_like || known_en || code_word,
             reason: why.join("・"),
         };
     }

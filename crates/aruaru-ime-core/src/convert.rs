@@ -3,6 +3,7 @@
 
 use crate::client::Client;
 use crate::kanji::Dict;
+use crate::code;
 use crate::mode::{self, Context, Mode, Prediction};
 use crate::romaji;
 use serde::Serialize;
@@ -83,7 +84,7 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     let mut dict_cands: Vec<String> = vec![];
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
         if let Some(d) = dict {
-            dict_cands = d.candidates(&hira, 6);
+            dict_cands = d.candidates(&hira, 30);
         }
     }
     let mut predicted: Vec<String> = vec![];
@@ -107,6 +108,16 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     match pred.mode {
         Mode::Alpha => {
             push(&mut c, buffer.to_string(), "alpha");
+            // プログラミング用語: 綴りの訂正(確信が高いものは autofix)と前方一致の補完。パスワード・URL・メール欄では何もしない。
+            if !matches!(ctx.field_kind.as_deref(), Some("password" | "url" | "email")) {
+                let langs = code::detect(ctx);
+                for f in code::correct(buffer, &langs) {
+                    push(&mut c, f.word, if f.confident { "autofix" } else { "fix" });
+                }
+                for w in code::complete(buffer, &langs, 6) {
+                    push(&mut c, w, "code");
+                }
+            }
             for w in prefix_words(buffer) {
                 push(&mut c, w.to_string(), "english");
             }
@@ -193,6 +204,22 @@ mod tests {
         }
         // 本物の英単語は文脈なしでも英字
         assert_eq!(convert("github", &cx(""), None, None).prediction.mode, Mode::Alpha);
+    }
+
+    #[test]
+    fn code_words_stay_alpha_and_get_completed_and_fixed() {
+        let js = cx("function f() { const x = 1; console.log(x) }\n");
+        let r = convert("unde", &js, None, None);
+        assert_eq!(r.prediction.mode, Mode::Alpha);
+        assert!(r.candidates.iter().any(|c| c.text == "undefined" && c.kind == "code"));
+        let r = convert("fucntion", &js, None, None);
+        assert!(r.candidates.iter().any(|c| c.text == "function" && c.kind == "autofix"));
+        // パスワード欄では何もしない
+        let pw = Context { before: js.before.clone(), field_kind: Some("password".into()), ..Default::default() };
+        assert!(convert("fucntion", &pw, None, None).candidates.iter().all(|c| c.kind != "autofix"));
+        // 日本語の文脈ではローマ字入力を奪わない
+        assert_eq!(convert("kyouha", &cx("私は"), None, None).prediction.mode, Mode::Hiragana);
+        assert_eq!(convert("do", &cx("私は"), None, None).prediction.mode, Mode::Hiragana);
     }
 
     #[test]

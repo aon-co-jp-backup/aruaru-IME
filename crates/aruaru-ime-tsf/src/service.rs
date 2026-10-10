@@ -1,6 +1,7 @@
 //! TSF テキストサービス本体: キー入力を `Session`(OS非依存の状態機械)へ渡し、結果を文書へ反映する。
 use crate::{candwin, daemon};
-use aruaru_ime_core::session::{Key, Session, Step};
+use crate::engine::Engine;
+use aruaru_ime_core::session::{Key, Step};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -15,7 +16,7 @@ fn wide(s: &str) -> Vec<u16> {
 }
 
 struct Inner {
-    session: Session,
+    session: Engine,
     comp: Option<ITfComposition>,
     last_focus_post: Option<Instant>,
 }
@@ -69,12 +70,8 @@ pub struct TextService {
 
 impl TextService {
     pub fn new() -> Self {
-        let mut session = Session::new(Box::new(daemon::DaemonConverter::new()));
-        session.live = aruaru_ime_core::settings::Settings::load().live_conversion;
-        if let Ok(d) = std::env::var("LOCALAPPDATA") {
-            session.enable_learning(std::path::PathBuf::from(d.clone()).join("aruaru").join("learned.json"));
-            session.enable_user_dict(&std::path::PathBuf::from(d).join("aruaru").join("user_dict.json"));
-        }
+        let mut session = Engine::new();
+        session.apply_settings(&aruaru_ime_core::settings::Settings::load());
         Self {
             inner: Rc::new(RefCell::new(Inner { session, comp: None, last_focus_post: None })),
             tm: RefCell::new(None),
@@ -191,8 +188,7 @@ impl TextService {
             crate::log(&format!("apply failed ({e}); auto-disabling IME"));
             let mut g = inner_fail.borrow_mut();
             g.comp = None;
-            g.session.cancel();
-            g.session.on = false;
+            g.session.force_off();
             drop(g);
             candwin::hide();
             self.flash_mode(ctx, "A (自動オフ)");
@@ -219,7 +215,7 @@ impl TextService {
 }
 
 fn is_mode_key(vk: u32) -> bool {
-    matches!(vk, 0x19 | 0xF3 | 0xF4 | 0x16 | 0x1A | 0xF0 | 0xF2)
+    matches!(vk, 0x19 | 0xF3 | 0xF4 | 0x16 | 0x1A | 0xF0 | 0xF2 | 0x1C | 0x1D)
 }
 
 fn map_key(vk: u32) -> Option<Key> {
@@ -236,6 +232,8 @@ fn map_key(vk: u32) -> Option<Key> {
         0x75..=0x79 => return Some(Key::Fn((vk - 0x75 + 6) as u8)),
         0x16 | 0xF2 => return Some(Key::On),  // IME オン / かなキー(押すたびに必ずオン)
         0x1A | 0xF0 => return Some(Key::Off), // IME オフ / 英数キー(押すたびに必ずオフ)
+        0x1C => return Some(Key::Convert),    // 変換キー
+        0x1D => return Some(Key::NonConvert), // 無変換キー
         0x19 | 0xF3 | 0xF4 => return Some(Key::Toggle), // 半角/全角
         _ => {}
     }
@@ -344,7 +342,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             let t = st.toggle_theme().to_string();
             crate::log(&format!("theme -> {t}"));
         }
-        let is_mode = matches!(key, Key::On | Key::Off | Key::Toggle);
+        let is_mode = matches!(key, Key::On | Key::Off | Key::Toggle | Key::Convert | Key::NonConvert);
         let step = self.inner.borrow_mut().session.key(key.clone());
         crate::log(&format!("KeyDown -> {:?}", step));
         let eaten = step.eaten;
@@ -355,7 +353,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             candwin::redraw();
         }
         if is_mode {
-            let on = self.inner.borrow().session.on;
+            let on = self.inner.borrow().session.is_on();
             self.flash_mode(ctx, if on { "あ" } else { "A" });
         }
         Ok(BOOL(eaten as i32))
@@ -378,6 +376,7 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
     fn OnSetFocus(&self, focus: Option<&ITfDocumentMgr>, _prev: Option<&ITfDocumentMgr>) -> Result<()> {
         {
             let mut g = self.inner.borrow_mut();
+            g.session.apply_settings(&aruaru_ime_core::settings::Settings::load()); // 右クリックメニューでの変更を反映
             g.session.cancel();
             g.comp = None;
             g.last_focus_post = Some(Instant::now());

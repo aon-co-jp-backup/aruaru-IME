@@ -3,6 +3,7 @@
 
 mod candwin;
 mod daemon;
+mod engine;
 mod service;
 
 use std::ffi::c_void;

@@ -85,6 +85,19 @@ impl DaemonConverter {
     }
 }
 
+/// 常駐エンジンが落ちていたら起動し直す(10秒に1回まで)。
+pub fn revive() {
+    use std::sync::Mutex;
+    static LAST: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+    let mut g = LAST.lock().unwrap_or_else(|e| e.into_inner());
+    if g.is_some_and(|t| t.elapsed() < Duration::from_secs(10)) {
+        return;
+    }
+    *g = Some(std::time::Instant::now());
+    drop(g);
+    ensure_running(&crate::dll_dir());
+}
+
 impl Converter for DaemonConverter {
     fn convert(&self, buffer: &str, before: &str, field_kind: Option<&str>) -> Conversion {
         let body = serde_json::json!({"buffer": buffer, "before": before, "field_kind": field_kind}).to_string();
@@ -93,6 +106,7 @@ impl Converter for DaemonConverter {
                 return c;
             }
         }
+        revive();
         self.fallback.convert(buffer, before, field_kind)
     }
 }

@@ -6,11 +6,14 @@
 //! aruaru-llm の OCR に渡し、得た画面上の文字を入力モード予測・変換の文脈にする。パスワード欄では撮らない。
 
 mod capture;
+#[cfg(windows)]
+mod tray;
 
 use aruaru_ime_core::capture_store::CaptureStore;
 use aruaru_ime_core::client::{Client, DEFAULT_URL};
 use aruaru_ime_core::kanji::Dict;
-use aruaru_ime_core::{convert, Context};
+use aruaru_ime_core::session::{Converter, Key, Session};
+use aruaru_ime_core::{convert, Context, Conversion};
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -38,6 +41,150 @@ struct FocusReq {
     password: bool,
 }
 
+/// 入力セッション用の変換器。画面の文字(OCR)・パスワード欄の状態を、そのときの最新のものから取る。
+struct EngineConv {
+    dict: Arc<Option<Dict>>,
+    client: Client,
+    state: Arc<Mutex<State>>,
+}
+
+impl EngineConv {
+    fn ctx(&self, before: &str, field_kind: Option<&str>) -> (Context, bool) {
+        let (screen, pw) = {
+            let s = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            (s.screen_text.clone(), s.password)
+        };
+        let field = if pw { Some("password".to_string()) } else { field_kind.map(str::to_string) };
+        let password = field.as_deref() == Some("password");
+        (Context { before: before.to_string(), after: String::new(), screen_text: screen, field_kind: field }, password)
+    }
+}
+
+impl Converter for EngineConv {
+    fn convert(&self, buffer: &str, before: &str, field_kind: Option<&str>) -> Conversion {
+        let (ctx, password) = self.ctx(before, field_kind);
+        if !password {
+            auto_learn(&self.client, &ctx);
+        }
+        convert(buffer, &ctx, if password { None } else { Some(&self.client) }, self.dict.as_ref().as_ref())
+    }
+
+    /// 変換を求められたときだけ、Web のサジェストから固有名詞・作品名の候補を取る(パスワード欄では何もしない)。
+    fn extra(&self, buffer: &str, before: &str) -> Vec<String> {
+        let (_, password) = self.ctx(before, None);
+        if password || !aruaru_ime_core::settings::Settings::load().web_suggest {
+            return vec![];
+        }
+        let reading = aruaru_ime_core::romaji::to_hiragana(buffer);
+        if reading.chars().count() < 3 {
+            return vec![];
+        }
+        let mut out: Vec<String> = vec![];
+        for s in self.client.web_suggest(&reading, "ja") {
+            // 検索語の「読み + 続き」ではなく、読みに対応する題名そのものだけを拾う: 読みで始まらず、長すぎないもの
+            let t = s.trim().to_string();
+            if t.chars().count() <= 40 && !t.starts_with(&reading) && !out.contains(&t) {
+                out.push(t);
+            }
+            if out.len() >= 4 {
+                break;
+            }
+        }
+        out
+    }
+}
+
+type Sessions = Mutex<std::collections::HashMap<String, (Session, Instant)>>;
+
+fn sessions() -> &'static Sessions {
+    static S: std::sync::OnceLock<Sessions> = std::sync::OnceLock::new();
+    S.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+#[derive(Deserialize)]
+struct KeyReq {
+    sid: String,
+    key: Key,
+    /// カーソル直前の文章(組み立て開始時に DLL が読んだもの)。
+    #[serde(default)]
+    before: Option<String>,
+    /// 先頭を Shift で打った(一時英字入力)。
+    #[serde(default)]
+    raw: bool,
+}
+
+#[derive(Deserialize)]
+struct SessReq {
+    sid: String,
+    op: String,
+}
+
+/// セッションを取り出して `f` を実行する。無ければ作る。15分使われていないセッションは捨てる。
+fn with_session<T>(sid: &str, conv: impl FnOnce() -> EngineConv, f: impl FnOnce(&mut Session) -> T) -> T {
+    let mut g = sessions().lock().unwrap_or_else(|e| e.into_inner());
+    g.retain(|_, (_, t)| t.elapsed() < Duration::from_secs(900));
+    let entry = g.entry(sid.to_string()).or_insert_with(|| {
+        let mut s = Session::new(Box::new(conv()));
+        let root = aruaru_ime_core::components::data_dir();
+        s.enable_learning(root.join("learned.json"));
+        s.enable_user_dict(&root.join("user_dict.json"));
+        s.apply_settings(&aruaru_ime_core::settings::Settings::load());
+        (s, Instant::now())
+    });
+    entry.1 = Instant::now();
+    f(&mut entry.0)
+}
+
+#[derive(Deserialize)]
+struct VocabReq {
+    name: String,
+}
+
+/// 未知の言語・フレームワークの語彙を、バックグラウンドで aruaru-llm の検索から作る(同時に1件、同じ名前は1回だけ)。
+pub(crate) fn learn_in_background(client: &Client, name: String) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static BUSY: AtomicBool = AtomicBool::new(false);
+    if BUSY.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let client = client.clone();
+    std::thread::spawn(move || {
+        match aruaru_ime_core::uservocab::learn(&client, &name) {
+            Ok((p, n)) => {
+                eprintln!("learned {name}: {n} words -> {}", p.display());
+                #[cfg(windows)]
+                tray::notify("aruaru-IME", &format!("{name} に対応しました({n}語)"));
+            }
+            Err(e) => {
+                eprintln!("learn {name} failed: {e}");
+                #[cfg(windows)]
+                tray::notify("aruaru-IME", &format!("{name} に対応できませんでした: {e}"));
+            }
+        }
+        BUSY.store(false, Ordering::SeqCst);
+    });
+}
+
+/// 画面・直前の文章に `npm install svelte` のような記述があり、まだ知らない名前なら、自動で学習を始める(1時間に最大5件)。
+fn auto_learn(client: &Client, ctx: &Context) {
+    use std::collections::HashSet;
+    use std::sync::Mutex;
+    static TRIED: Mutex<Option<(HashSet<String>, Vec<Instant>)>> = Mutex::new(None);
+    let text = format!("{}\n{}", ctx.before, ctx.screen_text);
+    let mut g = TRIED.lock().unwrap_or_else(|e| e.into_inner());
+    let (tried, times) = g.get_or_insert_with(|| (HashSet::new(), Vec::new()));
+    times.retain(|t| t.elapsed() < Duration::from_secs(3600));
+    for name in aruaru_ime_core::uservocab::install_targets(&text) {
+        if times.len() >= 5 || tried.contains(&name) || aruaru_ime_core::code::knows(&name) {
+            continue;
+        }
+        tried.insert(name.clone());
+        times.push(Instant::now());
+        learn_in_background(client, name);
+        break;
+    }
+}
+
 #[derive(Deserialize)]
 struct DictReq {
     reading: String,
@@ -56,7 +203,32 @@ struct ConvReq {
     field_kind: Option<String>,
 }
 
-fn dict_path() -> PathBuf {
+/// 辞書(dict.bin)を探す候補を、優先順に返す。作業フォルダに依存しない場所を先にする(IMEが自動起動すると作業フォルダが違うため)。
+pub(crate) fn dict_candidates() -> Vec<PathBuf> {
+    let mut v: Vec<PathBuf> = vec![];
+    if let Ok(p) = std::env::var("ARUARU_IME_DICT") {
+        v.push(p.into());
+    }
+    if let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) {
+        v.push(dir.join("dict.bin"));
+        v.push(dir.join("data").join("dict.bin"));
+        // 開発時: <リポジトリ>/target*/release/ の2つ上の data/
+        if let Some(root) = dir.parent().and_then(|p| p.parent()) {
+            v.push(root.join("data").join("dict.bin"));
+        }
+    }
+    v.push(aruaru_ime_core::components::data_dir().join("dict.bin"));
+    v.push(PathBuf::from("data/dict.bin"));
+    v
+}
+
+pub(crate) fn dict_path() -> PathBuf {
+    let c = dict_candidates();
+    c.iter().find(|p| p.is_file()).cloned().unwrap_or_else(|| c.into_iter().next().unwrap_or_else(|| PathBuf::from("dict.bin")))
+}
+
+#[allow(dead_code)]
+fn dict_path_old() -> PathBuf {
     if let Ok(p) = std::env::var("ARUARU_IME_DICT") {
         return p.into();
     }
@@ -82,7 +254,11 @@ fn bind_with_retry() -> tiny_http::Server {
                 eprintln!("port busy ({e}); retrying");
                 std::thread::sleep(Duration::from_millis(400));
             }
-            Err(e) => panic!("bind 127.0.0.1:{PORT}: {e}"),
+            Err(e) => {
+                // ポートを取れないなら、プロセスごと終了する(アイコンだけ残って応答しない状態を作らない。IME側が起動し直す)
+                eprintln!("bind 127.0.0.1:{PORT} failed: {e}");
+                std::process::exit(1);
+            }
         }
     }
 }
@@ -122,7 +298,8 @@ fn spawn_updater() {
 fn main() {
     let llm_url = std::env::var("ARUARU_LLM_URL").unwrap_or_else(|_| DEFAULT_URL.to_string());
     let client = Client::new(&llm_url);
-    let dict = Dict::load(&dict_path()).map_err(|e| eprintln!("dictionary not loaded ({}): {e}", dict_path().display())).ok();
+    let dict = Dict::load(&dict_path()).map_err(|e| eprintln!("dictionary NOT loaded ({}): {e}\n  searched: {:?}", dict_path().display(), dict_candidates())).ok();
+    eprintln!("dictionary: {}", if dict.is_some() { dict_path().display().to_string() } else { "none".into() });
     let dict = Arc::new(dict);
     let state = Arc::new(Mutex::new(State::default()));
 
@@ -164,6 +341,26 @@ fn main() {
         });
     }
 
+    // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
+    let (c2, d2, s2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state));
+    #[cfg(windows)]
+    {
+        std::thread::spawn(move || {
+            // HTTP が何らかの理由で止まったら、プロセスごと終了して IME 側に起動し直してもらう
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| serve(c2, d2, s2)));
+            eprintln!("http server stopped: {r:?}");
+            std::process::exit(1);
+        });
+        tray::run(client);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = &client;
+        serve(c2, d2, s2);
+    }
+}
+
+fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>) {
     let server = bind_with_retry();
     spawn_updater();
     println!("aruaru-ime-daemon listening on 127.0.0.1:{PORT} (dict: {} entries)", dict.as_ref().as_ref().map_or(0, |d| d.len()));
@@ -172,11 +369,67 @@ fn main() {
         let _ = std::io::Read::read_to_string(req.as_reader(), &mut body);
         let path = req.url().to_string();
         let (code, out) = match (req.method().as_str(), path.as_str()) {
-            ("GET", "/health") => (200, "ok".to_string()),
+            ("GET", "/health") => (200, format!("ok dict={} v={} proto=1", dict.as_ref().as_ref().map_or(0, |d| d.len()), env!("CARGO_PKG_VERSION"))),
             ("GET", "/stats") => {
                 let s = state.lock().unwrap();
                 (200, serde_json::json!({"captures": s.captures, "last_capture_ms": s.last_capture_ms, "screen_chars": s.screen_text.chars().count(), "editable": s.editable, "password": s.password}).to_string())
             }
+            ("POST", "/key") => match serde_json::from_str::<KeyReq>(&body) {
+                Ok(r) => {
+                    let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state) };
+                    let step = with_session(&r.sid, mk, |s| {
+                        if let Some(b) = &r.before {
+                            s.set_before(b);
+                        }
+                        if r.raw {
+                            s.begin_raw();
+                        }
+                        s.key(r.key)
+                    });
+                    (200, serde_json::to_string(&step).unwrap_or_default())
+                }
+                Err(e) => (400, e.to_string()),
+            },
+            ("POST", "/session") => match serde_json::from_str::<SessReq>(&body) {
+                Ok(r) => {
+                    let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state) };
+                    if r.op == "drop" {
+                        sessions().lock().unwrap_or_else(|e| e.into_inner()).remove(&r.sid);
+                        (200, "{}".to_string())
+                    } else {
+                        let step = with_session(&r.sid, mk, |s| {
+                            match r.op.as_str() {
+                                "cancel" => s.cancel(),
+                                "settings" => s.apply_settings(&aruaru_ime_core::settings::Settings::load()),
+                                "off" => {
+                                    s.cancel();
+                                    s.on = false;
+                                }
+                                _ => {}
+                            }
+                            s.snapshot()
+                        });
+                        (200, serde_json::to_string(&step).unwrap_or_default())
+                    }
+                }
+                Err(e) => (400, e.to_string()),
+            },
+            ("GET", "/version") => (200, serde_json::json!({"version": env!("CARGO_PKG_VERSION"), "proto": 1}).to_string()),
+            ("GET", "/vocab/list") => {
+                let v: Vec<serde_json::Value> = aruaru_ime_core::code::list().into_iter().map(|(n, c, u)| serde_json::json!({"name": n, "words": c, "user": u})).collect();
+                (200, serde_json::to_string(&v).unwrap_or_default())
+            }
+            ("POST", "/vocab/learn") => match serde_json::from_str::<VocabReq>(&body) {
+                Ok(v) => {
+                    learn_in_background(&client, v.name.clone());
+                    (202, serde_json::json!({"accepted": v.name}).to_string())
+                }
+                Err(e) => (400, e.to_string()),
+            },
+            ("POST", "/vocab/remove") => match serde_json::from_str::<VocabReq>(&body) {
+                Ok(v) => (200, serde_json::json!({"removed": aruaru_ime_core::uservocab::remove(&v.name).unwrap_or(false)}).to_string()),
+                Err(e) => (400, e.to_string()),
+            },
             ("GET", "/dict/list") => {
                 let u = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
                 (200, serde_json::to_string(u.entries()).unwrap_or_default())
@@ -219,6 +472,9 @@ fn main() {
                         (s.screen_text.clone(), s.password)
                     };
                     let ctx = Context { before: r.before, after: r.after, screen_text: screen, field_kind: if pw { Some("password".into()) } else { r.field_kind } };
+                    if ctx.field_kind.as_deref() != Some("password") {
+                        auto_learn(&client, &ctx);
+                    }
                     let alive = if ctx.field_kind.as_deref() == Some("password") { None } else { Some(&client) };
                     let res = convert(&r.buffer, &ctx, alive, dict.as_ref().as_ref());
                     (200, serde_json::to_string(&res).unwrap_or_default())
