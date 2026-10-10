@@ -14,6 +14,13 @@ pub struct Settings {
     /// ライブ変換(打つそばから漢字かな交じりを未確定表示にする)。既定オン。
     #[serde(default = "default_true")]
     pub live_conversion: bool,
+    /// 候補窓の大きさの倍率(既定 1.8。文字・行の高さ・幅が全てこの倍率で大きくなる)。
+    #[serde(default = "default_scale")]
+    pub candidate_scale: f32,
+}
+
+fn default_scale() -> f32 {
+    1.8
 }
 
 fn default_true() -> bool {
@@ -26,7 +33,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true }
+        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale() }
     }
 }
 
@@ -52,6 +59,11 @@ impl Settings {
 
     pub fn save(&self) -> std::io::Result<()> {
         self.save_to(&Self::path())
+    }
+
+    /// 実際に使う倍率(極端な値は 1.0〜4.0 に丸める)。
+    pub fn scale(&self) -> f32 {
+        if self.candidate_scale.is_finite() { self.candidate_scale.clamp(1.0, 4.0) } else { 1.8 }
     }
 
     pub fn dark(&self) -> bool {
@@ -97,6 +109,16 @@ mod tests {
         assert!(Settings::load_from(&p).dark());
         assert!(Settings::load_from(&p).live_conversion, "既定でライブ変換オン");
         let _ = std::fs::remove_file(&p);
+    }
+
+    #[test]
+    fn candidate_panel_is_large_by_default_and_clamped() {
+        let mut s = Settings::default();
+        assert!(s.scale() >= 1.8, "候補窓は既定でかなり大きい");
+        s.candidate_scale = 100.0;
+        assert_eq!(s.scale(), 4.0);
+        s.candidate_scale = f32::NAN;
+        assert_eq!(s.scale(), 1.8);
     }
 
     #[test]

@@ -159,6 +159,6 @@ pub fn log(msg: &str) {
     }
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(std::env::temp_dir().join("aruaru-ime-tsf.log")) {
-        let _ = writeln!(f, "{:?} {}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0), msg);
+        let _ = writeln!(f, "{:?} pid={} {}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0), std::process::id(), msg);
     }
 }

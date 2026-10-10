@@ -9,11 +9,23 @@ use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-const ROW_H: i32 = 26;
+const BASE_ROW_H: i32 = 26;
 const MAX_ROWS: usize = 9;
 const FLASH_TIMER: usize = 1;
 /// 見出し行右端の配色切替ボタンの幅。
-const BUTTON_W: i32 = 110;
+const BASE_BUTTON_W: i32 = 110;
+
+fn scale() -> f32 {
+    Settings::load().scale()
+}
+
+fn row_h() -> i32 {
+    (BASE_ROW_H as f32 * scale()) as i32
+}
+
+fn button_w() -> i32 {
+    (BASE_BUTTON_W as f32 * scale()) as i32
+}
 
 struct Palette {
     bg: u32,
@@ -45,7 +57,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             let x = (lp.0 & 0xFFFF) as i16 as i32;
             let mut rc = RECT::default();
             let _ = GetClientRect(hwnd, &mut rc);
-            if y < ROW_H && x > rc.right - BUTTON_W {
+            if y < row_h() && x > rc.right - button_w() {
                 Settings::load().toggle_theme();
                 let _ = InvalidateRect(hwnd, None, true);
             }
@@ -65,7 +77,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             let bg = CreateSolidBrush(COLORREF(pal.bg));
             FillRect(hdc, &rc, bg);
             let _ = DeleteObject(bg);
-            let font = CreateFontW(-18, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, w!("Yu Gothic UI"));
+            let font = CreateFontW(-((18.0 * scale()) as i32), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, w!("Yu Gothic UI"));
             let old = SelectObject(hdc, font);
             SetBkMode(hdc, TRANSPARENT);
             STATE.with(|s| {
@@ -74,12 +86,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 SetTextColor(hdc, COLORREF(pal.header));
                 let hint = if cands.is_empty() { String::new() } else { "  F6あ F7ア F9Ａ F10A".to_string() };
                 let mut ht: Vec<u16> = format!(" [{header}]{hint}").encode_utf16().collect();
-                let mut hr = RECT { left: 0, top: 0, right: rc.right, bottom: ROW_H };
+                let mut hr = RECT { left: 0, top: 0, right: rc.right, bottom: row_h() };
                 DrawTextW(hdc, &mut ht, &mut hr, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
                 if !cands.is_empty() {
                     // 配色切替ボタン(押すと反対の配色になる)
                     let to_light = Settings::load().dark();
-                    let br = RECT { left: rc.right - BUTTON_W, top: 2, right: rc.right - 4, bottom: ROW_H - 2 };
+                    let br = RECT { left: rc.right - button_w(), top: 2, right: rc.right - 4, bottom: row_h() - 2 };
                     let bb = CreateSolidBrush(COLORREF(if to_light { 0x00F0_F0F0 } else { 0x0030_3030 }));
                     FillRect(hdc, &br, bb);
                     let _ = DeleteObject(bb);
@@ -91,7 +103,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 // 選択位置を含む9件のページを表示
                 let page = sel.map_or(0, |i| i / MAX_ROWS) * MAX_ROWS;
                 for (row, (i, c)) in cands.iter().enumerate().skip(page).take(MAX_ROWS).enumerate() {
-                    let r = RECT { left: 0, top: (row as i32 + 1) * ROW_H, right: rc.right, bottom: (row as i32 + 2) * ROW_H };
+                    let r = RECT { left: 0, top: (row as i32 + 1) * row_h(), right: rc.right, bottom: (row as i32 + 2) * row_h() };
                     if *sel == Some(i) {
                         let hb = CreateSolidBrush(COLORREF(pal.sel));
                         FillRect(hdc, &r, hb);
@@ -140,9 +152,10 @@ pub fn show(cands: &[String], sel: Option<usize>, header: &str, x: i32, y: i32) 
     let page = sel.map_or(0, |i| i / MAX_ROWS) * MAX_ROWS;
     let rows = cands.iter().skip(page).take(MAX_ROWS).count() as i32;
     let widest = cands.iter().skip(page).take(MAX_ROWS).map(|c| c.chars().map(|ch| if ch.is_ascii() { 10 } else { 19 }).sum::<i32>()).max().unwrap_or(60);
+    let widest = (widest as f32 * scale()) as i32;
     unsafe {
         let _ = KillTimer(hw, FLASH_TIMER);
-        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, (widest + 56).max(380), (rows + 1) * ROW_H + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, (widest + (56.0 * scale()) as i32).max((380.0 * scale()) as i32), (rows + 1) * row_h() + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         let _ = InvalidateRect(hw, None, true);
         let _ = UpdateWindow(hw);
     }
@@ -153,7 +166,7 @@ pub fn flash(label: &str, x: i32, y: i32) {
     let Some(hw) = ensure_window() else { return };
     STATE.with(|s| *s.borrow_mut() = (Vec::new(), None, label.to_string()));
     unsafe {
-        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, 90, ROW_H + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, (90.0 * scale()) as i32, row_h() + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
         let _ = InvalidateRect(hw, None, true);
         let _ = UpdateWindow(hw);
         SetTimer(hw, FLASH_TIMER, 1000, None);
