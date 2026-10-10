@@ -50,8 +50,10 @@ pub fn to_hiragana_partial(input: &str) -> (String, String) {
                 continue;
             }
             if nx == 'n' {
+                // nn の直後が母音・y なら「ん」+「な行」(konnichiha → こんにちは)。それ以外(語末・子音)の nn は「ん」
+                let after = s.get(i + 2).copied();
                 out.push('ん');
-                i += 2;
+                i += if after.is_some_and(|a| is_vowel(a) || a == 'y') { 1 } else { 2 };
                 continue;
             }
             if !is_vowel(nx) && nx != 'y' {
@@ -138,6 +140,19 @@ mod tests {
         assert_eq!(to_hiragana("konpyu-ta"), "こんぴゅーた");
         assert_eq!(hira_to_kata("こんぴゅーた"), "コンピュータ");
     }
+    #[test]
+    fn nn_before_vowel_is_n_plus_na_row() {
+        assert_eq!(to_hiragana("konnichiha"), "こんにちは");
+        assert_eq!(to_hiragana("konnichiwa"), "こんにちわ");
+        assert_eq!(to_hiragana("sennyuu"), "せんにゅう");
+        assert_eq!(to_hiragana("kannai"), "かんない".replace("かんない", "かんない"));
+        // 従来の打ち方(nnn)・語末の nn・子音の前も従来どおり
+        assert_eq!(to_hiragana("konnnichiha"), "こんにちは");
+        assert_eq!(to_hiragana("kann"), "かん");
+        assert_eq!(to_hiragana("kanji"), "かんじ");
+        assert_eq!(to_hiragana("shinnbun"), "しんぶん");
+    }
+
     #[test]
     fn progress_accepts_partial_romaji() {
         assert!(is_romaji_progress("sak"));

@@ -25,6 +25,19 @@ An AI-assisted IME that predicts what you are typing (alphabet / hiragana / kata
 | Windows TSF 版 IME 本体 / 常駐エンジン | 実装(実機で一部確認) |
 | インストーラー(Inno Setup) / macOS / Linux(IBus・fcitx5) / Android | **未完成** |
 
+## 対応アプリ(プラグイン不要)
+
+aruaru-IME は OS 標準の入力方式(Windows TSF)として動くので、アプリ側の拡張機能・プラグインは要りません。
+Visual Studio Code・Claude デスクトップ・メモ帳・ブラウザなど、日本語入力ができるアプリならそのまま使えます(VS Code のターミナル内も、入力欄としては同じ経路)。
+
+| アプリ | 状態 |
+|---|---|
+| メモ帳 / 自作テストホスト(WinForms) | 実機で確認済み(古い版のDLLが読み込まれていたため、再起動後の再確認待ち) |
+| Claude デスクトップ(Electron) | 古い版を読み込んだままで未確認。再起動後に確認する |
+| Visual Studio Code(Electron) | **未確認**(同じ Chromium の入力経路のため動く見込みだが、実機では試していない) |
+
+> DLL は起動中のアプリが読み込んだままになります。**更新・再インストールの後は、アプリを一度終了して起動し直してください。**
+
 ## 構成
 
 - `crates/aruaru-ime-core` — エンジン(OS非依存): ローマ字・モード予測・辞書変換・セッション(キー入力の状態機械)・利用者辞書・ファイル取り込み・設定・コンポーネント管理
