@@ -1,0 +1,38 @@
+aruaru-IME  ライセンス / Licenses
+=====================================
+
+1. aruaru-IME 本体 / aruaru-IME itself
+   MIT OR Apache-2.0  (c) aon-co-jp   https://github.com/aon-co-jp/aruaru-IME
+
+2. かな漢字変換の辞書データ / Kana-kanji dictionary data (dict.bin)
+   Mozc OSS dictionary  (c) 2010-2018 Google Inc.  BSD-3-Clause
+   https://github.com/google/mozc
+
+   Redistribution and use in source and binary forms, with or without modification, are permitted provided
+   that the following conditions are met:
+   * Redistributions of source code must retain the above copyright notice, this list of conditions and the
+     following disclaimer.
+   * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+     following disclaimer in the documentation and/or other materials provided with the distribution.
+   * Neither the name of Google Inc. nor the names of its contributors may be used to endorse or promote
+     products derived from this software without specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+   WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+   PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY
+   DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGE.
+
+3. 英語訳の辞書 / English glosses (JMdict) — インストール時に自動で取得します / downloaded automatically at install time
+   JMdict/EDICT (c) Electronic Dictionary Research and Development Group (EDRDG), https://www.edrdg.org/
+   JSON 版 / JSON edition: jmdict-simplified https://github.com/scriptin/jmdict-simplified
+   Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
+   取得した辞書データ(glossary.tsv)は CC BY-SA 4.0 のままです。IME 本体のライセンスには影響しません。
+   The downloaded data (glossary.tsv) remains under CC BY-SA 4.0 and does not affect the IME's own license.
+
+4. 画面の文字を読む機能・変換の補助 / Optional components installed on request
+   aruaru-llm / open-cuda / open-easy-web (aon-co-jp)  それぞれのリポジトリのライセンスに従います。
+   Qwen2.5 (Alibaba Cloud)  Apache-2.0

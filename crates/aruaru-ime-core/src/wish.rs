@@ -96,6 +96,9 @@ pub struct Wish {
     pub added: u64,
 }
 
+/// 検索が一時的に使えないときのメッセージ(この文面のときは失敗にせず、あとで再試行する)。
+pub const SEARCH_UNAVAILABLE: &str = "検索を一時的に使えません(接続できないか、検索元が休止中です)。あとで自動でやり直します";
+
 pub fn path(root: &Path) -> PathBuf {
     root.join("wishlist.json")
 }
@@ -174,14 +177,16 @@ fn is_name_char(c: char) -> bool {
 
 /// 括弧の直前の文字列から、読みの長さに一番合う「名前」の範囲を選ぶ(前にある「〜は」「〜の」などの助詞を巻き込まない)。
 /// 漢字は1字あたり約1.6かな、それ以外は1字1かなとして、読みの長さに近い接尾辞を選ぶ。同じ近さなら長いほう。
-fn best_surface(before: &[char], reading_len: usize) -> String {
+fn best_surface(before: &[char], reading_len: usize, parts: usize) -> String {
     let mut best: Option<(f32, usize, usize)> = None; // (差, 長さ, 開始位置)
     let n = before.len();
     let mut k = n;
     let mut len = 0;
     while k > 0 && len < 24 {
         let c = before[k - 1];
-        let ok = is_name_char(c) || (c == ' ' && k >= 2 && before[k - 2].is_ascii_alphanumeric() && k < n && before[k].is_ascii_alphanumeric());
+        let cjk = |ch: char| ('一'..='龥').contains(&ch) || matches!(ch, 'ぁ'..='ゖ' | 'ァ'..='ヺ' | '々');
+        let ok = is_name_char(c)
+            || (c == ' ' && k >= 2 && k < n && ((before[k - 2].is_ascii_alphanumeric() && before[k].is_ascii_alphanumeric()) || (cjk(before[k - 2]) && cjk(before[k]))));
         if !ok {
             break;
         }
@@ -192,13 +197,23 @@ fn best_surface(before: &[char], reading_len: usize) -> String {
         if matches!(first, 'ぁ'..='ゖ') || first == ' ' || len < 2 {
             continue;
         }
-        let est: f32 = before[k..n].iter().map(|ch| if ('一'..='龥').contains(ch) || *ch == '々' { 1.6 } else { 1.0 }).sum();
+        // 読みが「かまど ねずこ」のように空白で区切られているときは、表記も同じ数の区切り(空白)を持つものだけを選ぶ
+        if before[k..n].iter().filter(|ch| **ch == ' ').count() != parts.saturating_sub(1) && before[k..n].iter().any(|ch| *ch == ' ') != (parts > 1) {
+            continue;
+        }
+        if parts > 1 && before[k..n].iter().filter(|ch| **ch == ' ').count() != parts - 1 {
+            continue;
+        }
+        let est: f32 = before[k..n].iter().map(|ch| if ('一'..='龥').contains(ch) || *ch == '々' { 1.6 } else if *ch == ' ' { 0.0 } else { 1.0 }).sum();
         let diff = (est - reading_len as f32).abs();
         if best.is_none_or(|(d, _, _)| diff < d || (diff - d).abs() < 1e-6) {
             best = Some((diff, len, k));
         }
     }
-    best.map(|(_, _, k)| before[k..n].iter().collect()).unwrap_or_default()
+    let raw: String = best.map(|(_, _, k)| before[k..n].iter().collect()).unwrap_or_default();
+    // 「竈門 炭治郎」のように漢字・かなの間にある空白は取る(英数字の間の空白は残す)
+    let cs: Vec<char> = raw.chars().collect();
+    cs.iter().enumerate().filter(|(i, c)| !(**c == ' ' && *i > 0 && *i + 1 < cs.len() && !cs[*i - 1].is_ascii_alphanumeric() && !cs[*i + 1].is_ascii_alphanumeric())).map(|(_, c)| *c).collect()
 }
 
 /// 「題名(よみ)」「題名（よみ）」の形から (読み, 表記) を取り出す。読みはひらがなに直す。
@@ -218,7 +233,7 @@ pub fn extract_pairs(text: &str) -> Vec<(String, String)> {
                 let inner = inner.trim().trim_start_matches("読み").trim_start_matches(['：', ':', ' ']).to_string();
                 if inner.chars().count() >= 2 && inner.chars().all(|c| is_kana(c) || c == ' ') && !inner.is_empty() {
                     let reading = romaji::kata_to_hira(&inner.replace(' ', "").replace('・', ""));
-                    let surface = best_surface(&cs[..i], reading.chars().count());
+                    let surface = best_surface(&cs[..i], reading.chars().count(), inner.split_whitespace().count());
                     if surface.chars().count() >= 2 && surface != reading && !surface.chars().all(|c| matches!(c, 'ぁ'..='ゖ')) && reading.chars().count() >= 2 {
                         let pair = (reading, surface);
                         if !out.contains(&pair) {
@@ -301,20 +316,25 @@ pub fn research(
             return crate::uservocab::learn(client, term).map(|(_, n)| n);
         }
         let mut text = String::new();
-        for q in queries(category, term) {
+        for (n, q) in queries(category, term).into_iter().enumerate() {
+            if n > 0 {
+                std::thread::sleep(std::time::Duration::from_secs(3)); // 検索元に拒否されないよう、間隔を空ける
+            }
             for s in client.search_snippets(&q, 10) {
                 text.push_str(&s);
                 text.push('\n');
             }
         }
         if text.trim().is_empty() {
-            return Err("検索結果を取得できませんでした(aruaru-llm に接続できないか、検索が使えません)".to_string());
+            return Err(SEARCH_UNAVAILABLE.to_string());
         }
         let mut user = UserDict::load(&root.join("user_dict.json"));
         build_dictionary(&mut user, category, term, &text, index)
     })();
     match &result {
         Ok(n) => set_status(root, term, category, Status::Done, *n, None),
+        // 検索が一時的に使えないだけなら、失敗にせず「未了」のままにして、あとで自動で再試行する
+        Err(e) if e == SEARCH_UNAVAILABLE => set_status(root, term, category, Status::Pending, 0, Some(e.clone())),
         Err(e) => set_status(root, term, category, Status::Failed, 0, Some(e.clone())),
     }
     result
@@ -343,6 +363,13 @@ mod tests {
         assert!(p.contains(&("きがんおう".to_string(), "鬼眼王".to_string())), "{p:?}");
         // かなだけの表記や、読みと同じ表記は拾わない
         assert!(extract_pairs("あいうえお(あいうえお)").is_empty());
+    }
+
+    #[test]
+    fn names_with_a_space_between_family_and_given_name() {
+        let p = extract_pairs("主要キャラクター 竈門 炭治郎(かまど たんじろう) 主人公 竈門 禰豆子(かまど ねずこ) 炭治郎の妹 我妻 善逸(あがつま ぜんいつ)");
+        assert!(p.contains(&("かまどたんじろう".to_string(), "竈門炭治郎".to_string())), "{p:?}");
+        assert!(p.contains(&("あがつまぜんいつ".to_string(), "我妻善逸".to_string())), "{p:?}");
     }
 
     #[test]

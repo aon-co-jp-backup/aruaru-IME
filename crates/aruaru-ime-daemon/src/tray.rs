@@ -4,7 +4,7 @@
 
 use aruaru_ime_core::settings::{self, Settings};
 use aruaru_ime_core::userdict::UserDict;
-use aruaru_ime_core::{code, translit};
+use aruaru_ime_core::{backup, code, translit, wish};
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -40,6 +40,13 @@ pub fn notify(title: &str, msg: &str) {
 
 #[derive(Clone)]
 enum Action {
+    WishAdd,
+    WishList,
+    BackupNow,
+    Restore(bool),
+    UpdateNow,
+    ToggleAutoBackup,
+    ToggleWebSuggest,
     AddVocab,
     RegisterWord,
     ListWords,
@@ -114,6 +121,11 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add_sub(root, code_menu, &format!("対応しているプログラミング言語・フレームワーク / Programming languages & frameworks ({})", list.len()));
     let id = m.push(Action::AddVocab);
     add(root, MF_STRING, id, "言語・フレームワークを追加… / Add a language or framework (auto-support)");
+    let id = m.push(Action::WishAdd);
+    add(root, MF_STRING, id, "用語辞書を作る… / Build a term dictionary (漫画・アニメ・ゲーム・ドラマ・映画…)");
+    let id = m.push(Action::WishList);
+    let wishes = wish::load(&aruaru_ime_core::components::data_dir());
+    add(root, MF_STRING, id, &format!("用語辞書の一覧… / Term dictionaries ({})", wishes.len()));
     let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
 
     // 単語・熟語
@@ -150,8 +162,26 @@ unsafe fn build_menu() -> (HMENU, Menu) {
         add(size, check((s.scale() - v).abs() < 0.05), id, label);
     }
     add_sub(root, size, "候補窓の大きさ / Candidate window size");
+    let id = m.push(Action::ToggleWebSuggest);
+    add(root, check(s.web_suggest), id, "固有名詞をWebのサジェストで補う / Web suggestions for names (sends your typing to Google)");
     let id = m.push(Action::ToggleAutoUpdate);
     add(root, check(s.auto_update), id, "自動アップデート / Auto-update (checked at startup)");
+    let id = m.push(Action::UpdateNow);
+    add(root, MF_STRING, id, "今すぐ最新版に更新(再起動不要) / Update now (no restart)");
+    let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
+    // バックアップ(Google ドライブの同期フォルダ。見つからなければ「ドキュメント」)
+    let (bdir, in_drive) = backup::backup_dir(s.backup_dir.as_deref());
+    let sub = CreatePopupMenu().unwrap();
+    add(sub, MF_STRING | MF_GRAYED, 5, &format!("保存先 / Folder: {}{}", bdir.display(), if in_drive { "  (Google Drive)" } else { "  (Google Drive が見つかりません)" }));
+    let id = m.push(Action::ToggleAutoBackup);
+    add(sub, check(s.auto_backup), id, "自動バックアップ / Auto backup");
+    let id = m.push(Action::BackupNow);
+    add(sub, MF_STRING, id, "今すぐバックアップ / Back up now");
+    let id = m.push(Action::Restore(false));
+    add(sub, MF_STRING, id, "復元(いまの内容に足す) / Restore (merge)…");
+    let id = m.push(Action::Restore(true));
+    add(sub, MF_STRING, id, "復元(置き換え) / Restore (replace)…");
+    add_sub(root, sub, "バックアップと復元 / Backup & restore");
     let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
     let id = m.push(Action::Exit);
     add(root, MF_STRING, id, "終了 / Exit");
@@ -161,6 +191,7 @@ unsafe fn build_menu() -> (HMENU, Menu) {
 // ---------------------------------------------------------------- 入力ダイアログ
 
 thread_local! {
+    static COMBO: RefCell<Option<HWND>> = const { RefCell::new(None) };
     static DONE: Cell<bool> = const { Cell::new(false) };
     static RESULT: RefCell<Option<Vec<String>>> = const { RefCell::new(None) };
     static EDITS: RefCell<Vec<HWND>> = const { RefCell::new(Vec::new()) };
@@ -190,7 +221,11 @@ unsafe extern "system" fn dlg_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM)
             let id = (wp.0 & 0xFFFF) as i32;
             match id {
                 1 => {
-                    let vals: Vec<String> = EDITS.with(|e| e.borrow().iter().map(|h| text_of(*h)).collect());
+                    let mut vals: Vec<String> = EDITS.with(|e| e.borrow().iter().map(|h| text_of(*h)).collect());
+                    if let Some(cb) = COMBO.with(|c| *c.borrow()) {
+                        let i = SendMessageW(cb, 0x0147 /* CB_GETCURSEL */, WPARAM(0), LPARAM(0)).0;
+                        vals.insert(0, i.to_string());
+                    }
                     RESULT.with(|r| *r.borrow_mut() = Some(vals));
                     DONE.with(|d| d.set(true));
                     let _ = DestroyWindow(hwnd);
@@ -328,8 +363,38 @@ fn input_dialog(title: &str, labels: &[&str], hint: &str) -> Option<Vec<String>>
     RESULT.with(|r| r.borrow_mut().take())
 }
 
-/// 一覧ダイアログ(選択して「削除」できる)。`delete` は項目の位置を受け取り、削除できたら true を返す。
-fn list_dialog(title: &str, items: &[String], delete: Option<Box<dyn FnMut(usize) -> bool>>) {
+/// 種類(コンボボックス)と名前を入力するダイアログ。OK なら (種類の位置, 名前)。
+fn wish_dialog() -> Option<(wish::Category, String)> {
+    let dlg = create_dialog("用語辞書を作る / Build a term dictionary", 560, 300);
+    EDITS.with(|e| e.borrow_mut().clear());
+    RESULT.with(|r| *r.borrow_mut() = None);
+    unsafe {
+        child(dlg, w!("STATIC"), "種類 / Category", 0, 14, 12, 520, 20, 0);
+        let cb = child(dlg, w!("COMBOBOX"), "", 3 /* CBS_DROPDOWNLIST */ | WS_VSCROLL.0 | WS_TABSTOP.0, 14, 34, 520, 300, 300);
+        for c in wish::CATEGORIES {
+            let t = wz(c.label());
+            SendMessageW(cb, 0x0143 /* CB_ADDSTRING */, WPARAM(0), LPARAM(t.as_ptr() as isize));
+        }
+        SendMessageW(cb, 0x014E /* CB_SETCURSEL */, WPARAM(0), LPARAM(0));
+        COMBO.with(|c| *c.borrow_mut() = Some(cb));
+        child(dlg, w!("STATIC"), "名前(カタカナ・ひらがな・漢字・英語のどれでもよい。例: キメツ / きめつ / 鬼滅の刃 / 3x3 EYES / Svelte)", 0, 14, 72, 520, 36, 0);
+        let e = child(dlg, w!("EDIT"), "", WS_BORDER.0 | WS_TABSTOP.0 | 0x80, 14, 112, 520, 26, 301);
+        EDITS.with(|v| v.borrow_mut().push(e));
+        child(dlg, w!("STATIC"), "検索で調べて、登場人物・必殺技・アイテム・役職・スキル・国名・都市名などの読みと表記を辞書にします(数十秒〜数分)。", 0, 14, 148, 520, 40, 0);
+        child(dlg, w!("BUTTON"), "OK", 1 | WS_TABSTOP.0, 330, 200, 100, 30, 1);
+        child(dlg, w!("BUTTON"), "キャンセル", WS_TABSTOP.0, 436, 200, 100, 30, 2);
+        let _ = windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(e);
+    }
+    run_modal(dlg);
+    COMBO.with(|c| *c.borrow_mut() = None);
+    let v = RESULT.with(|r| r.borrow_mut().take())?;
+    let idx: usize = v.first()?.parse().ok()?;
+    let term = v.get(1)?.trim().to_string();
+    (!term.is_empty()).then(|| (*wish::CATEGORIES.get(idx).unwrap_or(&wish::Category::Other), term))
+}
+
+/// 一覧ダイアログ(選択して、ボタンで操作できる)。`delete` は項目の位置を受け取り、削除できたら true を返す。
+fn list_dialog(title: &str, items: &[String], button_label: &str, delete: Option<Box<dyn FnMut(usize) -> bool>>) {
     let dlg = create_dialog(title, 760, 520);
     unsafe {
         let list = child(dlg, w!("LISTBOX"), "", WS_BORDER.0 | WS_VSCROLL.0 | WS_TABSTOP.0 | 1 /* LBS_NOTIFY */, 14, 12, 720, 420, 200);
@@ -341,7 +406,7 @@ fn list_dialog(title: &str, items: &[String], delete: Option<Box<dyn FnMut(usize
         let has_delete = delete.is_some();
         DELETER.with(|d| *d.borrow_mut() = delete);
         if has_delete {
-            child(dlg, w!("BUTTON"), "選択した項目を削除", WS_TABSTOP.0, 14, 440, 200, 30, 3);
+            child(dlg, w!("BUTTON"), button_label, WS_TABSTOP.0, 14, 440, 260, 30, 3);
         }
         child(dlg, w!("BUTTON"), "閉じる", 1 | WS_TABSTOP.0, 634, 440, 100, 30, 2);
     }
@@ -398,6 +463,100 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
             s.toggle_theme();
         }),
         Action::Scale(v) => with_settings(|s| s.candidate_scale = v),
+        Action::ToggleAutoBackup => with_settings(|s| s.auto_backup = !s.auto_backup),
+        Action::ToggleWebSuggest => with_settings(|s| s.web_suggest = !s.web_suggest),
+        Action::WishAdd => {
+            if let Some((cat, term)) = wish_dialog() {
+                let root = aruaru_ime_core::components::data_dir();
+                match wish::add(&root, &term, cat) {
+                    Ok(_) => {
+                        notify("aruaru-IME", &format!("{term} を調べています…(数十秒〜数分)"));
+                        crate::run_wish(client, term, cat);
+                    }
+                    Err(e) => notify("aruaru-IME", &format!("記録できませんでした: {e}")),
+                }
+            }
+        }
+        Action::WishList => {
+            let root = aruaru_ime_core::components::data_dir();
+            let ws = wish::load(&root);
+            let lines: Vec<String> = ws
+                .iter()
+                .map(|w| {
+                    let st = match w.status {
+                        wish::Status::Pending => "調査中/未了".to_string(),
+                        wish::Status::Done => format!("完了 {}語", w.words),
+                        wish::Status::Failed => format!("失敗: {}", w.error.clone().unwrap_or_default()),
+                    };
+                    format!("[{}]  {}   —  {}", w.category.label(), w.term, st)
+                })
+                .collect();
+            let shown = ws.clone();
+            list_dialog(
+                &format!("用語辞書の一覧 ({}件)", lines.len()),
+                &lines,
+                "選択した用語と辞書を削除 / Delete selected",
+                Some(Box::new(move |i| {
+                    let Some(w) = shown.get(i) else { return false };
+                    let root = aruaru_ime_core::components::data_dir();
+                    let _ = UserDict::load(&root.join("user_dict.json")).remove_source(&wish::source_of(w.category, &w.term));
+                    if w.category.is_code() {
+                        let _ = aruaru_ime_core::uservocab::remove(&w.term);
+                    }
+                    wish::remove(&root, &w.term, w.category).unwrap_or(false)
+                })),
+            );
+        }
+        Action::BackupNow => {
+            let root = aruaru_ime_core::components::data_dir();
+            let s = Settings::load();
+            let (dir, in_drive) = backup::backup_dir(s.backup_dir.as_deref());
+            let msg = match backup::write_backup(&root, &dir, true) {
+                Ok(Some(p)) => format!("バックアップしました: {}{}", p.display(), if in_drive { "(Google Drive が同期します)" } else { "(Google Drive のデスクトップ版が見つからないため、このフォルダに保存しました。Drive へアップロードしてください)" }),
+                Ok(None) => "バックアップする内容がありません".to_string(),
+                Err(e) => format!("バックアップできませんでした: {e}"),
+            };
+            notify("バックアップ", &msg);
+        }
+        Action::Restore(replace) => {
+            let root = aruaru_ime_core::components::data_dir();
+            let s = Settings::load();
+            let (dir, _) = backup::backup_dir(s.backup_dir.as_deref());
+            let files = backup::list_backups(&dir);
+            let lines: Vec<String> = files
+                .iter()
+                .map(|(p, n)| format!("{}   ({} KB)", p.file_name().and_then(|x| x.to_str()).unwrap_or(""), n / 1024))
+                .collect();
+            let paths: Vec<std::path::PathBuf> = files.into_iter().map(|(p, _)| p).collect();
+            let label = if replace { "選択したバックアップで置き換える / Restore (replace)" } else { "選択したバックアップを足す / Restore (merge)" };
+            list_dialog(
+                &format!("バックアップから復元 — {} ({}件)", dir.display(), lines.len()),
+                &lines,
+                label,
+                Some(Box::new(move |i| {
+                    let msg = match paths.get(i).and_then(|p| backup::read_backup(p)) {
+                        Some(b) => match backup::restore(&b, &root, replace) {
+                            Ok(r) => format!("復元しました({}ファイル、追加 {} 件)", r.files, r.merged_entries),
+                            Err(e) => format!("復元できませんでした: {e}"),
+                        },
+                        None => "バックアップを読めませんでした".to_string(),
+                    };
+                    notify("復元", &msg);
+                    false // 一覧からは消さない
+                })),
+            );
+        }
+        Action::UpdateNow => {
+            notify("aruaru-IME", "最新版を確認しています…");
+            std::thread::spawn(|| match aruaru_ime_core::update::run_once(aruaru_ime_core::update::REPO, &aruaru_ime_core::components::data_dir().join("app")) {
+                Ok(Some((tag, dir))) => {
+                    notify("aruaru-IME", &format!("{tag} に更新しました。再起動は不要です(エンジンを入れ替えます)"));
+                    crate::swap_engine(&dir);
+                }
+                Ok(None) => notify("aruaru-IME", "最新版です(公開された新しい版はありません)"),
+                Err(e) => notify("aruaru-IME", &format!("更新できませんでした: {e}")),
+            });
+        }
         Action::AddVocab => {
             if let Some(v) = input_dialog(
                 "対応する言語・フレームワークを追加",
@@ -434,6 +593,7 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
             list_dialog(
                 &format!("登録した単語・熟語 ({}件)", lines.len()),
                 &lines,
+                "選択した項目を削除 / Delete selected",
                 Some(Box::new(move |i| {
                     let Some(e) = shown.get(i.saturating_sub(0)) else { return false };
                     let ok = UserDict::load(&path).remove(&e.reading, Some(&e.surface)).is_ok();

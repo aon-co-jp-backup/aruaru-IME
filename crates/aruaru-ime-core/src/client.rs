@@ -23,6 +23,10 @@ impl Client {
         self.agent.post(&format!("{}{}", self.base, path)).send_json(body).ok()?.into_json().ok()
     }
 
+    fn post_timeout(&self, path: &str, body: Value, secs: u64) -> Option<Value> {
+        self.agent.post(&format!("{}{}", self.base, path)).timeout(Duration::from_secs(secs)).send_json(body).ok()?.into_json().ok()
+    }
+
     pub fn alive(&self) -> bool {
         self.agent.get(&format!("{}/v1/runtime", self.base)).call().is_ok()
     }
@@ -46,9 +50,9 @@ impl Client {
         v["text"].as_str().map(str::to_string)
     }
 
-    /// 検索API(Web)から語句の用例タイトル・要約を集める。
+    /// 検索(Web)の結果から、タイトルと抜粋を集める。検索は時間がかかるので、待ち時間は長め(45秒)。
     pub fn search_snippets(&self, query: &str, max: u8) -> Vec<String> {
-        let Some(v) = self.post("/v1/search/raw", json!({"source": "google", "query": query, "max_results": max, "free_only": true}))
+        let Some(v) = self.post_timeout("/v1/search/raw", json!({"source": "google", "query": query, "max_results": max, "free_only": true}), 45)
         else {
             return vec![];
         };
@@ -63,7 +67,7 @@ impl Client {
             .collect()
     }
 
-    /// 検索フォーム型のサジェスト(Googleの公開サジェスト)。失敗時は空。
+    /// 検索フォーム型のサジェスト(Google の公開サジェスト)。失敗時は空。
     pub fn web_suggest(&self, query: &str, lang: &str) -> Vec<String> {
         let q: String = query.chars().take(64).collect();
         let Ok(resp) = self

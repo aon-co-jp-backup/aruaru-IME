@@ -2,38 +2,45 @@
 
 作業ドライブは `F:\aruaru-IME`(`F:\runo` 配下ではなく兄弟ディレクトリ)。共通ルールは
 [`open-raid-z/CLAUDE.md`](https://github.com/aon-co-jp/open-raid-z) を参照(ここへは複製しない)。
+*Working dir is `F:\aruaru-IME` (a sibling of `F:\runo`). Shared rules live in open-raid-z/CLAUDE.md.*
 
 ## 方針 / Policy
 
-- 日本語入力の主経路は**辞書+連接コストのViterbi**(ミリ秒)。LLM(`aruaru-llm`/`open-cuda` の Qwen)は、現状の速度(0.5Bで約50秒)では
-  キー入力ごとの変換に使えないため、同期経路に置かない。LLM が使えるのは OCR(画面の文字)・検索・非同期の再ランクまで。
-  *The main path is dictionary + Viterbi (ms). The Qwen path is ~50 s per call on this PC, so it is kept off the keystroke path.*
+- **漢字に変換することが前提**。日本語入力の主経路は辞書+連接コストの Viterbi(約 2 ミリ秒)。打つそばから最有力の変換結果を出す(ライブ変換、既定オン)。
+  *Kanji conversion is the premise: dictionary + Viterbi (~2 ms), live conversion by default.*
+- LLM(`aruaru-llm`/`open-cuda` の Qwen)は、この PC では 0.5B で約 50 秒/回(CPU)かつ精度不足のため、**キー入力の経路に置かない**。OCR・検索・補助に限る。
 - LLM・OCR・Web に繋がらなくても、IME は規則と辞書だけで動き続ける(失敗はエラーにせず空/None)。
+- **変換の状態管理(Session)は常駐エンジン側**。DLL は「キーを送って結果を表示するだけ」の薄い層で、エンジンを入れ替えてもアプリの再起動は要らない。エンジンに繋がらないときは DLL 内の簡易版(辞書なし)に切り替わり、入力は止まらない。
 - 「通常の文字が打てなくなる」事態を作らない: 反映に失敗したら自動でオフ、英数キーは必ずオフ、Caps Lock 中は食わない。
 - 画面キャプチャは一時フォルダに60秒/30枚まで。パスワード欄では撮らない。送信先は既定でローカルの `aruaru-llm`。
-- 秘密・個人設定(open-easy-web の固定アカウント等)は勝手に決めず、インストーラーで利用者に入力してもらう。
+- 秘密・個人設定(open-easy-web の固定アカウント等)は勝手に決めず、インストーラーで利用者に入力してもらう。GitHub 等のアカウントは作らない(利用者自身が用意するトークンを使う設計)。
+- ダウンロードする辞書データは利用者の許可を得てから(Mozc OSS: BSD-3-Clause、JMdict: CC BY-SA 4.0 — 許可済み)。
 - 汎用化できるロジックは RPoem へ切り出す方針(未実施)。
+
+## 重要な実測と教訓 / Lessons learned
+
+- **学習履歴・強制表記の学習が、不具合のあいだに「汚れる」**。「に→入力」「たんご→タンゴ」「ai は常にカタカナ」のような履歴が、先頭の候補を乗っ取った。対策: 完全一致のみ先頭・予測は末尾、`plausible_pair`/`sanitize` で不自然な履歴を捨てる、強制表記は辞書に載っていない英字だけ学習。
+- **カタカナ判定を「直前60文字の比率」でやると、カタカナ書きの多い文章で常にカタカナモードになり、漢字に変換されなくなる**。直前の語がカタカナのときだけにした。
+- `nn` + 母音は二通りに読める(こんにちは / サザンアイズ)。両方を変換し、登録語・辞書に読み全体が載っている読みを優先(`Conversion.exact_dict`)。
+- 常駐エンジンを IME が自動起動すると**作業フォルダが違う**ので、辞書は作業フォルダに依存しない場所(exe の隣・データ領域)から探す。
+- HKCU の COM 登録の上書きは、システムの起動経路では HKLM が優先されることがあり**当てにならない**。使用中のファイルは名前を変えて退避できるので、`tools/deploy-dev.ps1` で同じ場所に最新版を置く。
+- 検索(aruaru-search)は、短時間に続けると Bing/Brave に拒否されて約14〜20分休む。検索語の間に3秒空け、使えないときは「未了」にして20分ごとに再試行。
 
 ## 注意(環境固有)
 
-- `cargo` は PATH に無い。`%USERPROFILE%\.cargo\bin` を前置きする。
-- TSF DLL はアプリに読み込まれるとロックされる。開発ビルドは `CARGO_TARGET_DIR=F:\aruaru-IME\target-dev` に出し、
-  管理者権限なしで試すには `HKCU:\Software\Classes\CLSID\{B7C2A1E4-5D3F-4F7A-9A61-0C8E2D4B6A11}\InprocServer32` を開発 DLL に向ける
-  (**試験後は削除すること。** 本番は HKLM を regsvr32 で登録)。
-- Bash ツールのヒアドキュメントは、内容によって `unexpected EOF` で壊れることがある。長い編集は Write/Edit か、スクリプトファイル経由で行う。
-- PowerShell 5.1 の `Get-Content`/`Set-Content` は既定が ANSI で日本語を壊す。`-Encoding UTF8` を付けるか Python で編集する。
-  日本語を含む `.ps1` は BOM 付き UTF-8 で保存する。
-- 実機の打鍵試験(`tools/ime-e2e.ps1`)は `SendKeys` を使うため、**人が同じ PC を操作していない時だけ**走らせる(他のウィンドウへ誤入力するため)。
+- `cargo` は PATH に無い。`%USERPROFILE%\.cargo\bin` を前置きする。開発ビルドは `CARGO_TARGET_DIR=F:\aruaru-IME\target-dev`。
+- 開発機では `tools\deploy-dev.ps1 [-Dll]` で、ビルドして `target\release`(登録済みの場所)へ入れ替える。DLL は起動中のアプリが握っているので、**DLL を更新したらアプリを一度起動し直す**。
+- Bash ツールのヒアドキュメントは、内容によって `unexpected EOF` で壊れることがある。長い編集は Write ツールでスクリプトを書いて実行する。
+- PowerShell 5.1 の `Get-Content`/`Set-Content` は既定が ANSI で日本語を壊す。Python で UTF-8 のまま編集する。日本語を含む `.ps1` は BOM 付き UTF-8。`Remove-Item` は `F:\aruaru-IME` 配下でブロックされることがある(`reg delete` や `[IO.File]::Delete` を使う)。
+- 実機の打鍵試験(`tools/ime-e2e.ps1`)は `SendKeys` を使うため、**人が同じ PC を操作していない時だけ**走らせる(他のウィンドウへ誤入力する)。エンジンの API(`POST /key`)を直接叩く確認は、いつでもできる。
 - ユーザーのメモ帳には既存の未保存文書が開いていることがある。試験は専用の `tools/testhost/TestHost.exe` で行う。
 
 ## HANDOFF
 
-- **2026-10-10 新設・初日**: 中核エンジン(54テスト)、辞書変換(Mozc OSS を `data/dict.bin` にコンパイル、1225528 エントリ)、予測変換、
-  誤モード対策、利用者辞書+ファイル取り込み、設定(配色)、コンポーネント管理、常駐エンジン、Windows TSF DLL まで実装。
-  実機(`TestHost`)で `sakura`→`さくら`→Enter 確定、F6/F7/F10、Shift 始まり、BS を確認(6/10 PASS。残りは打鍵混線による失敗で、IME の不具合とは断定していない)。
-  **未了**: (1) 実機の通し試験の再実施(無人環境で)、(2) インストーラー(Inno Setup: IME 登録・`ensure-components`・Qwen 導入・open-easy-web のアカウント入力ページ)、
-  (3) macOS(InputMethodKit)/Linux(IBus・fcitx5)/Android の IME 本体、(4) パスワード欄の入力スコープ判定、(5) 32bit DLL、
-  (6) 利用者辞書の登録 UI(いまは CLI/HTTP API のみ)、(7) Qwen の高速化(open-cpu/open-cuda 側)と再ランク、(8) GitHub リリース。
-  ユーザーのバグ報告「かんじにヘンカンするぜんていになってません」(=漢字に変換する前提になっていない)を受け、**ライブ変換**(打つそばから漢字かな交じりを未確定表示、既定オン、設定 `live_conversion`)を実装(単体テスト済み、実機での再確認は未了)。
-  それ以外の「デフォルトで、」「このIMEは、」で途切れたメッセージの続きは未確認。確認すること。
-  開発用に HKCU の COM 登録が `target-dev` の DLL を指している(**試験後に削除**: `Remove-Item HKCU:\Software\Classes\CLSID\{B7C2A1E4-5D3F-4F7A-9A61-0C8E2D4B6A11} -Recurse`)。
+- **2026-10-10〜11 新設・開発1〜2日目**: 中核エンジン(コア単体テスト 127 件+TSF 1 件)、辞書変換(Mozc OSS、1225528 エントリ)、ライブ変換、予測変換、誤モード対策、利用者辞書+ファイル取り込み、
+  用語辞書(希望用語)、プログラミング語彙(自動学習)、JMdict の英語訳(自動取得)・日英の相互翻訳、2列の候補窓、バックアップ/復元(Google ドライブ)、自動アップデート、
+  常駐エンジン(セッション API)+薄い TSF DLL、通知領域の右クリックメニュー、Inno Setup のインストーラーまで実装。**実機のメモ帳・VS Code・Claude アプリでの入力と、`G:\マイドライブ` へのバックアップを確認**。
+- **未了(優先順)**: (1) インストーラーの実機の通し試験(インストール/アンインストール)、(2) 右クリックメニュー・2列の候補窓の実機の目視確認、(3) 用語辞書の検索→辞書化の実通し試験(aruaru-search の休止明け。VPS 経由は SSH トンネル `-L 4601:127.0.0.1:4600 conoha`)、
+  (4) 多言語(ロシア語・アラビア語…)を IME 本体で切り替えて入力する機能(`translit.rs` に規則はある)・世界130言語・中国語(ピンイン辞書のダウンロード許可が必要)、(5) タスクバーの「日本」表示の右クリック(ITfLangBarItemButton)、
+  (6) GitHub への選択式バックアップ(公開/非公開。トークンは利用者が用意)、(7) パスワード欄の入力スコープ判定、(8) 32bit DLL、(9) macOS / Linux / Android、(10) aruaru-search の同梱導入(`components.rs`)、(11) Qwen の高速化と再ランク。
+- 開発用に HKCU の COM 登録を上書きした名残は削除済み。登録は HKLM(`target\release\aruaru_ime_tsf.dll`)。退避した古いファイルは `*.old-*`(`.gitignore` 済み)。

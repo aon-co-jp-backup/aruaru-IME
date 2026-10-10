@@ -3,6 +3,69 @@ use aruaru_ime_core::{client::Client, client::DEFAULT_URL, convert, Context};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("wish") {
+        // 希望用語: aruaru-ime wish add <種類> <名前> | list | remove <種類> <名前>   (種類: manga anime game drama movie programming framework language other)
+        use aruaru_ime_core::wish::{self, Category};
+        let root = aruaru_ime_core::components::data_dir();
+        match (args.get(1).map(String::as_str), args.get(2), args.get(3)) {
+            (Some("add"), Some(cat), Some(term)) => {
+                let Some(cat) = Category::from_key(cat) else {
+                    eprintln!("種類は {} のどれかです", wish::CATEGORIES.iter().map(|c| c.key()).collect::<Vec<_>>().join(" / "));
+                    std::process::exit(2);
+                };
+                let _ = wish::add(&root, term, cat);
+                let url = std::env::var("ARUARU_LLM_URL").unwrap_or_else(|_| DEFAULT_URL.to_string());
+                let client = Client::new(&url);
+                let index = aruaru_ime_core::kanji::Dict::load(&root.join("dict.bin")).ok().or_else(|| aruaru_ime_core::kanji::Dict::load(std::path::Path::new("data/dict.bin")).ok()).map(|d| d.surface_index());
+                match wish::research(&client, &root, term, cat, index.as_ref()) {
+                    Ok(n) => println!("{term}: 辞書を作りました({n}語)"),
+                    Err(e) => println!("{term}: 作れませんでした — {e}"),
+                }
+            }
+            (Some("list"), _, _) => {
+                for w in wish::load(&root) {
+                    println!("{:<12} {:<24} {:?} {}語 {}", w.category.key(), w.term, w.status, w.words, w.error.unwrap_or_default());
+                }
+            }
+            (Some("remove"), Some(cat), Some(term)) => {
+                if let Some(cat) = Category::from_key(cat) {
+                    let _ = aruaru_ime_core::userdict::UserDict::load(&root.join("user_dict.json")).remove_source(&wish::source_of(cat, term));
+                    println!("{}", wish::remove(&root, term, cat).unwrap_or(false));
+                }
+            }
+            _ => eprintln!("usage: aruaru-ime wish add <種類> <名前> | list | remove <種類> <名前>"),
+        }
+        return;
+    }
+    if args.first().map(String::as_str) == Some("backup") {
+        // aruaru-ime backup [--dir <フォルダ>] | list | restore <ファイル> [--replace]
+        use aruaru_ime_core::backup;
+        let root = aruaru_ime_core::components::data_dir();
+        let st = aruaru_ime_core::settings::Settings::load();
+        let get = |k: &str| args.iter().position(|a| a == k).and_then(|i| args.get(i + 1)).cloned();
+        let (dir, in_drive) = backup::backup_dir(get("--dir").or(st.backup_dir.clone()).as_deref());
+        match args.get(1).map(String::as_str) {
+            Some("list") => {
+                println!("保存先: {} {}", dir.display(), if in_drive { "(Google Drive)" } else { "" });
+                for (p, n) in backup::list_backups(&dir) {
+                    println!("{}  {} KB", p.display(), n / 1024);
+                }
+            }
+            Some("restore") => {
+                let Some(file) = args.get(2) else { eprintln!("usage: aruaru-ime backup restore <ファイル> [--replace]"); std::process::exit(2) };
+                match backup::read_backup(std::path::Path::new(file)) {
+                    Some(b) => println!("{:?}", backup::restore(&b, &root, args.iter().any(|a| a == "--replace"))),
+                    None => println!("バックアップを読めません"),
+                }
+            }
+            _ => match backup::write_backup(&root, &dir, true) {
+                Ok(Some(p)) => println!("バックアップしました: {} {}", p.display(), if in_drive { "(Google Drive の同期フォルダ)" } else { "(Google Drive のデスクトップ版が見つからないため、ここに保存)" }),
+                Ok(None) => println!("バックアップする内容がありません"),
+                Err(e) => println!("バックアップできませんでした: {e}"),
+            },
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("update") {
         // 手動で更新を確認する: aruaru-ime update [--check]
         let cur = aruaru_ime_core::update::current_version();

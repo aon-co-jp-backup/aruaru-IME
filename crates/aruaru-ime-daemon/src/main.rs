@@ -289,6 +289,87 @@ fn spawn_glossary(slot: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glo
     });
 }
 
+/// 希望用語を、バックグラウンドで検索して辞書にする(同時に1件。結果は通知領域の吹き出しで知らせる)。
+pub(crate) fn run_wish(client: &Client, term: String, cat: aruaru_ime_core::wish::Category) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    static BUSY: AtomicBool = AtomicBool::new(false);
+    if BUSY.swap(true, Ordering::SeqCst) {
+        #[cfg(windows)]
+        tray::notify("aruaru-IME", "別の用語を調べている最中です。終わってからもう一度お試しください(一覧に記録は残っています)");
+        return;
+    }
+    let client = client.clone();
+    std::thread::spawn(move || {
+        let root = aruaru_ime_core::components::data_dir();
+        let index = Dict::load(&dict_path()).ok().map(|d| d.surface_index());
+        let r = aruaru_ime_core::wish::research(&client, &root, &term, cat, index.as_ref());
+        let _msg = match &r {
+            Ok(n) => format!("{term}: 辞書を作りました({n}語)"),
+            Err(e) => format!("{term}: 作れませんでした — {e}"),
+        };
+        #[cfg(windows)]
+        tray::notify("用語辞書", &_msg);
+        BUSY.store(false, Ordering::SeqCst);
+    });
+}
+
+/// 更新で入れ替わった新しい版のエンジンを起動し、自分は終了する(新しいエンジンがポートを引き継ぐ)。
+pub(crate) fn swap_engine(dir: &std::path::Path) {
+    let exe = dir.join("aruaru-ime-daemon.exe");
+    let me = std::env::current_exe().ok();
+    if exe.is_file() && me.as_deref() != Some(exe.as_path()) {
+        let mut c = std::process::Command::new(&exe);
+        c.current_dir(dir);
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0800_0000);
+        if c.spawn().is_ok() {
+            std::thread::sleep(Duration::from_millis(800));
+            std::process::exit(0);
+        }
+    }
+}
+
+/// 自動バックアップ: 起動1分後と、その後6時間おき。内容が前回から変わっていたときだけ書く(設定 auto_backup)。
+fn spawn_autobackup() {
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_secs(60));
+        loop {
+            let s = aruaru_ime_core::settings::Settings::load();
+            if s.auto_backup {
+                let root = aruaru_ime_core::components::data_dir();
+                let (dir, in_drive) = aruaru_ime_core::backup::backup_dir(s.backup_dir.as_deref());
+                match aruaru_ime_core::backup::write_backup(&root, &dir, false) {
+                    Ok(Some(p)) => {
+                        eprintln!("backup: {}", p.display());
+                        #[cfg(windows)]
+                        if !in_drive {
+                            tray::notify("バックアップ", "Google Drive のデスクトップ版が見つからないため、ドキュメントの aruaru-IME-backup に保存しました");
+                        }
+                        let _ = in_drive;
+                    }
+                    Ok(None) => {}
+                    Err(e) => eprintln!("backup failed: {e}"),
+                }
+            }
+            std::thread::sleep(Duration::from_secs(6 * 3600));
+        }
+    });
+}
+
+/// 途中で終わった・検索が使えなかった希望用語(未了)を、起動40秒後と、その後20分ごとに1件ずつやり直す。
+fn resume_wishes(client: Client) {
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(40));
+        loop {
+            let root = aruaru_ime_core::components::data_dir();
+            if let Some(w) = aruaru_ime_core::wish::load(&root).into_iter().find(|w| w.status == aruaru_ime_core::wish::Status::Pending) {
+                run_wish(&client, w.term, w.category);
+            }
+            std::thread::sleep(Duration::from_secs(20 * 60));
+        }
+    });
+}
+
 /// 自動アップデート: **起動時の1回だけ**最新版を確認し、新しければ入れ替える(設定 auto_update)。定期的な確認はしない。
 fn spawn_updater() {
     std::thread::spawn(|| {
@@ -370,6 +451,8 @@ fn main() {
     // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));
+    spawn_autobackup();
+    resume_wishes(client.clone());
     let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));
     #[cfg(windows)]
     {
