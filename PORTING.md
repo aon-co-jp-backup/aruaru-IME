@@ -82,3 +82,8 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 ## 世界130言語の一覧 / 132-language registry (2026-10-11)
 - `core/src/languages.rs`: 132言語の一覧(出典 realdata.pro)。入力エンジンがある15言語は「対応」、他は「準備中」。`aruaru-ime languages all` で表示。残: 準備中言語のエンジン、トレイの全言語一覧UI。
 - 132 languages listed; 15 have input engines, the rest are "planned". Remaining: engines for the rest and a full-list tray UI.
+
+## 季節用語辞書とGitHubバックアップ / Seasonal dictionary & GitHub backup (2026-10-11)
+- `core/src/seasonal.rs`: 季節用語(季語・二十四節気・行事・花)と言い回し(花が咲く/雪が降る/季節+には…)を組み込み、Viterbiに1語として注入(`kanji.rs build_extra`)。「春には菜の花が咲き」「秋には紅葉が色づき」を正しく変換。
+- `core/src/ghbackup.rs`: GitHub(Contents API)へバックアップ/復元。トークンは利用者が `%LOCALAPPDATA%\aruaru\github-token.txt` に置く(設定・ログに出さない)。公開リポジトリは履歴(learned.json)と設定を自動で除外。トレイ「バックアップと復元」から設定/実行。
+- Seasonal terms and phrases are injected into the Viterbi lattice; GitHub backup via Contents API with a user-supplied token file, auto-excluding history/settings for public repos.

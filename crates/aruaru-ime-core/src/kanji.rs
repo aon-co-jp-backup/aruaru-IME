@@ -23,6 +23,16 @@ pub struct Dict {
     ent_off: usize,
     str_off: usize,
     unk_id: u16,
+    /// 季節用語・季節の言い回し(組み込み)。
+    extra: Vec<Extra>,
+}
+
+struct Extra {
+    reading: Vec<char>,
+    surface: String,
+    lid: u16,
+    rid: u16,
+    cost: i32,
 }
 
 #[derive(Clone, Copy)]
@@ -147,7 +157,45 @@ impl Dict {
         if data.len() < str_off {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "truncated dictionary"));
         }
-        Ok(Self { data, n, conn_n, conn_off, ent_off, str_off, unk_id })
+        let mut d = Self { data, n, conn_n, conn_off, ent_off, str_off, unk_id, extra: vec![] };
+        d.extra = d.build_extra();
+        Ok(d)
+    }
+
+    /// 読みと表記が一致するエントリ(コスト最小)。
+    fn find_ent(&self, reading: &str, surface: &str) -> Option<Ent> {
+        let (lo, hi) = self.range(reading.as_bytes());
+        (lo..hi).map(|i| self.ent(i)).filter(|e| self.surface(e) == surface).min_by_key(|e| e.cost)
+    }
+
+    /// 組み込みの季節用語を、つなぎ方の情報つきの語にする。辞書にある語のつながり(名詞+が+動詞など)は、まとめて1語として安くする。
+    fn build_extra(&self) -> Vec<Extra> {
+        const BONUS: i32 = 9000;
+        let noun = self.find_ent("さくら", "桜");
+        let mut out = vec![];
+        for (r, w) in crate::seasonal::words() {
+            let (lid, rid, cost) = match self.find_ent(&r, &w).or(noun) {
+                Some(e) => (e.lid, e.rid, if self.find_ent(&r, &w).is_some() { e.cost as i32 - 800 } else { 4000 }),
+                None => continue,
+            };
+            out.push(Extra { reading: r.chars().collect(), surface: w, lid, rid, cost });
+        }
+        for parts in crate::seasonal::phrases() {
+            let ents: Option<Vec<Ent>> = parts.iter().map(|(r, w)| self.find_ent(r, w)).collect();
+            let Some(ents) = ents else { continue };
+            let mut cost: i32 = ents.iter().map(|e| e.cost as i32).sum();
+            for w in ents.windows(2) {
+                cost += self.conn(w[0].rid, w[1].lid);
+            }
+            out.push(Extra {
+                reading: parts.iter().flat_map(|p| p.0.chars()).collect(),
+                surface: parts.iter().map(|p| p.1.as_str()).collect(),
+                lid: ents[0].lid,
+                rid: ents[ents.len() - 1].rid,
+                cost: (cost - BONUS).max(0) / 3,
+            });
+        }
+        out
     }
 
     pub fn len(&self) -> usize {
@@ -308,6 +356,16 @@ impl Dict {
                     found = true;
                 }
             }
+            for x in &self.extra {
+                let l = x.reading.len();
+                if l <= limit && i + l <= chars.len() && chars[i..i + l] == x.reading[..] {
+                    let idx = nodes.len();
+                    nodes.push(Node { start: i, end: i + l, lid: x.lid, rid: x.rid, cost: x.cost, surface: x.surface.clone(), best: i32::MAX, prev: None });
+                    by_start[i].push(idx);
+                    by_end[i + l].push(idx);
+                    found = true;
+                }
+            }
             // 未知語: その1文字をそのまま(高コスト)
             let idx = nodes.len();
             nodes.push(Node { start: i, end: i + 1, lid: self.unk_id, rid: self.unk_id, cost: if found { 12000 } else { 9000 }, surface: chars[i].to_string(), best: i32::MAX, prev: None });
@@ -377,7 +435,7 @@ impl Dict {
         let mut fine: Vec<(String, String)> = vec![];
         for (r, s) in best {
             let n = r.chars().count();
-            if n >= 5 {
+            if n >= 5 && self.find_ent(&r, &s).is_some() {
                 if let Some(sub) = self.best_path_limited(&r, n - 1) {
                     fine.extend(sub);
                     continue;
@@ -472,6 +530,21 @@ mod tests {
     fn dict() -> Option<Dict> {
         let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
         Dict::load(&p).ok()
+    }
+
+    #[test]
+    fn real_dictionary_seasonal_phrases() {
+        let Some(d) = dict() else { return };
+        for (r, want) in [
+            ("はるにはなのはながさき", "春には菜の花が咲き"),
+            ("さくらがさく", "桜が咲く"),
+            ("ゆきがふる", "雪が降る"),
+            ("あきにはもみじがいろづき", "秋には紅葉が色づき"),
+            ("はなびたいかい", "花火大会"),
+        ] {
+            let c = d.candidates(r, 5);
+            assert_eq!(c[0], want, "{r}: {c:?}");
+        }
     }
 
     #[test]

@@ -32,6 +32,9 @@ pub struct Settings {
     /// 辞書に無い固有名詞・作品名のために、変換を求めたとき Web のサジェスト(Google)を引く。入力中の文字を Google に送るので、不要ならオフ。既定オン。
     #[serde(default = "default_true")]
     pub web_suggest: bool,
+    /// GitHub バックアップ先(`owner/name`)。トークンは設定に書かない。
+    #[serde(default)]
+    pub github_repo: Option<String>,
     /// 漢字を優先する(既定オン)。ございます → 御座います、おねがいします → お願いします のように、語尾などを漢字にした候補を先頭にする。
     #[serde(default = "default_true")]
     pub prefer_kanji: bool,
@@ -64,7 +67,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, prefer_kanji: true, auto_backup: true, backup_dir: None }
+        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, github_repo: None, prefer_kanji: true, auto_backup: true, backup_dir: None }
     }
 }
 

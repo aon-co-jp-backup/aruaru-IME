@@ -55,6 +55,9 @@ enum Action {
     ToggleLang(translit::Lang),
     ToggleOldForms,
     ToggleLive,
+    GithubSetRepo,
+    GithubPush,
+    GithubPull,
     TogglePreferKanji,
     ToggleAutocorrect,
     ToggleTheme,
@@ -184,6 +187,14 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add(sub, MF_STRING, id, "復元(いまの内容に足す) / Restore (merge)…");
     let id = m.push(Action::Restore(true));
     add(sub, MF_STRING, id, "復元(置き換え) / Restore (replace)…");
+    let _ = AppendMenuW(sub, MF_SEPARATOR, 0, PCWSTR::null());
+    add(sub, MF_STRING | MF_GRAYED, 6, &format!("GitHub: {}", s.github_repo.as_deref().unwrap_or("未設定 / not set")));
+    let id = m.push(Action::GithubSetRepo);
+    add(sub, MF_STRING, id, "GitHub の保存先を設定 / Set GitHub repo (owner/name)…");
+    let id = m.push(Action::GithubPush);
+    add(sub, MF_STRING, id, "GitHub へバックアップ(公開リポジトリは履歴を除外) / Back up to GitHub");
+    let id = m.push(Action::GithubPull);
+    add(sub, MF_STRING, id, "GitHub から復元(足す) / Restore from GitHub (merge)");
     add_sub(root, sub, "バックアップと復元 / Backup & restore");
     let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
     let id = m.push(Action::Exit);
@@ -510,6 +521,37 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                     wish::remove(&root, &w.term, w.category).unwrap_or(false)
                 })),
             );
+        }
+        Action::GithubSetRepo => {
+            let root = aruaru_ime_core::components::data_dir();
+            let hint = format!("保存先は owner/name の形で入力します。トークン(自分で作成したもの)は {} に1行で置いてください。", aruaru_ime_core::ghbackup::token_path(&root).display());
+            if let Some(v) = input_dialog("GitHub バックアップ / GitHub backup", &["リポジトリ owner/name"], &hint) {
+                let repo = v.first().map(|x| x.trim().to_string()).unwrap_or_default();
+                if aruaru_ime_core::ghbackup::valid_repo(&repo) {
+                    with_settings(|s| s.github_repo = Some(repo.clone()));
+                    notify("GitHub バックアップ", &format!("保存先を {repo} に設定しました"));
+                } else {
+                    notify("GitHub バックアップ", "owner/name の形で入力してください");
+                }
+            }
+        }
+        Action::GithubPush | Action::GithubPull => {
+            let root = aruaru_ime_core::components::data_dir();
+            let push = matches!(a, Action::GithubPush);
+            match Settings::load().github_repo {
+                None => notify("GitHub バックアップ", "先に保存先を設定してください"),
+                Some(repo) => {
+                    notify("GitHub バックアップ", "GitHub と通信しています…");
+                    std::thread::spawn(move || {
+                        let m = if push {
+                            aruaru_ime_core::ghbackup::push(&root, &repo)
+                        } else {
+                            aruaru_ime_core::ghbackup::pull(&root, &repo, false).map(|r| format!("{} ファイルを取り込みました", r.files))
+                        };
+                        notify("GitHub バックアップ", &m.unwrap_or_else(|e| e));
+                    });
+                }
+            }
         }
         Action::BackupNow => {
             let root = aruaru_ime_core::components::data_dir();
