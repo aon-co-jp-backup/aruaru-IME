@@ -1,0 +1,10 @@
+[package]
+name = "aruaru-ime-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[[bin]]
+name = "aruaru-ime"
+path = "src/main.rs"
+[dependencies]
+aruaru-ime-core = { path = "../aruaru-ime-core" }
