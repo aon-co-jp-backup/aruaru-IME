@@ -98,3 +98,9 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - aruaru-IME: 常駐エンジンの `GET /ui` が同じ画面を配り、`aruaru-ime frontends [出力先]` が全OS分を `dist/frontends` に生成。`.github/workflows/build.yml` が3OSでエンジン/CLIをビルドし、フロントエンド一式を成果物にする(RPoemを兄弟ディレクトリにcloneして使う)。
 - 残: macOS/Linuxの実機検証、AndroidのWebViewシェル(アプリ化)、OS固有のIME統合(macOS InputMethodKit・Linux IBus/Fcitx・Android InputMethodService)はまだ無く、現状は常駐エンジン+Web画面経由で使う。
 - RPoem `open-runo-crossui` generates the shared page and per-OS launchers from one definition; aruaru-IME serves it at `/ui` and emits all targets with `aruaru-ime frontends`. OS-native IME integration is still to do.
+
+## open-easy-web からのオンライン利用 / Online use from open-easy-web (2026-10-11)
+- `https://easy-web.tokyo/ime`(open-easy-web サーバーの `GET /ime`)が、RPoem `open-runo-crossui` の同じ画面を配る。入力は利用者PCの aruaru-IME エンジン(127.0.0.1:4660)へ直接つなぐ(入力内容はサーバーを通らない)。
+- エンジンは Origin が `https://easy-web.tokyo`(と自分自身)のときだけ CORS + Private Network Access を許可。それ以外は403。
+- 未了: VPS(open-easy-web)への反映は未実施。ブラウザ(Chrome/Edge/Firefox)からのloopback接続の実機確認も未了。
+- `/ime` on open-easy-web serves the shared page; keystrokes go straight to the user's local engine, which allows only easy-web.tokyo via CORS/PNA. VPS deploy pending.

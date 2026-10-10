@@ -497,6 +497,15 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
         let mut body = String::new();
         let _ = std::io::Read::read_to_string(req.as_reader(), &mut body);
         let path = req.url().to_string();
+        // open-easy-web(https://easy-web.tokyo)のオンライン画面からの接続だけを許可する(CORS + Private Network Access)。
+        let origin = req.headers().iter().find(|h| h.field.equiv("Origin")).map(|h| h.value.as_str().to_string());
+        let allowed = origin.as_deref().filter(|o| origin_allowed(o)).map(String::from);
+        if req.method().as_str() == "OPTIONS" {
+            let mut r = tiny_http::Response::from_string("").with_status_code(if allowed.is_some() { 204 } else { 403 });
+            add_cors(&mut r, allowed.as_deref());
+            let _ = req.respond(r);
+            continue;
+        }
         let (code, out) = match (req.method().as_str(), path.as_str()) {
             ("GET", "/ui") => (200, open_runo_crossui::page_html(&open_runo_crossui::ime_app("", env!("CARGO_PKG_VERSION")), "")),
             ("GET", "/health") => (200, format!("ok dict={} v={} proto=1", dict.as_ref().as_ref().map_or(0, |d| d.len()), env!("CARGO_PKG_VERSION"))),
@@ -621,6 +630,32 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
         let mut resp = tiny_http::Response::from_string(out).with_status_code(code);
         let ctype: &[u8] = if path == "/ui" { b"text/html; charset=utf-8" } else { b"application/json; charset=utf-8" };
         resp.add_header(tiny_http::Header::from_bytes(&b"Content-Type"[..], ctype).unwrap());
+        add_cors(&mut resp, allowed.as_deref());
         let _ = req.respond(resp);
+    }
+}
+
+/// 許可する接続元: easy-web.tokyo(HTTPS)と、このPC自身。
+fn origin_allowed(o: &str) -> bool {
+    matches!(o, "https://easy-web.tokyo" | "https://www.easy-web.tokyo" | "http://127.0.0.1:4660" | "http://localhost:4660")
+}
+
+fn add_cors<R: std::io::Read>(r: &mut tiny_http::Response<R>, origin: Option<&str>) {
+    let Some(o) = origin else { return };
+    for (k, v) in [("Access-Control-Allow-Origin", o), ("Vary", "Origin"), ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"), ("Access-Control-Allow-Headers", "content-type"), ("Access-Control-Allow-Private-Network", "true")] {
+        r.add_header(tiny_http::Header::from_bytes(k.as_bytes(), v.as_bytes()).unwrap());
+    }
+}
+
+#[cfg(test)]
+mod cors_tests {
+    use super::origin_allowed;
+
+    #[test]
+    fn only_easy_web_and_self_are_allowed() {
+        assert!(origin_allowed("https://easy-web.tokyo") && origin_allowed("http://127.0.0.1:4660"));
+        for bad in ["https://evil.example", "http://easy-web.tokyo", "https://easy-web.tokyo.evil.com", "null", ""] {
+            assert!(!origin_allowed(bad), "{bad}");
+        }
     }
 }
