@@ -2,6 +2,7 @@
 //! 条件が揃えば aruaru-llm(Qwen)による漢字かな交じり・英単語補完・検索用例を加える。
 
 use crate::client::Client;
+use crate::kanji::Dict;
 use crate::mode::{self, Context, Mode, Prediction};
 use crate::romaji;
 use serde::Serialize;
@@ -72,18 +73,26 @@ pub fn wants_suggest(ctx: &Context) -> bool {
     ["google", "amazon", "検索", "カートに入れる", "yahoo"].iter().any(|k| s.contains(k))
 }
 
-pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>) -> Conversion {
+pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Option<&Dict>) -> Conversion {
     let pred = mode::predict(buffer, ctx);
     let mut c: Vec<Candidate> = vec![];
     let hira = romaji::to_hiragana(buffer);
     let kata = romaji::hira_to_kata(&hira);
 
-    // LLM由来の候補(接続できなければ空)
+    // 辞書+Viterbi(ミリ秒)。Qwen は現状の速度では同期経路に置けないため、ARUARU_IME_QWEN=1 のときだけ追加する。
+    let mut dict_cands: Vec<String> = vec![];
+    if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
+        if let Some(d) = dict {
+            dict_cands = d.candidates(&hira, 6);
+        }
+    }
     let mut kanji: Option<String> = None;
-    if let Some(cl) = client {
-        if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
-            let web = if hira.chars().count() >= 2 { cl.search_snippets(&hira, 3) } else { vec![] };
-            kanji = cl.generate(&kanji_prompt(&hira, ctx, &web), 12).and_then(|o| clean_llm(&o, &hira));
+    if std::env::var("ARUARU_IME_QWEN").as_deref() == Ok("1") {
+        if let Some(cl) = client {
+            if !dict_cands.is_empty() || dict.is_none() {
+                let web = if hira.chars().count() >= 2 { cl.search_snippets(&hira, 3) } else { vec![] };
+                kanji = cl.generate(&kanji_prompt(&hira, ctx, &web), 12).and_then(|o| clean_llm(&o, &hira));
+            }
         }
     }
 
@@ -97,6 +106,9 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>) -> Conversi
         }
         Mode::Katakana => {
             push(&mut c, kata, "katakana");
+            for d in &dict_cands {
+                push(&mut c, d.clone(), "dict");
+            }
             if let Some(k) = kanji {
                 push(&mut c, k, "llm");
             }
@@ -104,6 +116,9 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>) -> Conversi
             push(&mut c, buffer.to_string(), "alpha");
         }
         Mode::Hiragana => {
+            for d in &dict_cands {
+                push(&mut c, d.clone(), "dict");
+            }
             if let Some(k) = kanji {
                 push(&mut c, k, "llm");
             }
@@ -130,7 +145,7 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>) -> Conversi
         if wants_suggest(ctx) && !buffer.is_empty() {
             let base = match pred.mode {
                 Mode::Alpha | Mode::Number => buffer.to_string(),
-                _ => c.iter().find(|x| x.kind == "llm").map(|x| x.text.clone()).unwrap_or_else(|| romaji::to_hiragana(buffer)),
+                _ => c.iter().find(|x| x.kind == "dict" || x.kind == "llm").map(|x| x.text.clone()).unwrap_or_else(|| romaji::to_hiragana(buffer)),
             };
             suggestions = cl.web_suggest(&base, if matches!(pred.mode, Mode::Alpha) { "en" } else { "ja" });
         }
@@ -146,18 +161,18 @@ mod tests {
     }
     #[test]
     fn offline_japanese() {
-        let r = convert("konnnichiha", &cx("彼は"), None);
+        let r = convert("konnnichiha", &cx("彼は"), None, None);
         assert_eq!(r.candidates[0].text, "こんにちは");
     }
     #[test]
     fn english_completion() {
-        let r = convert("hell", &cx("Say "), None);
+        let r = convert("hell", &cx("Say "), None, None);
         assert_eq!(r.prediction.mode, Mode::Alpha);
         assert!(r.candidates.iter().any(|c| c.text == "hello"));
     }
     #[test]
     fn numbers_fullwidth() {
-        let r = convert("2026", &cx(""), None);
+        let r = convert("2026", &cx(""), None, None);
         assert!(r.candidates.iter().any(|c| c.text == "２０２６"));
     }
     #[test]
