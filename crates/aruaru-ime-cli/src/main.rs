@@ -3,6 +3,26 @@ use aruaru_ime_core::{client::Client, client::DEFAULT_URL, convert, Context};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("update") {
+        // 手動で更新を確認する: aruaru-ime update [--check]
+        let cur = aruaru_ime_core::update::current_version();
+        println!("現在の版: v{}.{}.{}", cur.0, cur.1, cur.2);
+        if args.iter().any(|a| a == "--check") {
+            match aruaru_ime_core::update::check(aruaru_ime_core::update::REPO, cur) {
+                Ok(Some(r)) => println!("新しい版があります: {}", r.tag),
+                Ok(None) => println!("最新です(または公開された新しい版はまだありません)"),
+                Err(e) => println!("確認できませんでした: {e}"),
+            }
+        } else {
+            let root = aruaru_ime_core::components::data_dir().join("app");
+            match aruaru_ime_core::update::run_once(aruaru_ime_core::update::REPO, &root) {
+                Ok(Some((tag, dir))) => println!("{tag} に更新しました({})。アプリを再起動すると新しい版になります", dir.display()),
+                Ok(None) => println!("最新です(または公開された新しい版はまだありません)"),
+                Err(e) => println!("更新できませんでした: {e}"),
+            }
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("dict") {
         use aruaru_ime_core::userdict::UserDict;
         let path = std::env::var("ARUARU_USER_DICT").map(std::path::PathBuf::from).unwrap_or_else(|_| UserDict::default_path());

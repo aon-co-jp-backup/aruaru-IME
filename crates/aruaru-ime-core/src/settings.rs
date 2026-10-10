@@ -17,6 +17,9 @@ pub struct Settings {
     /// 候補窓の大きさの倍率(既定 1.8。文字・行の高さ・幅が全てこの倍率で大きくなる)。
     #[serde(default = "default_scale")]
     pub candidate_scale: f32,
+    /// 自動アップデート(GitHub Releases の最新版を確認して更新)。既定オン。
+    #[serde(default = "default_true")]
+    pub auto_update: bool,
 }
 
 fn default_scale() -> f32 {
@@ -33,7 +36,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale() }
+        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true }
     }
 }
 

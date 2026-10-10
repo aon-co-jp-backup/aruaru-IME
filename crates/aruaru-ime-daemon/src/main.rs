@@ -65,7 +65,58 @@ fn dict_path() -> PathBuf {
     if beside.is_file() {
         return beside;
     }
+    let shared = aruaru_ime_core::components::data_dir().join("dict.bin");
+    if shared.is_file() {
+        return shared;
+    }
     PathBuf::from("data/dict.bin")
+}
+
+/// 更新で入れ替わるとき、前のエンジンが終了するまで待ってポートを取り直す。
+fn bind_with_retry() -> tiny_http::Server {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        match tiny_http::Server::http(format!("127.0.0.1:{PORT}")) {
+            Ok(s) => return s,
+            Err(e) if Instant::now() < deadline => {
+                eprintln!("port busy ({e}); retrying");
+                std::thread::sleep(Duration::from_millis(400));
+            }
+            Err(e) => panic!("bind 127.0.0.1:{PORT}: {e}"),
+        }
+    }
+}
+
+/// 自動アップデート: **起動時の1回だけ**最新版を確認し、新しければ入れ替える(設定 auto_update)。定期的な確認はしない。
+fn spawn_updater() {
+    std::thread::spawn(|| {
+        // 起動処理(辞書の読み込み・最初の入力)を邪魔しないよう、少し待ってから1回だけ確認する
+        std::thread::sleep(Duration::from_secs(15));
+        {
+            if aruaru_ime_core::settings::Settings::load().auto_update {
+                let root = aruaru_ime_core::components::data_dir().join("app");
+                match aruaru_ime_core::update::run_once(aruaru_ime_core::update::REPO, &root) {
+                    Ok(Some((tag, dir))) => {
+                        eprintln!("updated to {tag}: {}", dir.display());
+                        let exe = dir.join("aruaru-ime-daemon.exe");
+                        let me = std::env::current_exe().ok();
+                        if exe.is_file() && me.as_deref() != Some(exe.as_path()) {
+                            let mut c = std::process::Command::new(&exe);
+                            c.current_dir(&dir);
+                            #[cfg(windows)]
+                            std::os::windows::process::CommandExt::creation_flags(&mut c, 0x0800_0000);
+                            if c.spawn().is_ok() {
+                                std::thread::sleep(Duration::from_millis(800));
+                                std::process::exit(0); // 新しいエンジンがポートを引き継ぐ
+                            }
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => eprintln!("update check failed: {e}"),
+                }
+            }
+        }
+    });
 }
 
 fn main() {
@@ -113,7 +164,8 @@ fn main() {
         });
     }
 
-    let server = tiny_http::Server::http(format!("127.0.0.1:{PORT}")).expect("bind 127.0.0.1:4660");
+    let server = bind_with_retry();
+    spawn_updater();
     println!("aruaru-ime-daemon listening on 127.0.0.1:{PORT} (dict: {} entries)", dict.as_ref().as_ref().map_or(0, |d| d.len()));
     for mut req in server.incoming_requests() {
         let mut body = String::new();

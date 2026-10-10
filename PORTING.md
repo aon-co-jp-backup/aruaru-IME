@@ -23,6 +23,12 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 5. ライブ変換(既定オン): `Session.live`。入力のたびに最有力の変換結果を `preedit`(`sel=Some(0)`)として返す。Space で次候補、Enter で確定、F6でひらがな。
 6. 配色は `settings.json` の `theme`(既定 `dark`)。F2 で切替。
 
+## 自動アップデート / Auto-update
+
+`core::update`。**起動時の1回だけ**確認する(定期確認なし)。`<データ領域>/app/versions/<タグ>/` に展開し、Windows は HKCU の COM 登録を新しい DLL に向けて(管理者権限不要)、
+常駐エンジンを新しい版で入れ替える(新しいエンジンが旧エンジン終了後にポートを引き継ぐ)。使用中のファイルは上書きしないので、起動中のアプリは再起動すると新しい版になる。
+リリース資産は `aruaru-ime-windows-x86_64.zip`(必須: `aruaru_ime_tsf.dll`・`aruaru-ime-daemon.exe`)+任意で `<zip名>.sha256`。
+
 ## 共有データ領域 / Shared data dir
 
 `%LOCALAPPDATA%\aruaru` / `~/.local/share/aruaru` / `~/Library/Application Support/aruaru`(`ARUARU_DATA_DIR` で上書き)。

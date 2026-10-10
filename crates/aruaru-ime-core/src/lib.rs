@@ -9,6 +9,7 @@ pub mod mode;
 pub mod romaji;
 pub mod session;
 pub mod settings;
+pub mod update;
 pub mod userdict;
 
 pub use convert::{convert, Candidate, Conversion};
