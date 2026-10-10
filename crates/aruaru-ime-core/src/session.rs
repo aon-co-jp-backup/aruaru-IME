@@ -6,6 +6,7 @@
 use crate::convert::Conversion;
 use crate::mode::Mode;
 use crate::romaji;
+use crate::translit::{self, Lang};
 
 pub trait Converter: Send {
     fn convert(&self, buffer: &str, before: &str, field_kind: Option<&str>) -> Conversion;
@@ -79,6 +80,9 @@ pub struct Step {
     pub sel_en: Option<usize>,
     #[serde(default)]
     pub composing: bool,
+    /// いまの入力言語のコード(ja / en / ru / ar …)。DLL が通信なしで「このキーを食うか」を判定するために持ち帰る。
+    #[serde(default)]
+    pub lang: String,
     /// カーソル直前が日本語の文字か(「,」「.」を「、」「。」にするかの判定に使う)。
     #[serde(default)]
     pub last_ja: bool,
@@ -89,11 +93,23 @@ pub struct Step {
 pub const PAGE: usize = 10;
 
 pub fn would_eat_with(key: &Key, on: bool, composing: bool, last_ja: bool) -> bool {
+    would_eat_lang(key, on, composing, last_ja, Lang::Ja)
+}
+
+/// 言語つきの判定。日本語以外は、その言語の文字(ラテン文字入力+アクセント記号・数字など)を食う。中国語(未対応)は文字を食わない。
+pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang: Lang) -> bool {
     if matches!(key, Key::Toggle | Key::On | Key::Off | Key::Convert | Key::NonConvert) {
         return true;
     }
     if !on {
         return false;
+    }
+    if lang != Lang::Ja {
+        return match key {
+            Key::Char(c) => lang.supported() && (lang.accepts(*c, composing) || composing),
+            Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace => composing,
+            _ => false,
+        };
     }
     match key {
         Key::Char(c) => c.is_ascii_alphabetic() || composing || (matches!(c, ',' | '.') && last_ja),
@@ -263,6 +279,8 @@ pub struct Session {
     form_cycle: u8,
     mode_label: String,
     extras_done: bool,
+    /// 入力する言語(既定は日本語)。
+    pub lang: Lang,
     en_cands: Vec<String>,
     col: u8,
     en_sel: Option<usize>,
@@ -287,7 +305,7 @@ fn is_ja(c: char) -> bool {
 
 impl Session {
     pub fn new(conv: Box<dyn Converter>) -> Self {
-        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, en_cands: vec![], col: 0, en_sel: None, jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
+        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, lang: Lang::Ja, en_cands: vec![], col: 0, en_sel: None, jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
     }
 
     /// 設定ファイルの内容(ライブ変換・自動訂正・旧字体)を反映する。フォーカス移動のたびに呼ぶと、右クリックメニューでの変更がすぐ効く。
@@ -331,7 +349,15 @@ impl Session {
 
     /// このキーをIMEが処理するか(状態を変えずに判定)。`key()` の `eaten` と一致する。
     pub fn would_eat(&self, key: &Key) -> bool {
-        would_eat_with(key, self.on, self.composing(), self.before.chars().last().is_some_and(is_ja))
+        would_eat_lang(key, self.on, self.composing(), self.before.chars().last().is_some_and(is_ja), self.lang)
+    }
+
+    /// 入力する言語を切り替える(Windows の言語切替で、言語ごとの入力方式が選ばれたとき)。組み立て中の入力は破棄する。
+    pub fn set_lang(&mut self, lang: Lang) {
+        if self.lang != lang {
+            self.reset();
+            self.lang = lang;
+        }
     }
 
     /// 現在の状態(DLL が通信なしで判定するための持ち帰り用)。
@@ -361,6 +387,7 @@ impl Session {
             mode: if self.composing() { self.mode_label.clone() } else { String::new() },
             on: self.on,
             composing: self.composing(),
+            lang: self.lang.code().to_string(),
             last_ja: self.before.chars().last().is_some_and(is_ja),
         }
     }
@@ -594,7 +621,7 @@ impl Session {
 
     fn commit_current(&mut self) -> String {
         let s = self.current();
-        if self.sel.is_some() && !self.auto && self.col == 0 {
+        if self.lang == Lang::Ja && self.sel.is_some() && !self.auto && self.col == 0 {
             let reading = romaji::to_hiragana(&self.buf);
             if reading != s && !self.buf.chars().any(|c| c.is_ascii_digit()) {
                 self.learned.record(&reading, &s);
@@ -644,6 +671,9 @@ impl Session {
         }
         if !self.on {
             return Step::default();
+        }
+        if self.lang != Lang::Ja {
+            return self.key_lang(key);
         }
         match key {
             Key::Char(c) if self.composing() && self.col == 1 && c.is_ascii_digit() => {
@@ -801,6 +831,92 @@ impl Session {
                 Step::default()
             }
         }
+    }
+
+    /// 日本語以外の言語の入力(ロシア語・アラビア語・ヘブライ語・韓国語・ヨーロッパ言語・英語)。
+    /// ラテン文字の入力を、その言語の文字にして未確定表示にする。Space で確定+空白、Enter で確定のみ、↑↓/Tab で候補を選ぶ。
+    fn key_lang(&mut self, key: Key) -> Step {
+        let lang = self.lang;
+        match key {
+            Key::Char(c) if lang.supported() && lang.accepts(c, self.composing()) => {
+                self.buf.push(c);
+                self.refresh_lang();
+                self.state(true, None)
+            }
+            Key::Char(c) if lang.supported() && self.composing() => {
+                // 区切りの文字(. , ! ? など): 確定してから、その文字を続ける
+                let mut s = self.commit_current();
+                s.push(c);
+                self.note_commit(&c.to_string());
+                self.state(true, Some(s))
+            }
+            Key::Space if self.composing() => {
+                let mut s = self.commit_current();
+                s.push(' ');
+                self.note_commit(" ");
+                self.state(true, Some(s))
+            }
+            Key::Down | Key::Tab if self.composing() => {
+                let n = self.cands.len();
+                if n > 0 {
+                    self.sel = Some(match self.sel { None => 0, Some(i) => (i + 1) % n });
+                }
+                self.state(true, None)
+            }
+            Key::Up if self.composing() => {
+                let n = self.cands.len();
+                if n > 0 {
+                    self.sel = Some(match self.sel { None | Some(0) => n - 1, Some(i) => i - 1 });
+                }
+                self.state(true, None)
+            }
+            Key::Enter if self.composing() => {
+                let s = self.commit_current();
+                self.state(true, Some(s))
+            }
+            Key::Esc if self.composing() => {
+                self.reset();
+                self.state(true, None)
+            }
+            Key::Backspace if self.composing() => {
+                if self.sel.is_some() {
+                    self.sel = None;
+                } else {
+                    self.buf.pop();
+                    if self.buf.is_empty() {
+                        self.reset();
+                    } else {
+                        self.refresh_lang();
+                    }
+                }
+                self.state(true, None)
+            }
+            _ => Step::default(),
+        }
+    }
+
+    fn refresh_lang(&mut self) {
+        let lang = self.lang;
+        let mut c: Vec<String> = translit::candidates(lang, &self.buf);
+        if lang == Lang::En {
+            // 英語: 打った語を先頭に、日本語の対訳を候補に足す(日英の相互翻訳)
+            c = vec![self.buf.clone()];
+            for j in self.conv.to_japanese(&self.buf.to_lowercase()).into_iter().take(6) {
+                if !c.contains(&j) {
+                    c.push(j);
+                }
+            }
+            self.unconverted = self.buf.clone();
+        } else {
+            self.unconverted = c.first().cloned().unwrap_or_else(|| self.buf.clone());
+        }
+        self.cands = c;
+        self.sel = None;
+        self.auto = false;
+        self.en_cands.clear();
+        self.col = 0;
+        self.en_sel = None;
+        self.mode_label = lang.code().to_string();
     }
 
     /// 候補を番号(0始まり)で選んで確定する(候補ウィンドウのクリックなど)。
@@ -1390,6 +1506,93 @@ mod tests {
         // Space で候補を進める: 最初は先頭の英語そのもの、次に日本語の対訳
         assert_eq!(s.key(Key::Space).preedit, "word");
         assert_eq!(s.key(Key::Space).preedit, "単語");
+    }
+
+    fn lang_session(l: Lang) -> Session {
+        let mut s = Session::new(Box::new(Gl));
+        s.set_lang(l);
+        s.set_before("");
+        s
+    }
+
+    #[test]
+    fn russian_typing_shows_cyrillic_and_space_commits_with_a_space() {
+        let mut s = lang_session(Lang::Ru);
+        let st = type_str(&mut s, "privet");
+        assert_eq!((st.preedit.as_str(), st.mode.as_str(), st.lang.as_str()), ("привет", "ru", "ru"));
+        let st = s.key(Key::Space);
+        assert_eq!(st.commit.as_deref(), Some("привет "));
+        // 区切りの記号は、確定してから続く
+        type_str(&mut s, "mir");
+        assert_eq!(s.key(Key::Char('!')).commit.as_deref(), Some("мир!"));
+        // Enter は空白なし
+        type_str(&mut s, "da");
+        assert_eq!(s.key(Key::Enter).commit.as_deref(), Some("да"));
+        // 入力していないとき、空白・数字は素通し
+        assert!(!s.key(Key::Space).eaten && !s.key(Key::Char('5')).eaten);
+    }
+
+    #[test]
+    fn arabic_persian_hebrew_prefer_dictionary_words_and_keep_rtl_text() {
+        let mut s = lang_session(Lang::Ar);
+        let st = type_str(&mut s, "salam");
+        assert_eq!(st.preedit, "سلام");
+        assert!(crate::translit::is_rtl_text(&st.preedit));
+        assert!(st.cands.len() >= 2, "規則による変換と入力そのままも候補に残る");
+        let mut s = lang_session(Lang::Fa);
+        assert_eq!(type_str(&mut s, "chetori").preedit, "چطوری");
+        let mut s = lang_session(Lang::He);
+        assert_eq!(type_str(&mut s, "shalom").preedit, "שלום");
+        // アラビア語・ペルシア語では、数字キーが文字(3=ع など)になる
+        let mut s = lang_session(Lang::Ar);
+        assert_eq!(type_str(&mut s, "3ain").preedit, "عاين".replace("عاين", &crate::translit::transliterate(Lang::Ar, "3ain")));
+    }
+
+    #[test]
+    fn korean_composes_hangul_as_you_type() {
+        let mut s = lang_session(Lang::Ko);
+        assert_eq!(type_str(&mut s, "dkssud").preedit, "안녕");
+        assert_eq!(s.key(Key::Backspace).preedit, "안녀");
+        assert_eq!(s.key(Key::Enter).commit.as_deref(), Some("안녀"));
+    }
+
+    #[test]
+    fn european_accents_and_german_umlauts() {
+        let mut s = lang_session(Lang::Fr);
+        assert_eq!(type_str(&mut s, "cafe'").preedit, "café");
+        let mut s = lang_session(Lang::De);
+        let st = type_str(&mut s, "fuer");
+        assert_eq!(st.preedit, "fuer", "ドイツ語は打った綴りが先頭");
+        assert!(st.cands.contains(&"für".to_string()), "ü の綴りは候補に");
+        assert_eq!(s.key(Key::Down).preedit, "fuer");
+        assert_eq!(s.key(Key::Down).preedit, "für");
+        assert_eq!(s.key(Key::Enter).commit.as_deref(), Some("für"));
+    }
+
+    #[test]
+    fn english_gets_japanese_equivalents_and_chinese_is_passthrough_until_supported() {
+        let mut s = lang_session(Lang::En);
+        let st = type_str(&mut s, "word");
+        assert_eq!(st.preedit, "word");
+        assert!(st.cands.contains(&"単語".to_string()));
+        assert_eq!(s.key(Key::Down).preedit, "word");
+        assert_eq!(s.key(Key::Down).preedit, "単語");
+        assert_eq!(s.key(Key::Enter).commit.as_deref(), Some("単語"));
+        let mut z = lang_session(Lang::ZhHans);
+        assert!(!z.key(Key::Char('n')).eaten, "中国語は未対応のあいだ、文字を食わない");
+    }
+
+    #[test]
+    fn language_switch_resets_composition_and_changes_what_is_eaten() {
+        let mut s = lang_session(Lang::Ja);
+        type_str(&mut s, "ka");
+        s.set_lang(Lang::Ru);
+        assert!(!s.composing(), "切替で組み立て中の入力は破棄する");
+        assert!(s.would_eat(&Key::Char('a')));
+        assert!(!s.would_eat(&Key::Char('5')), "ロシア語では、入力していない数字は素通し");
+        s.set_lang(Lang::Ar);
+        assert!(s.would_eat(&Key::Char('5')), "アラビア語では、数字も文字");
+        assert_eq!(would_eat_lang(&Key::Char('a'), true, false, false, Lang::ZhHans), false);
     }
 
     #[test]

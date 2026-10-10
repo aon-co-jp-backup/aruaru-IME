@@ -3,6 +3,44 @@ use aruaru_ime_core::{client::Client, client::DEFAULT_URL, convert, Context};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("languages") {
+        // aruaru-ime languages [list | apply]
+        //   list  : 選択中の言語を表示
+        //   apply : 選択中の言語を、Windows の入力方式の一覧(ユーザー単位)に反映する(追加と、選ばれなくなったものの削除)
+        use aruaru_ime_core::translit::{self, Lang};
+        let st = aruaru_ime_core::settings::Settings::load();
+        let chosen = st.selected_languages();
+        match args.get(1).map(String::as_str) {
+            Some("apply") => {
+                let clsid = "{B7C2A1E4-5D3F-4F7A-9A61-0C8E2D4B6A11}";
+                let entries: Vec<String> = translit::ALL
+                    .iter()
+                    .filter(|l| l.supported())
+                    .map(|l| format!("@{{Id=0x{:04X};Guid='{{{:?}}}';On={}}}", l.langid(), uuid_fmt(l.profile_guid()), if chosen.contains(l) { "$true" } else { "$false" }))
+                    .collect();
+                let script = format!(
+                    "$clsid='{clsid}'; $l=Get-WinUserLanguageList; \
+                     foreach($e in @({})){{ \
+                       $ci=[Globalization.CultureInfo]::GetCultureInfo([int]$e.Id).Name; \
+                       $tip=('{{0:X4}}:{{1}}{{2}}' -f $e.Id,$clsid,$e.Guid); \
+                       $x=$l | Where-Object LanguageTag -eq $ci; \
+                       if($e.On){{ if(-not $x){{ $l.Add($ci); $x=$l | Where-Object LanguageTag -eq $ci }}; if($x.InputMethodTips -notcontains $tip){{ $x.InputMethodTips.Add($tip) }} }} \
+                       elseif($x -and ($x.InputMethodTips -contains $tip)){{ [void]$x.InputMethodTips.Remove($tip) }} \
+                     }}; Set-WinUserLanguageList $l -Force",
+                    entries.join(",")
+                );
+                let status = std::process::Command::new("powershell").args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]).status();
+                println!("{}", match status { Ok(s) if s.success() => "入力方式の一覧に反映しました(Win+Space で言語を切り替えられます)", _ => "反映できませんでした" });
+            }
+            _ => {
+                for l in &chosen {
+                    println!("{:<8} {} / {}{}", l.code(), l.native_name(), l.english_name(), if l.supported() { "" } else { "  (準備中)" });
+                }
+            }
+        }
+        let _ = Lang::Ja;
+        return;
+    }
     if args.first().map(String::as_str) == Some("wish") {
         // 希望用語: aruaru-ime wish add <種類> <名前> | list | remove <種類> <名前>   (種類: manga anime game drama movie programming framework language other)
         use aruaru_ime_core::wish::{self, Category};
@@ -133,6 +171,12 @@ fn main() {
     let dict = aruaru_ime_core::kanji::Dict::load(std::path::Path::new(&dict_path)).ok();
     let r = convert(&args[1], &ctx, client.as_ref(), dict.as_ref());
     println!("{}", serde_json_pretty(&r));
+}
+
+/// プロファイル GUID(u128)を、ハイフン区切りの大文字の書式にする。
+fn uuid_fmt(g: u128) -> String {
+    let h = format!("{g:032X}");
+    format!("{}-{}-{}-{}-{}", &h[0..8], &h[8..12], &h[12..16], &h[16..20], &h[20..32])
 }
 
 fn serde_json_pretty(r: &aruaru_ime_core::Conversion) -> String {

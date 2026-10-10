@@ -57,7 +57,7 @@ impl EngineConv {
         };
         let field = if pw { Some("password".to_string()) } else { field_kind.map(str::to_string) };
         let password = field.as_deref() == Some("password");
-        (Context { before: before.to_string(), after: String::new(), screen_text: screen, field_kind: field }, password)
+        (Context { before: before.to_string(), after: String::new(), screen_text: screen, field_kind: field, prefer_kanji: aruaru_ime_core::settings::Settings::load().prefer_kanji }, password)
     }
 }
 
@@ -126,6 +126,8 @@ struct KeyReq {
 struct SessReq {
     sid: String,
     op: String,
+    #[serde(default)]
+    lang: Option<String>,
 }
 
 /// セッションを取り出して `f` を実行する。無ければ作る。15分使われていないセッションは捨てる。
@@ -512,6 +514,11 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                             match r.op.as_str() {
                                 "cancel" => s.cancel(),
                                 "settings" => s.apply_settings(&aruaru_ime_core::settings::Settings::load()),
+                                "lang" => {
+                                    if let Some(l) = r.lang.as_deref().and_then(aruaru_ime_core::translit::Lang::from_code) {
+                                        s.set_lang(l);
+                                    }
+                                }
                                 "off" => {
                                     s.cancel();
                                     s.on = false;
@@ -582,7 +589,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                         let s = state.lock().unwrap();
                         (s.screen_text.clone(), s.password)
                     };
-                    let ctx = Context { before: r.before, after: r.after, screen_text: screen, field_kind: if pw { Some("password".into()) } else { r.field_kind } };
+                    let ctx = Context { before: r.before, after: r.after, screen_text: screen, field_kind: if pw { Some("password".into()) } else { r.field_kind }, prefer_kanji: aruaru_ime_core::settings::Settings::load().prefer_kanji };
                     if ctx.field_kind.as_deref() != Some("password") {
                         auto_learn(&client, &ctx);
                     }

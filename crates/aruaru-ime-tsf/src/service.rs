@@ -6,6 +6,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 use windows::core::{implement, Interface, Result, GUID};
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows_core::IUnknownImpl;
 use windows::Win32::Foundation::{BOOL, E_FAIL, FALSE, LPARAM, RECT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
@@ -59,12 +60,13 @@ fn run_session(ctx: &ITfContext, tid: u32, flags: TF_CONTEXT_EDIT_CONTEXT_FLAGS,
     }
 }
 
-#[implement(ITfTextInputProcessorEx, ITfTextInputProcessor, ITfKeyEventSink, ITfThreadMgrEventSink, ITfCompositionSink)]
+#[implement(ITfTextInputProcessorEx, ITfTextInputProcessor, ITfKeyEventSink, ITfThreadMgrEventSink, ITfCompositionSink, ITfActiveLanguageProfileNotifySink)]
 pub struct TextService {
     inner: Rc<RefCell<Inner>>,
     tm: RefCell<Option<ITfThreadMgr>>,
     tid: Cell<u32>,
     sink_cookie: Cell<u32>,
+    lang_cookie: Cell<u32>,
     comp_sink: RefCell<Option<ITfCompositionSink>>,
 }
 
@@ -77,6 +79,7 @@ impl TextService {
             tm: RefCell::new(None),
             tid: Cell::new(0),
             sink_cookie: Cell::new(0),
+            lang_cookie: Cell::new(0),
             comp_sink: RefCell::new(None),
         }
     }
@@ -271,9 +274,12 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
                 if let Ok(km) = tm.cast::<ITfKeystrokeMgr>() {
                     let _ = km.UnadviseKeyEventSink(self.tid.get());
                 }
-                if self.sink_cookie.get() != 0 {
-                    if let Ok(src) = tm.cast::<ITfSource>() {
+                if let Ok(src) = tm.cast::<ITfSource>() {
+                    if self.sink_cookie.get() != 0 {
                         let _ = src.UnadviseSink(self.sink_cookie.get());
+                    }
+                    if self.lang_cookie.get() != 0 {
+                        let _ = src.UnadviseSink(self.lang_cookie.get());
                     }
                 }
             }
@@ -299,6 +305,22 @@ impl ITfTextInputProcessorEx_Impl for TextService_Impl {
             let tm_sink: ITfThreadMgrEventSink = self.as_interface::<ITfThreadMgrEventSink>().to_owned();
             let cookie = src.AdviseSink(&ITfThreadMgrEventSink::IID, &tm_sink)?;
             self.sink_cookie.set(cookie);
+            // 言語ごとの入力方式が選ばれたことを知る(Win+Space で言語を切り替えたとき)
+            let lang_sink: ITfActiveLanguageProfileNotifySink = self.as_interface::<ITfActiveLanguageProfileNotifySink>().to_owned();
+            if let Ok(c) = src.AdviseSink(&ITfActiveLanguageProfileNotifySink::IID, &lang_sink) {
+                self.lang_cookie.set(c);
+            }
+            // 起動時に選ばれている言語
+            if let Ok(mgr) = CoCreateInstance::<_, ITfInputProcessorProfileMgr>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER) {
+                let mut p = TF_INPUTPROCESSORPROFILE::default();
+                if mgr.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut p).is_ok() {
+                    if p.clsid == crate::CLSID_ARUARU_IME {
+                        if let Some(l) = aruaru_ime_core::translit::Lang::from_profile_guid(p.guidProfile.to_u128()) {
+                            self.inner.borrow_mut().session.set_lang(l);
+                        }
+                    }
+                }
+            }
             *self.comp_sink.borrow_mut() = Some(self.as_interface::<ITfCompositionSink>().to_owned());
         }
         *self.tm.borrow_mut() = Some(tm);
@@ -391,6 +413,21 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
         Ok(())
     }
     fn OnPopContext(&self, _p: Option<&ITfContext>) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl ITfActiveLanguageProfileNotifySink_Impl for TextService_Impl {
+    fn OnActivated(&self, rclsid: *const GUID, guidprofile: *const GUID, factivated: BOOL) -> Result<()> {
+        unsafe {
+            if factivated.as_bool() && !rclsid.is_null() && !guidprofile.is_null() && *rclsid == crate::CLSID_ARUARU_IME {
+                if let Some(l) = aruaru_ime_core::translit::Lang::from_profile_guid((*guidprofile).to_u128()) {
+                    crate::log(&format!("language profile -> {}", l.code()));
+                    self.inner.borrow_mut().session.set_lang(l);
+                    candwin::hide();
+                }
+            }
+        }
         Ok(())
     }
 }

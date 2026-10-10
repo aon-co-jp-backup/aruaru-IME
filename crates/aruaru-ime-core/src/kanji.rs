@@ -272,6 +272,12 @@ impl Dict {
 
     /// 最小コスト経路での変換結果(文節に分けず連結した文字列)と、(読み, 表記)の区切り。
     pub fn best_path(&self, reading: &str) -> Option<Vec<(String, String)>> {
+        self.best_path_limited(reading, usize::MAX)
+    }
+
+    /// 辞書の語の長さ(読みの文字数)を `limit` 以下に制限した最小コスト経路。長い1語として載っている語(おはようございます)を、
+    /// より短い語(おはよう + ございます)に分けて調べ直すために使う。
+    pub fn best_path_limited(&self, reading: &str, limit: usize) -> Option<Vec<(String, String)>> {
         let chars: Vec<char> = reading.chars().collect();
         if chars.is_empty() {
             return None;
@@ -289,7 +295,7 @@ impl Dict {
             let mut found = false;
             for j in i + 1..=chars.len() {
                 let key = &bytes[boff[i]..boff[j]];
-                if key.len() > MAX_READING_BYTES {
+                if key.len() > MAX_READING_BYTES || j - i > limit {
                     break;
                 }
                 let (lo, hi) = self.range(key);
@@ -359,9 +365,80 @@ impl Dict {
 
     /// 変換候補(上位 `max` 個)。先頭は最小コスト経路、続いて読み全体に一致する別表記。
     pub fn candidates(&self, reading: &str, max: usize) -> Vec<String> {
+        self.candidates_pref(reading, max, false)
+    }
+
+    /// 漢字を含む言い換えの変換結果。長い1語(おはようございます)を短い語に分け、3文字以上の語を、漢字を含む別表記に置き換える。
+    /// 返す順: 最後の語だけ置き換えたもの(おはよう御座います)→ すべて置き換えたもの(お早う御座います)→ 1語ずつ置き換えたもの。標準の最有力と同じものは除く。
+    pub fn kanji_variants(&self, reading: &str) -> Vec<String> {
+        let Some(best) = self.best_path(reading) else { return vec![] };
+        let standard: String = best.iter().map(|x| x.1.as_str()).collect();
+        // 長い語は短い語に分ける
+        let mut fine: Vec<(String, String)> = vec![];
+        for (r, s) in best {
+            let n = r.chars().count();
+            if n >= 5 {
+                if let Some(sub) = self.best_path_limited(&r, n - 1) {
+                    fine.extend(sub);
+                    continue;
+                }
+            }
+            fine.push((r, s));
+        }
+        let has_kanji = |t: &str| t.chars().any(|c| ('一'..='龥').contains(&c));
+        // 各語の、漢字を含む別表記(3文字以上の読みの語だけ)
+        let alt: Vec<Option<String>> = fine
+            .iter()
+            .map(|(r, s)| {
+                if r.chars().count() >= 3 && !has_kanji(s) {
+                    self.exact(r, 8).into_iter().find(|a| has_kanji(a) && a != r)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let build = |pick: &dyn Fn(usize) -> bool| -> String {
+            fine.iter().enumerate().map(|(i, (_, s))| if pick(i) { alt[i].clone().unwrap_or_else(|| s.clone()) } else { s.clone() }).collect()
+        };
         let mut out: Vec<String> = vec![];
+        let mut push = |t: String, out: &mut Vec<String>| {
+            if t != standard && !out.contains(&t) {
+                out.push(t);
+            }
+        };
+        // 分け直しただけで(置き換え無しで)標準と変わるもの。例: よろしくおねがいします → よろしく + お願い + します
+        push(build(&|_| false), &mut out);
+        if let Some(last) = alt.iter().rposition(|a| a.is_some()) {
+            push(build(&|i| i == last), &mut out);
+        }
+        if alt.iter().filter(|a| a.is_some()).count() > 1 {
+            push(build(&|_| true), &mut out);
+        }
+        for i in (0..alt.len()).rev().filter(|i| alt[*i].is_some()) {
+            push(build(&|k| k == i), &mut out);
+        }
+        out
+    }
+
+    /// `prefer_kanji` が真なら、漢字を含む言い換え(おはよう御座います)を先頭にし、標準の最有力はその次に出す。
+    pub fn candidates_pref(&self, reading: &str, max: usize, prefer_kanji: bool) -> Vec<String> {
+        let mut out: Vec<String> = vec![];
+        let variants = self.kanji_variants(reading);
+        if prefer_kanji {
+            if let Some(v) = variants.first() {
+                out.push(v.clone());
+            }
+        }
         if let Some(p) = self.best_path(reading) {
-            out.push(p.iter().map(|x| x.1.as_str()).collect());
+            let t: String = p.iter().map(|x| x.1.as_str()).collect();
+            if !out.contains(&t) {
+                out.push(t);
+            }
+        }
+        for v in &variants {
+            if !out.contains(v) {
+                out.push(v.clone());
+            }
         }
         for s in self.exact(reading, max) {
             if !out.contains(&s) {
@@ -398,6 +475,27 @@ mod tests {
     }
 
     #[test]
+    fn real_dictionary_kanji_variants_for_formal_endings() {
+        let Some(d) = dict() else { return };
+        let v = d.kanji_variants("おはようございます");
+        assert!(v.contains(&"おはよう御座います".to_string()), "{v:?}");
+        assert_eq!(v[0], "おはよう御座います", "最後の語だけ漢字にしたものが先頭");
+        let c = d.candidates_pref("おはようございます", 30, true);
+        assert_eq!(c[0], "おはよう御座います");
+        assert_eq!(c[1], "おはようございます", "標準の変換は次に残る");
+        let v2 = d.kanji_variants("よろしくおねがいします");
+        assert_eq!(v2[0], "よろしくお願いします", "{v2:?}");
+        assert!(v2.contains(&"宜しくお願いします".to_string()));
+        let c = d.candidates_pref("ありがとうございました", 30, true);
+        assert_eq!(c[0], "ありがとう御座いました");
+        // 最初から漢字になる文は、そのまま
+        let c = d.candidates_pref("きょうはいいてんきです", 30, true);
+        assert_eq!(c[0], "今日はいい天気です");
+        // 優先しないとき(従来)は、標準の最有力が先頭
+        assert_eq!(d.candidates_pref("おはようございます", 30, false)[0], "おはようございます");
+    }
+
+    #[test]
     fn real_dictionary_prediction() {
         let Some(d) = dict() else { return };
         let p = d.predict("ありがとう", 8);
@@ -419,3 +517,4 @@ mod tests {
         }
     }
 }
+

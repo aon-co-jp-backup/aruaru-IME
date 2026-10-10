@@ -32,6 +32,8 @@ pub struct Context {
     pub screen_text: String,
     /// 入力欄の種類(password / url / email / number / search / text …)。
     pub field_kind: Option<String>,
+    /// 漢字を優先する(ございます→御座います のように、語尾などを漢字にした候補を先頭にする)。設定 `prefer_kanji`。
+    pub prefer_kanji: bool,
 }
 
 #[derive(Debug, Default, Clone, Copy)]

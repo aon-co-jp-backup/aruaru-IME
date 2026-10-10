@@ -3,7 +3,8 @@
 //! 常駐エンジンに繋がらないときは、DLL 内の簡易版(辞書なし)に切り替わり、入力は止まらない。
 
 use crate::daemon;
-use aruaru_ime_core::session::{would_eat_with, Key, LocalConverter, Session, Step};
+use aruaru_ime_core::session::{would_eat_lang, Key, LocalConverter, Session, Step};
+use aruaru_ime_core::translit::Lang;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -17,6 +18,7 @@ pub struct Engine {
     on: bool,
     composing: bool,
     last_ja: bool,
+    lang: Lang,
     /// 組み立て開始時に読んだ、カーソル直前の文章(次のキー送信に載せる)。
     pending_before: Option<String>,
     pending_raw: bool,
@@ -35,6 +37,7 @@ impl Engine {
             on: true,
             composing: false,
             last_ja: false,
+            lang: Lang::Ja,
             pending_before: None,
             pending_raw: false,
             down_since: None,
@@ -50,6 +53,9 @@ impl Engine {
         self.on = st.on;
         self.composing = st.composing;
         self.last_ja = st.last_ja;
+        if let Some(l) = Lang::from_code(&st.lang) {
+            self.lang = l;
+        }
         self.last_preedit = st.preedit.clone();
     }
 
@@ -63,12 +69,29 @@ impl Engine {
 
     /// このキーを IME が処理するか(通信なし)。
     pub fn would_eat(&self, key: &Key) -> bool {
-        would_eat_with(key, self.on, self.composing, self.last_ja)
+        would_eat_lang(key, self.on, self.composing, self.last_ja, self.lang)
     }
 
     pub fn set_before(&mut self, text: &str) {
         self.pending_before = Some(text.to_string());
         self.local.set_before(text);
+    }
+
+    /// 入力する言語を切り替える(Windows の言語切替で、言語ごとの入力方式が選ばれたとき)。
+    pub fn set_lang(&mut self, lang: Lang) {
+        if self.lang == lang {
+            return;
+        }
+        self.lang = lang;
+        self.composing = false;
+        self.last_preedit.clear();
+        self.local.set_lang(lang);
+        let body = serde_json::json!({"sid": self.sid, "op": "lang", "lang": lang.code()}).to_string();
+        let _ = daemon::post("/session", &body, 400);
+    }
+
+    pub fn lang(&self) -> Lang {
+        self.lang
     }
 
     pub fn begin_raw(&mut self) {

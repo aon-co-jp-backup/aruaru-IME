@@ -88,10 +88,10 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     let mut dict_cands: Vec<String> = vec![];
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
         if let Some(d) = dict {
-            dict_cands = d.candidates(&hira, 30);
+            dict_cands = d.candidates_pref(&hira, 30, ctx.prefer_kanji);
             // 読みをそのままカタカナにしただけの候補(タンゴ)が先頭で、上位に漢字の候補(単語)があるときは、漢字を先頭にする。
             // 日本語入力では、漢字に変換することが前提のため。漢字の対応が無いカタカナ語(コンピュータ)は、そのまま先頭。
-            if dict_cands.first().is_some_and(|f| *f == kata) {
+            if !ctx.prefer_kanji && dict_cands.first().is_some_and(|f| *f == kata) {
                 let kanji_at = dict_cands.iter().take(6).position(|c| c.chars().any(|ch| ('一'..='龥').contains(&ch)));
                 if let Some(i) = kanji_at {
                     let k = dict_cands.remove(i);

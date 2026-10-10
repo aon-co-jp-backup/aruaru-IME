@@ -104,7 +104,12 @@ fn register() -> Result<()> {
         let mgr: ITfInputProcessorProfileMgr = CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)?;
         let desc: Vec<u16> = DESCRIPTION.encode_utf16().collect();
         let icon: Vec<u16> = dll_path().display().to_string().encode_utf16().collect();
-        mgr.RegisterProfile(&CLSID_ARUARU_IME, LANGID_JA, &GUID_PROFILE, &desc, &icon, 0, HKL::default(), 0, true, 0)?;
+        // 日本語(従来のプロファイル)に加えて、対応する言語ごとにプロファイルを登録する。Windows の言語切替(Win+Space)で、言語ごとの入力方式として選べる。
+        let _ = &desc;
+        for l in aruaru_ime_core::translit::ALL.iter().filter(|l| l.supported()) {
+            let d: Vec<u16> = format!("{DESCRIPTION} - {}", l.native_name()).encode_utf16().collect();
+            mgr.RegisterProfile(&CLSID_ARUARU_IME, l.langid(), &GUID::from_u128(l.profile_guid()), &d, &icon, 0, HKL::default(), 0, true, 0)?;
+        }
 
         let cat: ITfCategoryMgr = CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)?;
         for g in [
@@ -124,6 +129,9 @@ fn unregister() -> Result<()> {
     unsafe {
         let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
         if let Ok(mgr) = CoCreateInstance::<_, ITfInputProcessorProfileMgr>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER) {
+            for l in aruaru_ime_core::translit::ALL.iter() {
+                let _ = mgr.UnregisterProfile(&CLSID_ARUARU_IME, l.langid(), &GUID::from_u128(l.profile_guid()), 0);
+            }
             let _ = mgr.UnregisterProfile(&CLSID_ARUARU_IME, LANGID_JA, &GUID_PROFILE, 0);
         }
         if let Ok(cat) = CoCreateInstance::<_, ITfCategoryMgr>(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER) {

@@ -96,6 +96,11 @@ impl Lang {
         }
     }
 
+    /// この IME が入力に対応している言語か(中国語は、ピンインの辞書を導入するまで未対応)。
+    pub fn supported(self) -> bool {
+        !matches!(self, Lang::ZhHans | Lang::ZhHant)
+    }
+
     /// 右から左へ書く言語か。
     pub fn rtl(self) -> bool {
         matches!(self, Lang::Ar | Lang::Fa | Lang::He)

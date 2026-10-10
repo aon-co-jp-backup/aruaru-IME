@@ -55,6 +55,7 @@ enum Action {
     ToggleLang(translit::Lang),
     ToggleOldForms,
     ToggleLive,
+    TogglePreferKanji,
     ToggleAutocorrect,
     ToggleTheme,
     ToggleAutoUpdate,
@@ -152,6 +153,8 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add(root, check(s.old_forms), id, "旧字体で表示 / Old character forms (國・學・體)");
     let id = m.push(Action::ToggleLive);
     add(root, check(s.live_conversion), id, "ライブ変換 / Live conversion (kanji as you type)");
+    let id = m.push(Action::TogglePreferKanji);
+    add(root, check(s.prefer_kanji), id, "漢字を優先 / Prefer kanji (御座います・お願いします)");
     let id = m.push(Action::ToggleAutocorrect);
     add(root, check(s.autocorrect), id, "プログラミング用語の自動訂正 / Auto-correct code words");
     let id = m.push(Action::ToggleTheme);
@@ -457,6 +460,7 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
         }
         Action::ToggleOldForms => with_settings(|s| s.old_forms = !s.old_forms),
         Action::ToggleLive => with_settings(|s| s.live_conversion = !s.live_conversion),
+        Action::TogglePreferKanji => with_settings(|s| s.prefer_kanji = !s.prefer_kanji),
         Action::ToggleAutocorrect => with_settings(|s| s.autocorrect = !s.autocorrect),
         Action::ToggleAutoUpdate => with_settings(|s| s.auto_update = !s.auto_update),
         Action::ToggleTheme => with_settings(|s| {
