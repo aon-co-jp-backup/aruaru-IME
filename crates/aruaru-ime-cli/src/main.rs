@@ -81,6 +81,27 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("knowledge") {
+        // aruaru-ime knowledge add <本文> [タグ…] | search <キーワード> | import <knowledge.json>
+        use aruaru_ime_core::knowledge as kb;
+        let p = kb::path(&aruaru_ime_core::components::data_dir());
+        match args.get(1).map(String::as_str) {
+            Some("add") if args.len() > 2 => {
+                let tags: Vec<String> = args[3..].to_vec();
+                println!("{}", if kb::add(&p, &args[2], &tags, "user").unwrap_or(false) { "追加しました" } else { "追加しませんでした(空・重複)" });
+            }
+            Some("search") if args.len() > 2 => {
+                for i in kb::search(&kb::load(&p), &args[2..].join(" "), 10) {
+                    println!("#{} {} [{}]", i.id, i.text, i.tags.join(","));
+                }
+            }
+            Some("import") if args.len() > 2 => {
+                println!("{} 件を取り込みました", kb::import(&p, std::path::Path::new(&args[2])).unwrap_or(0));
+            }
+            _ => eprintln!("使い方: aruaru-ime knowledge add <本文> [タグ…] | search <キーワード> | import <knowledge.json>"),
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("backup") {
         // aruaru-ime backup [--dir <フォルダ>] | list | restore <ファイル> [--replace]
         use aruaru_ime_core::backup;

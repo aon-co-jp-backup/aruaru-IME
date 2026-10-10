@@ -87,3 +87,8 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - `core/src/seasonal.rs`: 季節用語(季語・二十四節気・行事・花)と言い回し(花が咲く/雪が降る/季節+には…)を組み込み、Viterbiに1語として注入(`kanji.rs build_extra`)。「春には菜の花が咲き」「秋には紅葉が色づき」を正しく変換。
 - `core/src/ghbackup.rs`: GitHub(Contents API)へバックアップ/復元。トークンは利用者が `%LOCALAPPDATA%\aruaru\github-token.txt` に置く(設定・ログに出さない)。公開リポジトリは履歴(learned.json)と設定を自動で除外。トレイ「バックアップと復元」から設定/実行。
 - Seasonal terms and phrases are injected into the Viterbi lattice; GitHub backup via Contents API with a user-supplied token file, auto-excluding history/settings for public repos.
+
+## パスワード欄検知と知識ベース / Password-field detection & knowledge base (2026-10-11)
+- TSF DLL: フォーカス中のEdit欄が `ES_PASSWORD` なら `password:true` をデーモンへ通知(取り込み・学習を止める)。Win32 Edit のみ。ブラウザ等の独自描画欄は未対応。
+- `core/src/knowledge.rs`: open-english と同形式の `knowledge.json`。`aruaru-ime knowledge add|search|import`。候補ウィンドウへの補足表示、aruaru-llm連携、自動学習は未実装。
+- 残り(未実装): 準備中言語エンジン/全言語選択UI、タスクバー右クリック、32bit DLL、macOS/Linux/Android、インストーラー実機試験(UAC要)。

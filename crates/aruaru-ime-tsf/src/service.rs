@@ -85,7 +85,8 @@ impl TextService {
     }
 
     fn post_focus(&self, editable: bool) {
-        let body = format!("{{\"editable\":{editable},\"password\":false}}");
+        let password = focused_is_password();
+        let body = format!("{{\"editable\":{editable},\"password\":{password}}}");
         std::thread::spawn(move || {
             let _ = daemon::post("/focus", &body, 300);
         });
@@ -439,5 +440,18 @@ impl ITfCompositionSink_Impl for TextService_Impl {
         g.session.cancel();
         candwin::hide();
         Ok(())
+    }
+}
+
+/// フォーカス中のウィンドウが、パスワード欄(Win32 の Edit で ES_PASSWORD)か。画面取り込みと学習を止めるために使う。
+fn focused_is_password() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{GetGUIThreadInfo, GetWindowLongPtrW, GUITHREADINFO, GWL_STYLE};
+    const ES_PASSWORD: isize = 0x20;
+    unsafe {
+        let mut gi = GUITHREADINFO { cbSize: std::mem::size_of::<GUITHREADINFO>() as u32, ..Default::default() };
+        if GetGUIThreadInfo(0, &mut gi).is_err() || gi.hwndFocus.0.is_null() {
+            return false;
+        }
+        GetWindowLongPtrW(gi.hwndFocus, GWL_STYLE) & ES_PASSWORD != 0
     }
 }

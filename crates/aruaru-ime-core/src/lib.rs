@@ -19,6 +19,7 @@ pub mod update;
 pub mod uservocab;
 pub mod userdict;
 pub mod ghbackup;
+pub mod knowledge;
 pub mod languages;
 pub mod seasonal;
 pub mod wish;
