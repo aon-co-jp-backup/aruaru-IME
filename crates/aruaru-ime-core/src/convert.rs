@@ -134,7 +134,10 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             for w in prefix_words(buffer) {
                 push(&mut c, w.to_string(), "english");
             }
-            push(&mut c, hira, "hiragana");
+            // 英語を打っているときは、「をrd」のような、かなとローマ字が混ざった候補は出さない
+            if !hira.chars().any(|ch| ch.is_ascii_alphabetic()) {
+                push(&mut c, hira, "hiragana");
+            }
         }
         Mode::Katakana => {
             // カタカナ入力でも、辞書の最有力候補(漢字かな交じり・カタカナ語)を先頭にする。純粋なカタカナは次に出す

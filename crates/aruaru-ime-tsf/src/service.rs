@@ -168,7 +168,7 @@ impl TextService {
                         let mut rc = RECT::default();
                         let mut clipped = BOOL(0);
                         if view.GetTextExt(ec, &range, &mut rc, &mut clipped).is_ok() {
-                            candwin::show(&step.cands, step.sel, &step.mode, rc.left, rc.bottom);
+                            candwin::show(&step.cands, step.sel, &step.cands_en, step.col, step.sel_en, &step.mode, rc.left, rc.bottom);
                         }
                     }
                 } else {
@@ -232,6 +232,8 @@ fn map_key(vk: u32) -> Option<Key> {
         0x75..=0x79 => return Some(Key::Fn((vk - 0x75 + 6) as u8)),
         0x16 | 0xF2 => return Some(Key::On),  // IME オン / かなキー(押すたびに必ずオン)
         0x1A | 0xF0 => return Some(Key::Off), // IME オフ / 英数キー(押すたびに必ずオフ)
+        0x25 => return Some(Key::Left),       // ←: 候補窓の日本語の列へ
+        0x27 => return Some(Key::Right),      // →: 候補窓の英語の列へ
         0x1C => return Some(Key::Convert),    // 変換キー
         0x1D => return Some(Key::NonConvert), // 無変換キー
         0x19 | 0xF3 | 0xF4 => return Some(Key::Toggle), // 半角/全角

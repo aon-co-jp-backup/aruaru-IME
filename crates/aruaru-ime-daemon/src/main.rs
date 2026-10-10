@@ -46,6 +46,7 @@ struct EngineConv {
     dict: Arc<Option<Dict>>,
     client: Client,
     state: Arc<Mutex<State>>,
+    gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>>,
 }
 
 impl EngineConv {
@@ -67,6 +68,14 @@ impl Converter for EngineConv {
             auto_learn(&self.client, &ctx);
         }
         convert(buffer, &ctx, if password { None } else { Some(&self.client) }, self.dict.as_ref().as_ref())
+    }
+
+    fn to_english(&self, surface: &str, reading: &str) -> Vec<String> {
+        self.gloss.read().ok().and_then(|g| g.as_ref().map(|g| g.lookup(surface, reading))).unwrap_or_default()
+    }
+
+    fn to_japanese(&self, word: &str) -> Vec<String> {
+        self.gloss.read().ok().and_then(|g| g.as_ref().map(|g| g.to_japanese(word))).unwrap_or_default()
     }
 
     /// 変換を求められたときだけ、Web のサジェストから固有名詞・作品名の候補を取る(パスワード欄では何もしない)。
@@ -263,6 +272,23 @@ fn bind_with_retry() -> tiny_http::Server {
     }
 }
 
+/// 英語訳の辞書(JMdict)を読み込む。無ければ、起動時に自動で取得して辞書化する(取得できなくても IME は訳語なしで動く)。
+fn spawn_glossary(slot: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>>) {
+    std::thread::spawn(move || {
+        let root = aruaru_ime_core::components::data_dir();
+        let path = aruaru_ime_core::gloss::glossary_path(&root);
+        if !path.is_file() {
+            eprintln!("glossary: {:?}", aruaru_ime_core::gloss::ensure(&root, true));
+        }
+        if let Some(g) = aruaru_ime_core::gloss::Glossary::load(&path) {
+            eprintln!("glossary loaded: {} entries", g.len());
+            if let Ok(mut w) = slot.write() {
+                *w = Some(g);
+            }
+        }
+    });
+}
+
 /// 自動アップデート: **起動時の1回だけ**最新版を確認し、新しければ入れ替える(設定 auto_update)。定期的な確認はしない。
 fn spawn_updater() {
     std::thread::spawn(|| {
@@ -342,12 +368,14 @@ fn main() {
     }
 
     // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
-    let (c2, d2, s2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state));
+    let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
+    spawn_glossary(Arc::clone(&gloss));
+    let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));
     #[cfg(windows)]
     {
         std::thread::spawn(move || {
             // HTTP が何らかの理由で止まったら、プロセスごと終了して IME 側に起動し直してもらう
-            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| serve(c2, d2, s2)));
+            let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| serve(c2, d2, s2, g2)));
             eprintln!("http server stopped: {r:?}");
             std::process::exit(1);
         });
@@ -356,11 +384,11 @@ fn main() {
     #[cfg(not(windows))]
     {
         let _ = &client;
-        serve(c2, d2, s2);
+        serve(c2, d2, s2, g2);
     }
 }
 
-fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>) {
+fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>>) {
     let server = bind_with_retry();
     spawn_updater();
     println!("aruaru-ime-daemon listening on 127.0.0.1:{PORT} (dict: {} entries)", dict.as_ref().as_ref().map_or(0, |d| d.len()));
@@ -376,7 +404,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>) {
             }
             ("POST", "/key") => match serde_json::from_str::<KeyReq>(&body) {
                 Ok(r) => {
-                    let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state) };
+                    let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state), gloss: Arc::clone(&gloss) };
                     let step = with_session(&r.sid, mk, |s| {
                         if let Some(b) = &r.before {
                             s.set_before(b);
@@ -392,7 +420,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>) {
             },
             ("POST", "/session") => match serde_json::from_str::<SessReq>(&body) {
                 Ok(r) => {
-                    let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state) };
+                    let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state), gloss: Arc::clone(&gloss) };
                     if r.op == "drop" {
                         sessions().lock().unwrap_or_else(|e| e.into_inner()).remove(&r.sid);
                         (200, "{}".to_string())

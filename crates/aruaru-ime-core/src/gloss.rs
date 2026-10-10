@@ -113,21 +113,47 @@ pub fn build_from_zip(zip_bytes: &[u8]) -> Result<String, String> {
 pub struct Glossary {
     /// 表記 → [(読み, 訳語…)](よく使われる順)。
     map: HashMap<String, Vec<(String, Vec<String>)>>,
+    /// 英語の訳語(小文字) → 日本語の表記(よく使われる順)。英語から日本語への翻訳に使う。
+    rev: HashMap<String, Vec<String>>,
+}
+
+/// 英語の訳語を引くときの正規化: 小文字、先頭の `to `(動詞)・`a `/`an `/`the ` を除く。
+fn norm_en(s: &str) -> String {
+    let t = s.trim().to_lowercase();
+    for p in ["to ", "a ", "an ", "the "] {
+        if let Some(r) = t.strip_prefix(p) {
+            return r.trim().to_string();
+        }
+    }
+    t
 }
 
 impl Glossary {
     pub fn parse(tsv: &str) -> Self {
         let mut map: HashMap<String, Vec<(String, Vec<String>)>> = HashMap::with_capacity(tsv.len() / 60);
+        let mut rev: HashMap<String, Vec<String>> = HashMap::with_capacity(tsv.len() / 80);
         for l in tsv.lines() {
             let mut it = l.splitn(3, '\t');
             if let (Some(s), Some(r), Some(g)) = (it.next(), it.next(), it.next()) {
+                let glosses: Vec<String> = g.split('|').map(str::to_string).collect();
+                // 逆引き: 各訳語の最初の3つ。かな書きだけの表記(読みと同じ)は、漢字などの表記があるときは入れない
+                for gl in glosses.iter().take(3) {
+                    let k = norm_en(gl);
+                    if k.is_empty() || k.chars().count() > 28 || k.split(' ').count() > 3 {
+                        continue;
+                    }
+                    let v = rev.entry(k).or_default();
+                    if v.len() < 8 && !v.iter().any(|x| x == s) {
+                        v.push(s.to_string());
+                    }
+                }
                 let v = map.entry(s.to_string()).or_default();
                 if v.len() < 6 {
-                    v.push((r.to_string(), g.split('|').map(str::to_string).collect()));
+                    v.push((r.to_string(), glosses));
                 }
             }
         }
-        Self { map }
+        Self { map, rev }
     }
 
     pub fn load(path: &Path) -> Option<Self> {
@@ -140,6 +166,11 @@ impl Glossary {
 
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
+    }
+
+    /// 英語の単語から日本語の表記を引く(よく使われる順)。例: word → 単語。
+    pub fn to_japanese(&self, word: &str) -> Vec<String> {
+        self.rev.get(&norm_en(word)).cloned().unwrap_or_default()
     }
 
     /// 表記(と読み)から英語の訳語を引く。読みが一致するものを優先し、無ければ最もよく使われる語の訳語。
@@ -242,6 +273,11 @@ mod tests {
         assert_eq!(g.lookup("タンゴ", "たんご"), vec!["tango (dance)"], "カタカナ語もそのまま引ける");
         assert_eq!(g.lookup("たんご", "たんご"), vec!["word", "vocabulary", "term"], "よく使われる語のかな書きでも引ける");
         assert!(g.lookup("存在しない", "x").is_empty());
+        // 英語 → 日本語
+        assert_eq!(g.to_japanese("word").first().map(String::as_str), Some("単語"));
+        assert!(g.to_japanese("Vocabulary").contains(&"単語".to_string()), "大文字小文字を区別しない");
+        assert!(g.to_japanese("tango (dance)").contains(&"タンゴ".to_string()));
+        assert!(g.to_japanese("zzzz").is_empty());
         // よく使われる語が先に並ぶ(同じ表記が複数あるときの既定)
         assert!(tsv.lines().next().unwrap().starts_with("単語"));
     }

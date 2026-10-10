@@ -15,6 +15,16 @@ pub trait Converter: Send {
     fn extra(&self, _buffer: &str, _before: &str) -> Vec<String> {
         vec![]
     }
+
+    /// 日本語の表記(と読み)の英語訳。変換候補の「英語の列」に使う。既定は無し。
+    fn to_english(&self, _surface: &str, _reading: &str) -> Vec<String> {
+        vec![]
+    }
+
+    /// 英単語の日本語訳。英語を打ったときの対訳に使う。既定は無し。
+    fn to_japanese(&self, _word: &str) -> Vec<String> {
+        vec![]
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -34,6 +44,9 @@ pub enum Key {
     /// IME を必ずオン / オフにする(英数キー・かなキー。トグルと違い状態を取り違えない)。
     On,
     Off,
+    /// 左右キー: 変換候補の「日本語の列」と「英語の列」を切り替える。
+    Left,
+    Right,
     /// 変換キー: 入力中は次の候補、入力していないときは IME オン。
     Convert,
     /// 無変換キー: 入力中は ひらがな→カタカナ→全角英数→半角英数 と切り替え、入力していないときは IME オフ。
@@ -57,6 +70,13 @@ pub struct Step {
     /// この結果の後の状態。DLL 側が「このキーを食うか」を通信なしで判定するために持ち帰る(`would_eat_with`)。
     #[serde(default)]
     pub on: bool,
+    /// 変換候補の「英語の列」(日本語の候補の英語訳)と、いま選んでいる列(0=日本語, 1=英語)・英語の列での選択位置。
+    #[serde(default)]
+    pub cands_en: Vec<String>,
+    #[serde(default)]
+    pub col: u8,
+    #[serde(default)]
+    pub sel_en: Option<usize>,
     #[serde(default)]
     pub composing: bool,
     /// カーソル直前が日本語の文字か(「,」「.」を「、」「。」にするかの判定に使う)。
@@ -77,7 +97,7 @@ pub fn would_eat_with(key: &Key, on: bool, composing: bool, last_ja: bool) -> bo
     }
     match key {
         Key::Char(c) => c.is_ascii_alphabetic() || composing || (matches!(c, ',' | '.') && last_ja),
-        Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) => composing,
+        Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
 }
@@ -243,6 +263,9 @@ pub struct Session {
     form_cycle: u8,
     mode_label: String,
     extras_done: bool,
+    en_cands: Vec<String>,
+    col: u8,
+    en_sel: Option<usize>,
     /// 直近の変換で、辞書に読み全体が1語として載っていたか(日本語として確かな入力か)。強制表記を学習するかの判定に使う。
     jp_known: bool,
     /// 無変換キーの巡回による表記の切り替えは、学習しない。
@@ -264,7 +287,7 @@ fn is_ja(c: char) -> bool {
 
 impl Session {
     pub fn new(conv: Box<dyn Converter>) -> Self {
-        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
+        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, en_cands: vec![], col: 0, en_sel: None, jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
     }
 
     /// 設定ファイルの内容(ライブ変換・自動訂正・旧字体)を反映する。フォーカス移動のたびに呼ぶと、右クリックメニューでの変更がすぐ効く。
@@ -319,15 +342,21 @@ impl Session {
     }
 
     fn state(&self, eaten: bool, commit: Option<String>) -> Step {
-        let preedit = match self.sel {
-            Some(i) => self.cands.get(i).cloned().unwrap_or_default(),
-            None => self.unconverted.clone(),
+        let preedit = match (self.col, self.en_sel) {
+            (1, Some(i)) => self.en_cands.get(i).cloned().unwrap_or_default(),
+            _ => match self.sel {
+                Some(i) => self.cands.get(i).cloned().unwrap_or_default(),
+                None => self.unconverted.clone(),
+            },
         };
         Step {
             eaten,
             preedit,
             commit,
             cands: if self.composing() { self.cands.clone() } else { vec![] },
+            cands_en: if self.composing() { self.en_cands.clone() } else { vec![] },
+            col: self.col,
+            sel_en: self.en_sel,
             sel: self.sel,
             mode: if self.composing() { self.mode_label.clone() } else { String::new() },
             on: self.on,
@@ -346,6 +375,9 @@ impl Session {
         self.mode_label.clear();
         self.auto = false;
         self.extras_done = false;
+        self.en_cands.clear();
+        self.col = 0;
+        self.en_sel = None;
     }
 
     fn render_form(&self, f: Form) -> String {
@@ -473,6 +505,34 @@ impl Session {
         self.sel = None;
         self.auto = false;
         self.extras_done = false;
+        self.col = 0;
+        self.en_sel = None;
+        // 英語の列: 日本語の候補の英語訳(かな書き・英数字だけの候補は訳さない)。英語を打ったときは、日本語の対訳を候補の末尾に足す。
+        self.en_cands.clear();
+        if is_kana_mode {
+            let mut en: Vec<String> = vec![];
+            for cand in self.cands.iter().take(8) {
+                let kana_only = cand.chars().all(|ch| matches!(ch, 'ぁ'..='ゖ' | 'ー'));
+                let ascii_only = cand.is_ascii();
+                if kana_only || ascii_only {
+                    continue;
+                }
+                for g in self.conv.to_english(cand, &reading).into_iter().take(2) {
+                    if !en.contains(&g) {
+                        en.push(g);
+                    }
+                }
+            }
+            en.truncate(10);
+            self.en_cands = en;
+        } else if mode == Mode::Alpha && self.form.is_none() && self.buf.chars().count() >= 2 {
+            let ja = self.conv.to_japanese(&self.buf.to_lowercase());
+            for j in ja.into_iter().take(6) {
+                if !self.cands.contains(&j) {
+                    self.cands.push(j);
+                }
+            }
+        }
         // プログラミング用語の自動訂正: 確信が高い綴りミス(autofix)は、訂正後の語を最初から選んでおく。
         // 元の綴りは Up キーで戻せる。強制表記(F6〜F10・Shift始まり)のときは何もしない。
         if self.autocorrect && self.form.is_none() && mode == Mode::Alpha {
@@ -523,6 +583,9 @@ impl Session {
 
     /// 現在の確定文字列(変換中なら選択中の候補、そうでなければ未確定表示)。
     fn current(&self) -> String {
+        if let (1, Some(i)) = (self.col, self.en_sel) {
+            return self.en_cands.get(i).cloned().unwrap_or_default();
+        }
         match self.sel {
             Some(i) => self.cands.get(i).cloned().unwrap_or_default(),
             None => self.unconverted.clone(),
@@ -531,7 +594,7 @@ impl Session {
 
     fn commit_current(&mut self) -> String {
         let s = self.current();
-        if self.sel.is_some() && !self.auto {
+        if self.sel.is_some() && !self.auto && self.col == 0 {
             let reading = romaji::to_hiragana(&self.buf);
             if reading != s && !self.buf.chars().any(|c| c.is_ascii_digit()) {
                 self.learned.record(&reading, &s);
@@ -583,6 +646,16 @@ impl Session {
             return Step::default();
         }
         match key {
+            Key::Char(c) if self.composing() && self.col == 1 && c.is_ascii_digit() => {
+                let page = self.en_sel.map_or(0, |i| i / PAGE) * PAGE;
+                let idx = page + if c == '0' { 9 } else { c as usize - '1' as usize };
+                if idx < self.en_cands.len() {
+                    self.en_sel = Some(idx);
+                    let s = self.commit_current();
+                    return self.state(true, Some(s));
+                }
+                self.state(true, None)
+            }
             Key::Char(c) if self.composing() && self.sel.is_some() && !self.auto && c.is_ascii_digit() => {
                 // 候補を選んでいる最中は、数字キー(1〜9、0は10番目)で、いま表示している10件のページの候補を直接選んで確定する
                 let page = self.sel.map_or(0, |i| i / PAGE) * PAGE;
@@ -642,6 +715,34 @@ impl Session {
                 self.state(true, None)
             }
             Key::Fn(_) if self.composing() => self.state(true, None),
+            Key::Right if self.composing() => {
+                // 英語の列へ。英語の候補が無ければ何もしない
+                if !self.en_cands.is_empty() {
+                    self.col = 1;
+                    self.auto = false;
+                    self.en_sel = Some(self.en_sel.unwrap_or(0));
+                }
+                self.state(true, None)
+            }
+            Key::Left if self.composing() => {
+                self.col = 0;
+                self.en_sel = None;
+                self.state(true, None)
+            }
+            Key::Space | Key::Down | Key::Tab if self.composing() && self.col == 1 => {
+                let n = self.en_cands.len();
+                if n > 0 {
+                    self.en_sel = Some((self.en_sel.unwrap_or(0) + 1) % n);
+                }
+                self.state(true, None)
+            }
+            Key::Up if self.composing() && self.col == 1 => {
+                let n = self.en_cands.len();
+                if n > 0 {
+                    self.en_sel = Some(match self.en_sel { None | Some(0) => n - 1, Some(i) => i - 1 });
+                }
+                self.state(true, None)
+            }
             Key::Space | Key::Down | Key::Tab if self.composing() => {
                 self.fetch_extras();
                 let n = self.cands.len();
@@ -662,6 +763,11 @@ impl Session {
             Key::Enter if self.composing() => {
                 let s = self.commit_current();
                 self.state(true, Some(s))
+            }
+            Key::Esc if self.composing() && self.col == 1 => {
+                self.col = 0;
+                self.en_sel = None;
+                self.state(true, None)
             }
             Key::Esc if self.composing() => {
                 if self.sel.is_some() && !self.auto {
@@ -1215,6 +1321,75 @@ mod tests {
         assert!(l2.exact("に").is_empty() && l2.exact("3x3") == vec!["3X3 EYES"]);
         assert!(plausible_pair("こんぴゅーた", "コンピュータ") && plausible_pair("たんご", "単語") && plausible_pair("にほん", "日本"));
         let _ = std::fs::remove_file(&p);
+    }
+
+    struct Gl;
+    impl Converter for Gl {
+        fn convert(&self, buffer: &str, _b: &str, _f: Option<&str>) -> Conversion {
+            use crate::convert::Candidate;
+            let hira = romaji::to_hiragana(buffer);
+            let c = if hira == "たんご" {
+                vec![Candidate { text: "単語".into(), kind: "dict" }, Candidate { text: "丹後".into(), kind: "dict" }, Candidate { text: hira.clone(), kind: "hiragana" }]
+            } else {
+                vec![Candidate { text: buffer.to_string(), kind: "alpha" }]
+            };
+            let mode = if hira == "たんご" { Mode::Hiragana } else { Mode::Alpha };
+            Conversion { prediction: crate::mode::Prediction { mode, confidence: 0.99, english_word: false, reason: String::new() }, candidates: c, suggestions: vec![], exact_dict: true }
+        }
+        fn to_english(&self, surface: &str, _r: &str) -> Vec<String> {
+            match surface {
+                "単語" => vec!["word".into(), "vocabulary".into()],
+                "丹後" => vec!["Tango (former province)".into()],
+                _ => vec![],
+            }
+        }
+        fn to_japanese(&self, word: &str) -> Vec<String> {
+            if word == "word" { vec!["単語".into(), "語".into()] } else { vec![] }
+        }
+    }
+
+    #[test]
+    fn japanese_and_english_columns_with_left_right_and_up_down() {
+        let mut s = Session::new(Box::new(Gl));
+        s.set_before("");
+        let st = type_str(&mut s, "tango");
+        assert_eq!(st.preedit, "単語");
+        assert_eq!(st.cands_en, vec!["word", "vocabulary", "Tango (former province)"], "日本語の候補の英訳が、英語の列に並ぶ");
+        assert_eq!(st.col, 0);
+        // → で英語の列へ。上下で英語の中から選ぶ
+        let st = s.key(Key::Right);
+        assert_eq!((st.col, st.sel_en, st.preedit.as_str()), (1, Some(0), "word"));
+        assert_eq!(s.key(Key::Down).preedit, "vocabulary");
+        assert_eq!(s.key(Key::Up).preedit, "word");
+        // ← で日本語の列に戻る
+        let st = s.key(Key::Left);
+        assert_eq!((st.col, st.preedit.as_str()), (0, "単語"));
+        // 英語の列で Enter すると、英語を確定する
+        s.key(Key::Right);
+        s.key(Key::Down);
+        assert_eq!(s.key(Key::Enter).commit.as_deref(), Some("vocabulary"));
+        // 数字キーでも選べる
+        type_str(&mut s, "tango");
+        s.key(Key::Right);
+        assert_eq!(s.key(Key::Char('3')).commit.as_deref(), Some("Tango (former province)"));
+        // 英語の列が空なら、→ は何もしない
+        let mut s2 = Session::new(Box::new(LocalConverter { dict: None }));
+        s2.set_before("");
+        type_str(&mut s2, "sakura");
+        assert_eq!(s2.key(Key::Right).col, 0);
+    }
+
+    #[test]
+    fn english_word_gets_japanese_equivalents() {
+        let mut s = Session::new(Box::new(Gl));
+        s.set_before("The ");
+        let st = type_str(&mut s, "word");
+        assert_eq!(st.preedit, "word");
+        assert!(st.cands.contains(&"単語".to_string()) && st.cands.contains(&"語".to_string()), "{:?}", st.cands);
+        assert!(st.cands.iter().position(|c| c == "word").unwrap() < st.cands.iter().position(|c| c == "単語").unwrap(), "英語そのものが先頭");
+        // Space で候補を進める: 最初は先頭の英語そのもの、次に日本語の対訳
+        assert_eq!(s.key(Key::Space).preedit, "word");
+        assert_eq!(s.key(Key::Space).preedit, "単語");
     }
 
     #[test]
