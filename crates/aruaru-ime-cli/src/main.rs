@@ -3,6 +3,35 @@ use aruaru_ime_core::{client::Client, client::DEFAULT_URL, convert, Context};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("dict") {
+        use aruaru_ime_core::userdict::UserDict;
+        let path = std::env::var("ARUARU_USER_DICT").map(std::path::PathBuf::from).unwrap_or_else(|_| UserDict::default_path());
+        let mut u = UserDict::load(&path);
+        match (args.get(1).map(String::as_str), args.get(2), args.get(3)) {
+            (Some("add"), Some(r), Some(s)) => println!("{}", match u.add(r, s) { Ok(true) => "登録しました".to_string(), Ok(false) => "すでに登録済みです".to_string(), Err(e) => format!("エラー: {e}") }),
+            (Some("remove"), Some(r), s) => println!("{} 件削除しました", u.remove(r, s.map(String::as_str)).unwrap_or(0)),
+            (Some("list"), _, _) => {
+                for e in u.entries() {
+                    println!("{}	{}", e.reading, e.surface);
+                }
+            }
+            (Some("export"), _, _) => println!("{}", u.export_tsv()),
+            (Some("import"), Some(file), _) => println!("{} 件取り込みました", u.import_tsv(&std::fs::read_to_string(file).unwrap_or_default()).unwrap_or(0)),
+            _ => eprintln!("usage: aruaru-ime dict add <読み> <表記> | remove <読み> [表記] | list | export | import <tsvファイル>"),
+        }
+        return;
+    }
+    if args.first().map(String::as_str) == Some("ensure-components") {
+        use aruaru_ime_core::components::*;
+        let root = data_dir();
+        for spec in [ARUARU_LLM, OPEN_EASY_WEB] {
+            println!("{}: {:?}", spec.name, ensure(&spec, &root, "aruaru-ime", true));
+        }
+        if is_running(ARUARU_LLM.health_url) {
+            println!("qwen: {:?}", ensure_qwen("http://127.0.0.1:4600", "qwen2.5-0.5b-instruct"));
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("build-dict") && args.len() == 3 {
         let t = std::time::Instant::now();
         let n = aruaru_ime_core::kanji::build(std::path::Path::new(&args[1]), std::path::Path::new(&args[2])).expect("build");

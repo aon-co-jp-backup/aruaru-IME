@@ -92,6 +92,17 @@ pub fn is_romaji_parsable(input: &str) -> bool {
     rest.is_empty() || rest == "n"
 }
 
+/// ローマ字として「ここまで自然」か。完全にかな化できる場合に加え、入力途中(次の文字待ち: `sak` の `k` など)も真。
+/// 英単語の判定で、入力途中のローマ字を英語と取り違えないために使う。
+pub fn is_romaji_progress(input: &str) -> bool {
+    let lower = input.to_ascii_lowercase();
+    if lower.contains('l') {
+        return false;
+    }
+    let (_, rest) = to_hiragana_partial(&lower);
+    rest.is_empty() || rest == "n" || TABLE.iter().any(|(k, _)| k.starts_with(rest.as_str()))
+}
+
 pub fn to_hiragana(input: &str) -> String {
     let (mut h, rest) = to_hiragana_partial(input);
     if rest == "n" {
@@ -127,6 +138,17 @@ mod tests {
         assert_eq!(to_hiragana("konpyu-ta"), "こんぴゅーた");
         assert_eq!(hira_to_kata("こんぴゅーた"), "コンピュータ");
     }
+    #[test]
+    fn progress_accepts_partial_romaji() {
+        assert!(is_romaji_progress("sak"));
+        assert!(is_romaji_progress("sakur"));
+        assert!(is_romaji_progress("kyo"));
+        assert!(is_romaji_progress("sh"));
+        assert!(!is_romaji_progress("hello"));
+        assert!(!is_romaji_progress("github"));
+        assert!(!is_romaji_progress("nice"));
+    }
+
     #[test]
     fn parsable() {
         assert!(is_romaji_parsable("sakura"));

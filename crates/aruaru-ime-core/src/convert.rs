@@ -86,6 +86,14 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             dict_cands = d.candidates(&hira, 6);
         }
     }
+    let mut predicted: Vec<String> = vec![];
+    // 1文字だけでは候補が多すぎて役に立たないので、読みが2文字以上になってから予測する
+    if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::to_hiragana_partial(buffer).0.chars().count() >= 2 {
+        if let Some(d) = dict {
+            // 打ちかけの読み(確定したかな部分)から、より長い語・フレーズを予測する
+            predicted = d.predict(&romaji::to_hiragana_partial(buffer).0, 8).into_iter().map(|(_, s)| s).collect();
+        }
+    }
     let mut kanji: Option<String> = None;
     if std::env::var("ARUARU_IME_QWEN").as_deref() == Ok("1") {
         if let Some(cl) = client {
@@ -114,6 +122,9 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             }
             push(&mut c, hira, "hiragana");
             push(&mut c, buffer.to_string(), "alpha");
+            for p in &predicted {
+                push(&mut c, p.clone(), "predict");
+            }
         }
         Mode::Hiragana => {
             for d in &dict_cands {
@@ -125,6 +136,9 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             push(&mut c, hira, "hiragana");
             push(&mut c, kata, "katakana");
             push(&mut c, buffer.to_string(), "alpha");
+            for p in &predicted {
+                push(&mut c, p.clone(), "predict");
+            }
         }
         Mode::Number => {
             push(&mut c, buffer.to_string(), "number");
@@ -170,6 +184,17 @@ mod tests {
         assert_eq!(r.prediction.mode, Mode::Alpha);
         assert!(r.candidates.iter().any(|c| c.text == "hello"));
     }
+    #[test]
+    fn partial_romaji_is_not_mistaken_for_english() {
+        // 入力途中(sak, sakur)で英字モードにちらつかない
+        for w in ["sak", "sakur", "kyo", "konnnic"] {
+            let r = convert(w, &cx(""), None, None);
+            assert_ne!(r.prediction.mode, Mode::Alpha, "{w}");
+        }
+        // 本物の英単語は文脈なしでも英字
+        assert_eq!(convert("github", &cx(""), None, None).prediction.mode, Mode::Alpha);
+    }
+
     #[test]
     fn numbers_fullwidth() {
         let r = convert("2026", &cx(""), None, None);

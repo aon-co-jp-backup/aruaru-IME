@@ -1,0 +1,22 @@
+[package]
+name = "aruaru-ime-daemon"
+description = "aruaru-IME resident engine: conversion server on 127.0.0.1 + periodic screen capture for input-mode prediction."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "aruaru-ime-daemon"
+path = "src/main.rs"
+
+[dependencies]
+aruaru-ime-core = { path = "../aruaru-ime-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tiny_http = "0.12"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging"] }

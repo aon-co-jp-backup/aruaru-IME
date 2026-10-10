@@ -71,7 +71,7 @@ fn looks_english(lower: &str) -> bool {
     if lower.len() < 3 {
         return false;
     }
-    if !romaji::is_romaji_parsable(lower) {
+    if !romaji::is_romaji_progress(lower) {
         return true;
     }
     ["th", "ck", "ph", "wh", "ght", "tion", "ing", "ough", "qu"].iter().any(|p| lower.contains(p))
@@ -121,7 +121,7 @@ pub fn predict(buffer: &str, ctx: &Context) -> Prediction {
     if en_like {
         score_alpha += 1.0;
         why.push("ローマ字として不自然");
-    } else if romaji::is_romaji_parsable(&lower) {
+    } else if romaji::is_romaji_progress(&lower) {
         score_kana += 0.8;
         why.push("ローマ字として自然");
     }

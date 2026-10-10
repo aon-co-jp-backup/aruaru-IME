@@ -212,6 +212,64 @@ impl Dict {
         out
     }
 
+    /// 表記→(コスト, 読み)の索引(同じ表記は最小コストの読みを採用)。ファイル取り込み時の読み生成用。
+    pub fn surface_index(&self) -> std::collections::HashMap<String, (u16, String)> {
+        let mut m: std::collections::HashMap<String, (u16, String)> = std::collections::HashMap::with_capacity(self.n);
+        for i in 0..self.n {
+            let e = self.ent(i);
+            let s = self.surface(&e);
+            let better = m.get(&s).map_or(true, |(c, _)| e.cost < *c);
+            if better {
+                m.insert(s, (e.cost, String::from_utf8_lossy(self.reading(&e)).into_owned()));
+            }
+        }
+        m
+    }
+
+    /// 予測変換: 読みが `prefix` で始まる(より長い)語を、コストの低い順に返す。(読み, 表記)
+    pub fn predict(&self, prefix: &str, max: usize) -> Vec<(String, String)> {
+        if prefix.is_empty() {
+            return vec![];
+        }
+        let key = prefix.as_bytes();
+        let lo = partition(self.n, |i| self.reading(&self.ent(i)) < key);
+        let mut next = key.to_vec();
+        if let Some(last) = next.last_mut() {
+            *last = last.saturating_add(1);
+        }
+        let hi = partition(self.n, |i| self.reading(&self.ent(i)) < next.as_slice());
+        let mut found: Vec<(u16, String, String)> = Vec::new();
+        for i in lo..hi.min(lo + 40000) {
+            let e = self.ent(i);
+            if e.rlen > key.len() {
+                found.push((e.cost, String::from_utf8_lossy(self.reading(&e)).into_owned(), self.surface(&e)));
+            }
+        }
+        found.sort_by_key(|x| x.0);
+        let mut out: Vec<(String, String)> = vec![];
+        for (_, r, s) in found {
+            // ノイズ除去: 1文字だけ伸びた促音・長音終わり、読みをカタカナにしただけの表記、記号を含む表記
+            let extra = r.chars().count().saturating_sub(prefix.chars().count());
+            let last = s.chars().last().unwrap_or(' ');
+            if extra <= 1 && matches!(last, 'っ' | 'ッ' | 'ー' | 'ぁ' | 'ぃ' | 'ぅ' | 'ぇ' | 'ぉ') {
+                continue;
+            }
+            if s.chars().all(|c| matches!(c, 'ァ'..='ヺ' | 'ー')) {
+                continue;
+            }
+            if s.chars().any(|c| c.is_ascii_punctuation() || c.is_ascii_digit()) {
+                continue;
+            }
+            if !out.iter().any(|(_, x)| *x == s) {
+                out.push((r, s));
+            }
+            if out.len() >= max {
+                break;
+            }
+        }
+        out
+    }
+
     /// 最小コスト経路での変換結果(文節に分けず連結した文字列)と、(読み, 表記)の区切り。
     pub fn best_path(&self, reading: &str) -> Option<Vec<(String, String)>> {
         let chars: Vec<char> = reading.chars().collect();
@@ -337,6 +395,13 @@ mod tests {
     fn dict() -> Option<Dict> {
         let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
         Dict::load(&p).ok()
+    }
+
+    #[test]
+    fn real_dictionary_prediction() {
+        let Some(d) = dict() else { return };
+        let p = d.predict("ありがとう", 8);
+        assert!(p.iter().any(|(_, s)| s == "ありがとうございます"), "{p:?}");
     }
 
     #[test]

@@ -21,8 +21,28 @@ pub struct CaptureStore {
 impl CaptureStore {
     /// `<TEMP>/aruaru-ime-captures-<pid>` を作る。
     pub fn new() -> std::io::Result<Self> {
+        Self::sweep_stale(&std::env::temp_dir(), MAX_AGE * 2);
         let dir = std::env::temp_dir().join(format!("aruaru-ime-captures-{}", std::process::id()));
         Self::with_dir(dir, MAX_FILES, MAX_AGE)
+    }
+
+    /// 強制終了などで残った過去の専用ディレクトリ(`aruaru-ime-captures-*`)を、更新が `older_than` より古ければ削除する。
+    pub fn sweep_stale(tmp: &Path, older_than: Duration) -> usize {
+        let own = format!("aruaru-ime-captures-{}", std::process::id());
+        let mut n = 0;
+        if let Ok(rd) = fs::read_dir(tmp) {
+            for e in rd.flatten() {
+                let name = e.file_name().to_string_lossy().to_string();
+                if !name.starts_with("aruaru-ime-captures-") || name == own {
+                    continue;
+                }
+                let old = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|d| d > older_than);
+                if old && fs::remove_dir_all(e.path()).is_ok() {
+                    n += 1;
+                }
+            }
+        }
+        n
     }
 
     pub fn with_dir(dir: PathBuf, max_files: usize, max_age: Duration) -> std::io::Result<Self> {
@@ -108,6 +128,17 @@ mod tests {
         std::thread::sleep(Duration::from_millis(120));
         s.save(b"b").unwrap();
         assert_eq!(s.count(), 1);
+    }
+
+    #[test]
+    fn sweeps_orphans() {
+        let root = tmp("sweep");
+        fs::create_dir_all(root.join("aruaru-ime-captures-99999999")).unwrap();
+        fs::create_dir_all(root.join("other-dir")).unwrap();
+        std::thread::sleep(Duration::from_millis(30));
+        assert_eq!(CaptureStore::sweep_stale(&root, Duration::from_millis(10)), 1);
+        assert!(root.join("other-dir").exists());
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
