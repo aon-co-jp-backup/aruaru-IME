@@ -16,6 +16,8 @@ pub struct Candidate {
 pub struct Conversion {
     pub prediction: Prediction,
     pub candidates: Vec<Candidate>,
+    /// 検索フォーム型の予測(続きを含む検索語)。検索欄・ブラウザ等で使う。
+    pub suggestions: Vec<String>,
 }
 
 fn push(v: &mut Vec<Candidate>, text: String, kind: &'static str) {
@@ -59,6 +61,15 @@ fn clean_llm(out: &str, reading: &str) -> Option<String> {
         return None;
     }
     Some(line)
+}
+
+/// 検索フォーム(Google・Amazon商品検索など)らしい場面か。
+pub fn wants_suggest(ctx: &Context) -> bool {
+    if ctx.field_kind.as_deref() == Some("search") {
+        return true;
+    }
+    let s = ctx.screen_text.to_lowercase();
+    ["google", "amazon", "検索", "カートに入れる", "yahoo"].iter().any(|k| s.contains(k))
 }
 
 pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>) -> Conversion {
@@ -113,7 +124,18 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>) -> Conversi
             push(&mut c, hira, "hiragana");
         }
     }
-    Conversion { prediction: pred, candidates: c }
+    // 検索フォーム型の予測: 検索欄(または画面が検索/商品ページ)で、確定見込みの語から続きの検索語を出す
+    let mut suggestions = vec![];
+    if let Some(cl) = client {
+        if wants_suggest(ctx) && !buffer.is_empty() {
+            let base = match pred.mode {
+                Mode::Alpha | Mode::Number => buffer.to_string(),
+                _ => c.iter().find(|x| x.kind == "llm").map(|x| x.text.clone()).unwrap_or_else(|| romaji::to_hiragana(buffer)),
+            };
+            suggestions = cl.web_suggest(&base, if matches!(pred.mode, Mode::Alpha) { "en" } else { "ja" });
+        }
+    }
+    Conversion { prediction: pred, candidates: c, suggestions }
 }
 
 #[cfg(test)]
@@ -137,6 +159,12 @@ mod tests {
     fn numbers_fullwidth() {
         let r = convert("2026", &cx(""), None);
         assert!(r.candidates.iter().any(|c| c.text == "２０２６"));
+    }
+    #[test]
+    fn search_field_detection() {
+        assert!(wants_suggest(&Context { field_kind: Some("search".into()), ..Default::default() }));
+        assert!(wants_suggest(&Context { screen_text: "Amazon.co.jp 商品を検索".into(), ..Default::default() }));
+        assert!(!wants_suggest(&cx("hi")));
     }
     #[test]
     fn clean() {

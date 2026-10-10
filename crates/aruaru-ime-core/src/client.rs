@@ -62,4 +62,39 @@ impl Client {
             })
             .collect()
     }
+
+    /// 検索フォーム型のサジェスト(Googleの公開サジェスト)。失敗時は空。
+    pub fn web_suggest(&self, query: &str, lang: &str) -> Vec<String> {
+        let q: String = query.chars().take(64).collect();
+        let Ok(resp) = self
+            .agent
+            .get("https://suggestqueries.google.com/complete/search")
+            .query("client", "firefox")
+            .query("hl", lang)
+            .query("q", &q)
+            .call()
+        else {
+            return vec![];
+        };
+        resp.into_json::<Value>().map(|v| parse_suggest(&v)).unwrap_or_default()
+    }
+}
+
+/// `["q",["a","b",...]]` 形式を取り出す。
+pub fn parse_suggest(v: &Value) -> Vec<String> {
+    v.get(1)
+        .and_then(|a| a.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).take(8).collect())
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn parses_suggest() {
+        let v = json!(["ねこ", ["猫 飼い方", "猫 画像"]]);
+        assert_eq!(parse_suggest(&v), vec!["猫 飼い方", "猫 画像"]);
+        assert!(parse_suggest(&json!({})).is_empty());
+    }
 }

@@ -11,6 +11,7 @@ An AI-assisted IME that predicts the input mode (alphabet / hiragana / katakana 
 |---|---|
 | `aruaru-ime-core`: ローマ字→かな、入力モード予測、候補生成 | 実装・単体テスト済み |
 | `aruaru-llm` 連携(OCR `/v1/ocr`、Qwen `/v1/generate-qwen`、検索 `/v1/search/raw`) | 実装済み(未接続でも規則だけで動作)。実サーバーでの通し試験は未了 |
+| 検索フォーム型の予測（Google サジェスト風。検索欄・Google/Amazon 画面で自動有効）| 実装・単体テスト済み（実通信は未検証）|
 | 画面キャプチャの一時保管(`capture_store`) | 実装・テスト済み |
 | OS 組み込み(Windows TSF / macOS InputMethodKit / Linux IBus・fcitx5 / Android IME)・画面キャプチャ常駐・インストーラー | **未着手** |
 
