@@ -96,9 +96,9 @@ impl Lang {
         }
     }
 
-    /// この IME が入力に対応している言語か(中国語は、ピンインの辞書を導入するまで未対応)。
+    /// この IME が入力に対応している言語か(中国語はピンイン辞書 zh.tsv を使う)。
     pub fn supported(self) -> bool {
-        !matches!(self, Lang::ZhHans | Lang::ZhHant)
+        true
     }
 
     /// 右から左へ書く言語か。

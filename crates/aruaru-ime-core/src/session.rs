@@ -284,6 +284,8 @@ pub struct Session {
     en_cands: Vec<String>,
     col: u8,
     en_sel: Option<usize>,
+    /// 中国語: 各候補が使う入力(buf)の文字数。
+    zh_used: Vec<usize>,
     /// 直近の変換で、辞書に読み全体が1語として載っていたか(日本語として確かな入力か)。強制表記を学習するかの判定に使う。
     jp_known: bool,
     /// 無変換キーの巡回による表記の切り替えは、学習しない。
@@ -305,7 +307,7 @@ fn is_ja(c: char) -> bool {
 
 impl Session {
     pub fn new(conv: Box<dyn Converter>) -> Self {
-        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, lang: Lang::Ja, en_cands: vec![], col: 0, en_sel: None, jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
+        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, lang: Lang::Ja, en_cands: vec![], col: 0, en_sel: None, zh_used: vec![], jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
     }
 
     /// 設定ファイルの内容(ライブ変換・自動訂正・旧字体)を反映する。フォーカス移動のたびに呼ぶと、右クリックメニューでの変更がすぐ効く。
@@ -835,8 +837,37 @@ impl Session {
 
     /// 日本語以外の言語の入力(ロシア語・アラビア語・ヘブライ語・韓国語・ヨーロッパ言語・英語)。
     /// ラテン文字の入力を、その言語の文字にして未確定表示にする。Space で確定+空白、Enter で確定のみ、↑↓/Tab で候補を選ぶ。
+    /// 中国語: `idx` 番目の候補を確定する。入力の一部しか使わない候補なら、残りの入力は続けて変換する。
+    fn zh_commit(&mut self, idx: usize) -> Step {
+        let Some(text) = self.cands.get(idx).cloned() else { return self.state(true, None) };
+        let used = self.zh_used.get(idx).copied().unwrap_or(self.buf.chars().count());
+        let rest: String = self.buf.chars().skip(used).collect();
+        self.note_commit(&text);
+        if rest.chars().any(|c| c.is_ascii_alphabetic()) {
+            self.buf = rest;
+            self.refresh_lang();
+        } else {
+            self.reset();
+        }
+        self.state(true, Some(text))
+    }
+
     fn key_lang(&mut self, key: Key) -> Step {
         let lang = self.lang;
+        let zh = matches!(lang, Lang::ZhHans | Lang::ZhHant);
+        if zh && self.composing() {
+            match key {
+                Key::Char(c) if c.is_ascii_digit() => {
+                    let idx = if c == '0' { 9 } else { c as usize - '1' as usize };
+                    return if idx < self.cands.len().min(10) { self.zh_commit(idx) } else { self.state(true, None) };
+                }
+                Key::Space | Key::Enter => {
+                    let i = self.sel.unwrap_or(0);
+                    return self.zh_commit(i);
+                }
+                _ => {}
+            }
+        }
         match key {
             Key::Char(c) if lang.supported() && lang.accepts(c, self.composing()) => {
                 self.buf.push(c);
@@ -898,6 +929,26 @@ impl Session {
     fn refresh_lang(&mut self) {
         let lang = self.lang;
         let mut c: Vec<String> = translit::candidates(lang, &self.buf);
+        self.zh_used.clear();
+        if matches!(lang, Lang::ZhHans | Lang::ZhHant) {
+            let z = crate::zh::candidates_global(&self.buf, lang == Lang::ZhHant, 30);
+            if !z.is_empty() {
+                c = z.iter().map(|x| x.0.clone()).collect();
+                self.zh_used = z.iter().map(|x| x.1).collect();
+            } else {
+                c = vec![self.buf.clone()];
+                self.zh_used = vec![self.buf.chars().count()];
+            }
+            self.unconverted = self.buf.clone();
+            self.cands = c;
+            self.sel = Some(0);
+            self.auto = false;
+            self.en_cands.clear();
+            self.col = 0;
+            self.en_sel = None;
+            self.mode_label = lang.code().to_string();
+            return;
+        }
         if lang == Lang::En {
             // 英語: 打った語を先頭に、日本語の対訳を候補に足す(日英の相互翻訳)
             c = vec![self.buf.clone()];
@@ -1579,7 +1630,7 @@ mod tests {
         assert_eq!(s.key(Key::Down).preedit, "単語");
         assert_eq!(s.key(Key::Enter).commit.as_deref(), Some("単語"));
         let mut z = lang_session(Lang::ZhHans);
-        assert!(!z.key(Key::Char('n')).eaten, "中国語は未対応のあいだ、文字を食わない");
+        assert!(z.key(Key::Char('n')).eaten, "中国語はピンインを受け付ける");
     }
 
     #[test]
@@ -1592,7 +1643,29 @@ mod tests {
         assert!(!s.would_eat(&Key::Char('5')), "ロシア語では、入力していない数字は素通し");
         s.set_lang(Lang::Ar);
         assert!(s.would_eat(&Key::Char('5')), "アラビア語では、数字も文字");
-        assert_eq!(would_eat_lang(&Key::Char('a'), true, false, false, Lang::ZhHans), false);
+        assert!(would_eat_lang(&Key::Char('a'), true, false, false, Lang::ZhHans));
+    }
+
+    #[test]
+    fn chinese_pinyin_partial_commit_and_digit_select() {
+        crate::zh::set_global(crate::zh::ZhDict::parse("zhong	中	中	200
+guo	国	國	300
+zhongguo	中国	中國	5000
+ni	你	你	900
+hao	好	好	800
+nihao	你好	你好	4000
+"));
+        let mut s = lang_session(Lang::ZhHans);
+        type_str(&mut s, "nihaozhong");
+        let st = s.key(Key::Space);
+        assert_eq!(st.commit.as_deref(), Some("你好中"), "{st:?}");
+        assert!(!s.composing());
+        type_str(&mut s, "zhongguo");
+        let st = s.key(Key::Char('1'));
+        assert_eq!(st.commit.as_deref(), Some("中国"));
+        let mut t = lang_session(Lang::ZhHant);
+        type_str(&mut t, "zhongguo");
+        assert_eq!(t.key(Key::Enter).commit.as_deref(), Some("中國"));
     }
 
     #[test]

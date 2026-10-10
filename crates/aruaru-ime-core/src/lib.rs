@@ -19,6 +19,7 @@ pub mod update;
 pub mod uservocab;
 pub mod userdict;
 pub mod wish;
+pub mod zh;
 
 /// 試験で `ARUARU_DATA_DIR` を書き換えるテスト同士が並行して干渉しないようにする。
 #[cfg(test)]

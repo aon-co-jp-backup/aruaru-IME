@@ -291,6 +291,21 @@ fn spawn_glossary(slot: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glo
     });
 }
 
+/// 中国語のピンイン辞書を読み込む。無ければ、起動時に自動で取得して辞書化する。
+fn spawn_zh() {
+    std::thread::spawn(|| {
+        let root = aruaru_ime_core::components::data_dir();
+        let path = aruaru_ime_core::zh::zh_path(&root);
+        if !path.is_file() {
+            eprintln!("zh: {:?}", aruaru_ime_core::zh::ensure(&root, true));
+        }
+        if let Some(d) = aruaru_ime_core::zh::ZhDict::load(&path) {
+            eprintln!("zh loaded: {} keys", d.len());
+            aruaru_ime_core::zh::set_global(d);
+        }
+    });
+}
+
 /// 希望用語を、バックグラウンドで検索して辞書にする(同時に1件。結果は通知領域の吹き出しで知らせる)。
 pub(crate) fn run_wish(client: &Client, term: String, cat: aruaru_ime_core::wish::Category) {
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -453,6 +468,7 @@ fn main() {
     // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));
+    spawn_zh();
     spawn_autobackup();
     resume_wishes(client.clone());
     let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));

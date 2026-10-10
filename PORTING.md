@@ -74,3 +74,7 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 **Update.** Checked once at startup, or on demand from the tray menu; staged in `<data>/app/versions/<tag>/`; the new engine takes over the port. Release assets: `aruaru-ime-windows-x86_64.zip` (+ optional `.sha256`) and the installer.
 
 **TODO.** In-IME multilingual input (rules exist in `translit.rs`; TSF profiles per language), Chinese (needs a pinyin dictionary download approval), 130-language registry, GitHub backup (user-supplied token; public repos must exclude learning history), taskbar-indicator right-click (ITfLangBarItemButton), macOS/Linux/Android front ends, bundling aruaru-search, Qwen speed-up.
+
+## 中国語ピンイン入力 / Chinese pinyin input (2026-10-11)
+- 日本語: 簡体字・繁体字のピンイン入力に対応。辞書 `zh.tsv`(jieba頻度・pinyin-data読み・OpenCC繁体化、MIT/Apache-2.0、`ZH-LICENSES.txt`)を初回起動時に自動取得して作成。候補は数字キー/Space/Enterで確定、入力の一部だけ使う候補は残りを続けて変換(部分確定)。
+- English: Simplified/Traditional pinyin input. `zh.tsv` is built automatically on first run from jieba, pinyin-data and OpenCC. Digits/Space/Enter commit; partial-length candidates keep the rest of the input.
