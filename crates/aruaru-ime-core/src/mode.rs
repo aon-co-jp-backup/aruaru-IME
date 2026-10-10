@@ -159,8 +159,11 @@ pub fn predict(buffer: &str, ctx: &Context) -> Prediction {
             reason: why.join("・"),
         };
     }
-    if rb.katakana > 0.5 {
-        return Prediction { mode: Mode::Katakana, confidence: 0.7, english_word: false, reason: "直前がカタカナ主体".into() };
+    // カタカナ入力とみなすのは、カーソル直前の語(空白・句読点・記号までの並び)がカタカナで3文字以上のときだけ。
+    // 文章全体にカタカナが多いだけでは判定しない(カタカナ書きの多い文章で、すべてがカタカナ入力と誤判定されて漢字に変換されなくなるため)。
+    let last_token: Vec<char> = ctx.before.chars().rev().take_while(|c| c.is_alphanumeric() || matches!(c, 'ー' | '・')).collect();
+    if last_token.len() >= 3 && last_token.iter().all(|c| matches!(c, 'ァ'..='ヺ' | 'ー')) {
+        return Prediction { mode: Mode::Katakana, confidence: 0.7, english_word: false, reason: "直前の語がカタカナ".into() };
     }
     Prediction { mode: Mode::Hiragana, confidence: (score_kana / total).min(0.99), english_word: false, reason: why.join("・") }
 }
@@ -196,6 +199,14 @@ mod tests {
     }
     #[test]
     fn katakana_context() {
-        assert_eq!(predict("ra-men", &ctx("コンピュータ")).mode, Mode::Katakana);
+        assert_eq!(predict("ra-men", &ctx("コンピュータ")).mode, Mode::Katakana, "直前の語がカタカナなら、続きもカタカナ");
+    }
+
+    #[test]
+    fn katakana_heavy_text_does_not_force_katakana_mode() {
+        // カタカナ書きが多い文章でも、直前が語の切れ目なら、ひらがな(=漢字に変換する入力)と予測する
+        let c = ctx("ナントカシテ ホシイ ゲンゴヤ プログラム ゲンゴ ヤ フレームワーク ヲ ニュウリョク スルト ジドウデ タイオウ シテ ");
+        assert_eq!(predict("tango", &c).mode, Mode::Hiragana);
+        assert_eq!(predict("kanji", &ctx("タンゴ ト カンジ ヲ ")).mode, Mode::Hiragana);
     }
 }

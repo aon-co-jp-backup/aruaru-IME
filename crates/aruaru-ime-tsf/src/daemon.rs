@@ -72,7 +72,8 @@ pub fn parse_conversion(v: &serde_json::Value) -> Option<Conversion> {
         .filter_map(|c| Some(Candidate { text: c["text"].as_str()?.to_string(), kind: kind_static(c["kind"].as_str().unwrap_or("")) }))
         .collect();
     let suggestions = v["suggestions"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
-    Some(Conversion { prediction, candidates, suggestions })
+    let exact_dict = v["exact_dict"].as_bool().unwrap_or(false);
+    Some(Conversion { prediction, candidates, suggestions, exact_dict })
 }
 
 pub struct DaemonConverter {

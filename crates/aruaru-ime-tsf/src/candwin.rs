@@ -10,7 +10,7 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 const BASE_ROW_H: i32 = 26;
-const MAX_ROWS: usize = 9;
+const MAX_ROWS: usize = 10;
 const FLASH_TIMER: usize = 1;
 /// 見出し行右端の配色切替ボタンの幅。
 const BASE_BUTTON_W: i32 = 110;
@@ -110,7 +110,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                         let _ = DeleteObject(hb);
                     }
                     SetTextColor(hdc, COLORREF(pal.text));
-                    let mut text: Vec<u16> = format!(" {} {}", row + 1, c).encode_utf16().collect();
+                    let mut text: Vec<u16> = format!(" {} {}", (row + 1) % 10, c).encode_utf16().collect();
                     let mut r2 = r;
                     DrawTextW(hdc, &mut text, &mut r2, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
                 }

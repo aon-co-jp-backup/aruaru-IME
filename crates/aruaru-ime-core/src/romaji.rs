@@ -105,6 +105,30 @@ pub fn is_romaji_progress(input: &str) -> bool {
     rest.is_empty() || rest == "n" || TABLE.iter().any(|(k, _)| k.starts_with(rest.as_str()))
 }
 
+/// `nn` を常に「ん」(2文字)として読む別解。`nn` の直後が母音・y のとき、通常は「ん」+「な行」と読む(konnichiha → こんにちは)が、
+/// 「サザンアイズ」を `sazannaizu` と打つ人は「ん」+「あいず」のつもり。違いがあるときだけ返す。
+pub fn to_hiragana_alt(input: &str) -> Option<String> {
+    let lower = input.to_ascii_lowercase();
+    if !lower.contains("nn") {
+        return None;
+    }
+    // "nn" を、後ろが母音・y でも「ん」2文字分として扱うため、一時的に区切り記号 ' を挟んで読む("n'" は常に「ん」)
+    let mut s = String::new();
+    let cs: Vec<char> = lower.chars().collect();
+    let mut i = 0;
+    while i < cs.len() {
+        if cs[i] == 'n' && i + 1 < cs.len() && cs[i + 1] == 'n' {
+            s.push_str("n'");
+            i += 2;
+        } else {
+            s.push(cs[i]);
+            i += 1;
+        }
+    }
+    let alt = to_hiragana(&s);
+    (alt != to_hiragana(&lower)).then_some(alt)
+}
+
 pub fn to_hiragana(input: &str) -> String {
     let (mut h, rest) = to_hiragana_partial(input);
     if rest == "n" {
@@ -140,6 +164,15 @@ mod tests {
         assert_eq!(to_hiragana("konpyu-ta"), "こんぴゅーた");
         assert_eq!(hira_to_kata("こんぴゅーた"), "コンピュータ");
     }
+    #[test]
+    fn nn_alternative_reading() {
+        assert_eq!(to_hiragana_alt("sazannaizu").as_deref(), Some("さざんあいず"));
+        assert_eq!(to_hiragana("sazannaizu"), "さざんないず");
+        assert_eq!(to_hiragana_alt("konnichiha").as_deref(), Some("こんいちは"));
+        assert_eq!(to_hiragana_alt("kanji"), None, "nn が無ければ別解は無い");
+        assert_eq!(to_hiragana_alt("kann"), None, "語末の nn は一通り");
+    }
+
     #[test]
     fn nn_before_vowel_is_n_plus_na_row() {
         assert_eq!(to_hiragana("konnichiha"), "こんにちは");

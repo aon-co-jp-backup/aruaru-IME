@@ -20,6 +20,9 @@ pub struct Conversion {
     pub candidates: Vec<Candidate>,
     /// 検索フォーム型の予測(続きを含む検索語)。検索欄・ブラウザ等で使う。
     pub suggestions: Vec<String>,
+    /// 辞書に、読みの全体と一致する項目(1語として載っている)があるか。`nn` の二通りの読みのどちらが正しいかの判定に使う。
+    #[serde(default)]
+    pub exact_dict: bool,
 }
 
 fn push(v: &mut Vec<Candidate>, text: String, kind: &'static str) {
@@ -78,6 +81,7 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     let pred = mode::predict(buffer, ctx);
     let mut c: Vec<Candidate> = vec![];
     let hira = romaji::to_hiragana(buffer);
+    let hira_for_exact = hira.clone();
     let kata = romaji::hira_to_kata(&hira);
 
     // 辞書+Viterbi(ミリ秒)。Qwen は現状の速度では同期経路に置けないため、ARUARU_IME_QWEN=1 のときだけ追加する。
@@ -85,6 +89,15 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
         if let Some(d) = dict {
             dict_cands = d.candidates(&hira, 30);
+            // 読みをそのままカタカナにしただけの候補(タンゴ)が先頭で、上位に漢字の候補(単語)があるときは、漢字を先頭にする。
+            // 日本語入力では、漢字に変換することが前提のため。漢字の対応が無いカタカナ語(コンピュータ)は、そのまま先頭。
+            if dict_cands.first().is_some_and(|f| *f == kata) {
+                let kanji_at = dict_cands.iter().take(6).position(|c| c.chars().any(|ch| ('一'..='龥').contains(&ch)));
+                if let Some(i) = kanji_at {
+                    let k = dict_cands.remove(i);
+                    dict_cands.insert(0, k);
+                }
+            }
         }
     }
     let mut predicted: Vec<String> = vec![];
@@ -124,13 +137,14 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             push(&mut c, hira, "hiragana");
         }
         Mode::Katakana => {
-            push(&mut c, kata, "katakana");
+            // カタカナ入力でも、辞書の最有力候補(漢字かな交じり・カタカナ語)を先頭にする。純粋なカタカナは次に出す
             for d in &dict_cands {
                 push(&mut c, d.clone(), "dict");
             }
             if let Some(k) = kanji {
                 push(&mut c, k, "llm");
             }
+            push(&mut c, kata, "katakana");
             push(&mut c, hira, "hiragana");
             push(&mut c, buffer.to_string(), "alpha");
             for p in &predicted {
@@ -175,7 +189,8 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             suggestions = cl.web_suggest(&base, if matches!(pred.mode, Mode::Alpha) { "en" } else { "ja" });
         }
     }
-    Conversion { prediction: pred, candidates: c, suggestions }
+    let exact_dict = dict.is_some_and(|d| !d.exact(&hira_for_exact, 1).is_empty());
+    Conversion { prediction: pred, candidates: c, suggestions, exact_dict }
 }
 
 #[cfg(test)]
@@ -220,6 +235,19 @@ mod tests {
         // 日本語の文脈ではローマ字入力を奪わない
         assert_eq!(convert("kyouha", &cx("私は"), None, None).prediction.mode, Mode::Hiragana);
         assert_eq!(convert("do", &cx("私は"), None, None).prediction.mode, Mode::Hiragana);
+    }
+
+    #[test]
+    fn kanji_word_beats_plain_katakana_transcription() {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
+        let Ok(d) = Dict::load(&p) else { return };
+        let ctx = cx("タンゴ ト カンジ ヲ ");
+        let r = convert("tango", &ctx, None, Some(&d));
+        assert_eq!(r.candidates[0].text, "単語", "{:?}", r.candidates.iter().take(5).map(|c| &c.text).collect::<Vec<_>>());
+        assert!(r.candidates.iter().any(|c| c.text == "タンゴ"), "カタカナも候補に残る");
+        // 漢字の対応が無い外来語は、カタカナのまま先頭
+        let r = convert("konpyu-ta", &ctx, None, Some(&d));
+        assert_eq!(r.candidates[0].text, "コンピュータ");
     }
 
     #[test]

@@ -65,6 +65,9 @@ pub struct Step {
 }
 
 /// このキーをIMEが処理するか。状態(オン/組み立て中/直前が日本語)だけで決まるので、通信なしで判定できる。
+/// 候補窓の1ページの件数(数字キー 1〜9・0 で選べる)。
+pub const PAGE: usize = 10;
+
 pub fn would_eat_with(key: &Key, on: bool, composing: bool, last_ja: bool) -> bool {
     if matches!(key, Key::Toggle | Key::On | Key::Off | Key::Convert | Key::NonConvert) {
         return true;
@@ -169,11 +172,19 @@ impl Learned {
     }
 
     /// 不自然な履歴を取り除く。
+    /// - 読みと表記の組として不自然なもの(読みより長い漢字語など)
+    /// - 読みをそのままカタカナにしただけの履歴(カタカナ判定の不具合のあいだに溜まったもの)。漢字などの別の履歴があるときだけ捨てる。
+    /// - 強制表記の学習のうち、かな・カタカナ(hira/kata)や短い入力(3文字未満)のもの。「ai は常にカタカナ」のような固定を防ぐ。
     pub fn sanitize(&mut self) {
         for (r, v) in self.map.iter_mut() {
             v.retain(|(s, _)| plausible_pair(r, s));
+            let kata = romaji::hira_to_kata(r);
+            if v.len() > 1 {
+                v.retain(|(s, _)| *s != kata);
+            }
         }
         self.map.retain(|_, v| !v.is_empty());
+        self.forms.retain(|k, f| k.chars().count() >= 3 && matches!(f.as_str(), "half" | "full" | "raw"));
     }
     pub fn save(&self, path: &std::path::Path) {
         if let Some(d) = path.parent() {
@@ -232,6 +243,10 @@ pub struct Session {
     form_cycle: u8,
     mode_label: String,
     extras_done: bool,
+    /// 直近の変換で、辞書に読み全体が1語として載っていたか(日本語として確かな入力か)。強制表記を学習するかの判定に使う。
+    jp_known: bool,
+    /// 無変換キーの巡回による表記の切り替えは、学習しない。
+    no_learn_once: bool,
     user: Option<crate::userdict::UserDict>,
     /// ライブ変換: 打つそばから最有力の変換結果(漢字かな交じり)を未確定表示にする。既定オン。
     pub live: bool,
@@ -249,7 +264,7 @@ fn is_ja(c: char) -> bool {
 
 impl Session {
     pub fn new(conv: Box<dyn Converter>) -> Self {
-        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
+        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
     }
 
     /// 設定ファイルの内容(ライブ変換・自動訂正・旧字体)を反映する。フォーカス移動のたびに呼ぶと、右クリックメニューでの変更がすぐ効く。
@@ -358,11 +373,47 @@ impl Session {
         self.set_before(&self.before.clone());
     }
 
+    /// `nn` + 母音の二通りの読み(こんにちは / サザンアイズ)のうち、どちらを使うか決める。
+    /// 登録語・学習履歴に完全一致する読みを優先し、無ければ「実際に変換できた(候補の先頭が読みそのままではない)」読みを選ぶ。
+    fn pick_reading(&mut self, primary: &str, alt: &str, r_primary: &Conversion, r_alt: &Conversion) -> bool {
+        let user_hit = |me: &mut Self, rd: &str| -> bool {
+            let u = me.user.as_mut().map(|u| {
+                u.reload_if_changed();
+                !u.exact(rd).is_empty()
+            });
+            u.unwrap_or(false) || !me.learned.exact(rd).is_empty()
+        };
+        let (a, b) = (user_hit(self, primary), user_hit(self, alt));
+        if a != b {
+            return b;
+        }
+        // 辞書に「読み全体が1語として」載っている読みを優先する(こんにちは は載っているが、こんいちは は載っていない)
+        r_alt.exact_dict && !r_primary.exact_dict
+    }
+
     fn refresh(&mut self) {
-        let r = self.conv.convert(&self.buf, &self.before, self.field_kind.as_deref());
-        let (hira, rest) = romaji::to_hiragana_partial(&self.buf);
+        let mut r = self.conv.convert(&self.buf, &self.before, self.field_kind.as_deref());
+        let (mut hira, rest) = romaji::to_hiragana_partial(&self.buf);
+        let mut reading = romaji::to_hiragana(&self.buf);
+        // `nn` + 母音は二通りに読めるので、両方を試して、より変換できるほうを使う
+        let mut other: Vec<String> = vec![];
+        if rest.is_empty() {
+            if let Some(alt) = romaji::to_hiragana_alt(&self.buf) {
+                let r_alt = self.conv.convert(&alt, &self.before, self.field_kind.as_deref());
+                if self.pick_reading(&reading.clone(), &alt, &r, &r_alt) {
+                    other = r.candidates.iter().map(|x| x.text.clone()).collect();
+                    r = r_alt;
+                    hira = alt.clone();
+                    reading = alt;
+                } else {
+                    other = r_alt.candidates.iter().map(|x| x.text.clone()).collect();
+                }
+            }
+        }
         // 過去に利用者が強制した表記があれば、最初からそれにする(誤ったモード予測の学習)
-        if self.form.is_none() {
+        self.jp_known = r.exact_dict;
+        // 辞書に載っている日本語の語(ほんやく など)には、過去の強制表記を当てない。英語などで辞書に無い語(database など)だけ。
+        if self.form.is_none() && !r.exact_dict {
             self.form = self.learned.forms.get(&self.buf.to_lowercase()).and_then(|n| Form::from_name(n));
         }
         // 確信が低いのに英字へ切り替えない(誤切替の抑制)。パスワード等の英数字欄は確信が高いのでそのまま。
@@ -384,7 +435,6 @@ impl Session {
             self.unconverted = self.render_form(f);
             self.mode_label = Self::form_label(f).to_string();
         }
-        let reading = romaji::to_hiragana(&self.buf);
         let is_kana_mode = matches!(mode, Mode::Hiragana | Mode::Katakana) && self.form.is_none();
         // 学習済みの表記は、かな入力モードのとき最優先で先頭に出す
         // 先頭に置くのは「読みが完全に一致する」候補だけ(登録語 → 学習履歴 → 辞書)。前方一致の予測は末尾に回す。
@@ -402,6 +452,7 @@ impl Session {
         }
         c.extend(r.candidates.iter().map(|x| x.text.clone()));
         c.extend(r.suggestions.iter().cloned());
+        c.extend(other.into_iter().take(8)); // もう一つの読みの変換結果も、候補の後ろに残す
         c.extend(predictions);
         let mut seen = vec![];
         c.retain(|x| !seen.contains(x) && { seen.push(x.clone()); true });
@@ -435,7 +486,7 @@ impl Session {
             }
         }
         // ライブ変換: ひらがな入力と予測され、強制表記が無く、入力途中のローマ字(sak の k など)が残っていないときだけ
-        if self.live && self.form.is_none() && mode == Mode::Hiragana && rest.is_empty() && !self.cands.is_empty() {
+        if self.live && self.form.is_none() && matches!(mode, Mode::Hiragana | Mode::Katakana) && rest.is_empty() && !self.cands.is_empty() {
             self.sel = Some(0);
             self.auto = true;
             self.mode_label = "あ→漢".to_string();
@@ -506,6 +557,7 @@ impl Session {
                     Some(Form::Full) => Form::Half,
                     Some(Form::Half) => Form::Hira,
                 };
+                self.no_learn_once = true;
                 return self.key(Key::Fn(match next {
                     Form::Hira => 6,
                     Form::Kata => 7,
@@ -531,10 +583,10 @@ impl Session {
             return Step::default();
         }
         match key {
-            Key::Char(c) if self.composing() && self.sel.is_some() && !self.auto && ('1'..='9').contains(&c) => {
-                // 候補を選んでいる最中は、数字キー(1〜9)で、いま表示している9件のページの候補を直接選んで確定する
-                let page = self.sel.map_or(0, |i| i / 9) * 9;
-                let idx = page + (c as usize - '1' as usize);
+            Key::Char(c) if self.composing() && self.sel.is_some() && !self.auto && c.is_ascii_digit() => {
+                // 候補を選んでいる最中は、数字キー(1〜9、0は10番目)で、いま表示している10件のページの候補を直接選んで確定する
+                let page = self.sel.map_or(0, |i| i / PAGE) * PAGE;
+                let idx = page + if c == '0' { 9 } else { c as usize - '1' as usize };
                 if idx < self.cands.len() {
                     return self.choose(idx);
                 }
@@ -578,10 +630,14 @@ impl Session {
                 self.auto = false;
                 self.unconverted = self.render_form(f);
                 self.mode_label = Self::form_label(f).to_string();
-                // 選んだ表記を学習する(次回から同じ入力は最初からこの表記)
-                self.learned.forms.insert(self.buf.to_lowercase(), f.name().to_string());
-                if let Some(p) = self.learn_path.clone() {
-                    self.learned.save(&p);
+                // 英字の表記(半角・全角)を選んだときだけ学習する(次回から同じ入力は最初からこの表記)。
+                // かな・カタカナは学習しない(「ai は常にカタカナ」のような固定になり、漢字に変換できなくなるため)。
+                let learn = !std::mem::take(&mut self.no_learn_once) && !self.jp_known;
+                if learn && matches!(f, Form::Half | Form::Full) && self.buf.chars().count() >= 3 {
+                    self.learned.forms.insert(self.buf.to_lowercase(), f.name().to_string());
+                    if let Some(p) = self.learn_path.clone() {
+                        self.learned.save(&p);
+                    }
                 }
                 self.state(true, None)
             }
@@ -691,6 +747,7 @@ mod tests {
                 prediction: crate::mode::Prediction { mode: Mode::Hiragana, confidence: 0.99, english_word: false, reason: String::new() },
                 candidates: c,
                 suggestions: vec![],
+                exact_dict: false,
             }
         }
     }
@@ -804,7 +861,7 @@ mod tests {
                 c.push(Candidate { text: "学校".into(), kind: "dict" });
             }
             c.push(Candidate { text: hira, kind: "hiragana" });
-            Conversion { prediction: crate::mode::Prediction { mode: Mode::Hiragana, confidence: 0.99, english_word: false, reason: String::new() }, candidates: c, suggestions: vec![] }
+            Conversion { prediction: crate::mode::Prediction { mode: Mode::Hiragana, confidence: 0.99, english_word: false, reason: String::new() }, candidates: c, suggestions: vec![], exact_dict: false }
         }
     }
 
@@ -919,6 +976,41 @@ mod tests {
     }
 
     #[test]
+    fn forced_forms_are_not_applied_to_known_japanese_words() {
+        // 辞書に載っている日本語(ほんやく)に、過去の「半角英字」の強制が残っていても、漢字変換できる
+        let p = std::env::temp_dir().join(format!("aruaru-forms-{}.json", std::process::id()));
+        std::fs::write(&p, r#"{"map":{},"forms":{"honyaku":"half","database":"half"}}"#).unwrap();
+        struct Known;
+        impl Converter for Known {
+            fn convert(&self, buffer: &str, _b: &str, _f: Option<&str>) -> Conversion {
+                use crate::convert::Candidate;
+                let hira = romaji::to_hiragana(buffer);
+                let known = hira == "ほにゃく";
+                let mut c = vec![];
+                if known {
+                    c.push(Candidate { text: "翻訳".into(), kind: "dict" });
+                }
+                c.push(Candidate { text: hira, kind: "hiragana" });
+                Conversion { prediction: crate::mode::Prediction { mode: Mode::Hiragana, confidence: 0.99, english_word: false, reason: String::new() }, candidates: c, suggestions: vec![], exact_dict: known }
+            }
+        }
+        let mut s = Session::new(Box::new(Known));
+        s.set_before("");
+        s.enable_learning(p.clone());
+        assert_eq!(type_str(&mut s, "honyaku").preedit, "翻訳", "辞書に載っている語には強制表記を当てない");
+        s.key(Key::Esc);
+        assert_eq!(type_str(&mut s, "database").preedit, "database", "辞書に無い語には当てる");
+        s.key(Key::Esc);
+        // 辞書に載っている語を F10 で半角にしても、学習されない
+        type_str(&mut s, "honyaku");
+        s.key(Key::Fn(10));
+        s.key(Key::Enter);
+        let l = Learned::load(&p);
+        assert_eq!(l.forms.get("honyaku").map(String::as_str), Some("half"), "もとの記録は残るが、適用はされない(上の確認)");
+        let _ = std::fs::remove_file(&p);
+    }
+
+    #[test]
     fn muhenkan_cycles_forms_and_henkan_converts() {
         let mut s = s();
         type_str(&mut s, "kamera");
@@ -949,6 +1041,7 @@ mod tests {
                 prediction: crate::mode::Prediction { mode: Mode::Hiragana, confidence: 0.99, english_word: false, reason: String::new() },
                 candidates: vec![Candidate { text: hira, kind: "hiragana" }],
                 suggestions: vec![],
+                exact_dict: false,
             }
         }
         fn extra(&self, _b: &str, _before: &str) -> Vec<String> {
@@ -1087,6 +1180,27 @@ mod tests {
     }
 
     #[test]
+    fn katakana_transcriptions_and_kana_forms_from_the_old_bug_are_cleaned() {
+        let p = std::env::temp_dir().join(format!("aruaru-learn3-{}.json", std::process::id()));
+        std::fs::write(&p, r#"{"map":{"たんご":[["タンゴ",2],["単語",2]],"かんじ":[["カンジ",2],["感じ",1]],"こんぴゅーた":[["コンピュータ",3]]},"forms":{"ai":"kata","database":"half","sazannaizu":"kata"}}"#).unwrap();
+        let l = Learned::load(&p);
+        assert_eq!(l.exact("たんご"), vec!["単語"], "漢字の履歴があるときは、カタカナの転記だけの履歴を捨てる");
+        assert_eq!(l.exact("かんじ"), vec!["感じ"]);
+        assert_eq!(l.exact("こんぴゅーた"), vec!["コンピュータ"], "他に候補が無いカタカナ語は残す");
+        assert!(!l.forms.contains_key("ai") && !l.forms.contains_key("sazannaizu"), "かな・カタカナの強制表記は学習しない");
+        assert_eq!(l.forms.get("database").map(String::as_str), Some("half"));
+        // 新しくカタカナを強制しても学習されない
+        let mut s = Session::new(Box::new(LocalConverter { dict: None }));
+        s.live = false;
+        s.enable_learning(p.clone());
+        type_str(&mut s, "ai");
+        s.key(Key::Fn(7));
+        s.key(Key::Enter);
+        assert!(!Learned::load(&p).forms.contains_key("ai"));
+        let _ = std::fs::remove_file(&p);
+    }
+
+    #[test]
     fn implausible_history_from_the_old_bug_is_discarded() {
         let p = std::env::temp_dir().join(format!("aruaru-learn2-{}.json", std::process::id()));
         std::fs::write(&p, r#"{"map":{"に":[["入力",3],["ニホンゴノ",2],["二",1]],"が":[["学習",2],["画",1]],"さんじゃんうんから":[["三只眼吽迦羅",1]]},"forms":{}}"#).unwrap();
@@ -1101,6 +1215,33 @@ mod tests {
         assert!(l2.exact("に").is_empty() && l2.exact("3x3") == vec!["3X3 EYES"]);
         assert!(plausible_pair("こんぴゅーた", "コンピュータ") && plausible_pair("たんご", "単語") && plausible_pair("にほん", "日本"));
         let _ = std::fs::remove_file(&p);
+    }
+
+    #[test]
+    fn zero_key_picks_the_tenth_candidate() {
+        struct Many;
+        impl Converter for Many {
+            fn convert(&self, buffer: &str, _b: &str, _f: Option<&str>) -> Conversion {
+                use crate::convert::Candidate;
+                let c: Vec<Candidate> = (0..14).map(|i| Candidate { text: format!("{buffer}{i}"), kind: "dict" }).collect();
+                Conversion { prediction: crate::mode::Prediction { mode: Mode::Hiragana, confidence: 0.99, english_word: false, reason: String::new() }, candidates: c, suggestions: vec![], exact_dict: false }
+            }
+        }
+        let mut s = Session::new(Box::new(Many));
+        s.live = false;
+        s.set_before("");
+        type_str(&mut s, "ka");
+        s.key(Key::Space);
+        assert_eq!(s.key(Key::Char('0')).commit.as_deref(), Some("ka9"), "0 は10番目");
+        let mut s2 = Session::new(Box::new(Many));
+        s2.live = false;
+        s2.set_before("");
+        type_str(&mut s2, "ka");
+        s2.key(Key::Space);
+        for _ in 0..10 {
+            s2.key(Key::Space); // 2ページ目へ(11番目の候補を選ぶ)
+        }
+        assert_eq!(s2.key(Key::Char('1')).commit.as_deref(), Some("ka10"), "2ページ目の1番は全体の11番目");
     }
 
     #[test]
