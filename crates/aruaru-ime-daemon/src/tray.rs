@@ -62,6 +62,7 @@ enum Action {
     ToggleAutocorrect,
     ToggleTheme,
     ToggleAutoUpdate,
+    ToggleOnlineUi,
     Scale(f32),
     Exit,
 }
@@ -170,6 +171,8 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add_sub(root, size, "候補窓の大きさ / Candidate window size");
     let id = m.push(Action::ToggleWebSuggest);
     add(root, check(s.web_suggest), id, "固有名詞をWebのサジェストで補う / Web suggestions for names (sends your typing to Google)");
+    let id = m.push(Action::ToggleOnlineUi);
+    add(root, check(s.open_online_ui), id, "起動時にオンライン画面を最小化で開く / Open online screen at startup (minimized)");
     let id = m.push(Action::ToggleAutoUpdate);
     add(root, check(s.auto_update), id, "自動アップデート / Auto-update (checked at startup)");
     let id = m.push(Action::UpdateNow);
@@ -473,6 +476,7 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
         Action::ToggleLive => with_settings(|s| s.live_conversion = !s.live_conversion),
         Action::TogglePreferKanji => with_settings(|s| s.prefer_kanji = !s.prefer_kanji),
         Action::ToggleAutocorrect => with_settings(|s| s.autocorrect = !s.autocorrect),
+        Action::ToggleOnlineUi => with_settings(|s| s.open_online_ui = !s.open_online_ui),
         Action::ToggleAutoUpdate => with_settings(|s| s.auto_update = !s.auto_update),
         Action::ToggleTheme => with_settings(|s| {
             s.toggle_theme();

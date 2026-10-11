@@ -104,3 +104,7 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - エンジンは Origin が `https://easy-web.tokyo`(と自分自身)のときだけ CORS + Private Network Access を許可。それ以外は403。
 - 未了: VPS(open-easy-web)への反映は未実施。ブラウザ(Chrome/Edge/Firefox)からのloopback接続の実機確認も未了。
 - `/ime` on open-easy-web serves the shared page; keystrokes go straight to the user's local engine, which allows only easy-web.tokyo via CORS/PNA. VPS deploy pending.
+
+## 起動時のオンライン画面 / Online screen at startup (2026-10-11)
+- 設定 `open_online_ui`(既定オン、トレイで切替): エンジン起動の20秒後、easy-web.tokyo に届くときだけ `https://easy-web.tokyo/ime` を既定ブラウザで最小化して開く(Windows)。ブラウザによっては最小化を無視する。スマホ/タブレットは対応アプリが無く未対応。
+- Opens the online screen minimized ~20 s after engine start when easy-web.tokyo is reachable (Windows; some browsers ignore minimize). Phones/tablets: not supported yet.

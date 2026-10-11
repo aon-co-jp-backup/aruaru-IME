@@ -291,6 +291,29 @@ fn spawn_glossary(slot: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glo
     });
 }
 
+/// エンジンの起動と同時に、オンライン画面を最小化したブラウザで開く(設定 `open_online_ui`、Windows)。
+/// デスクトップが整うまで待ち、easy-web.tokyo に届かないとき(オフライン)は開かない。
+fn spawn_online_ui() {
+    #[cfg(windows)]
+    std::thread::spawn(|| {
+        use std::net::ToSocketAddrs;
+        std::thread::sleep(std::time::Duration::from_secs(20));
+        if !aruaru_ime_core::settings::Settings::load().open_online_ui {
+            return;
+        }
+        let reachable = ("easy-web.tokyo", 443u16).to_socket_addrs().ok().and_then(|mut a| a.next()).is_some_and(|a| std::net::TcpStream::connect_timeout(&a, std::time::Duration::from_secs(3)).is_ok());
+        if !reachable {
+            return;
+        }
+        use windows::core::{w, PCWSTR};
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWMINNOACTIVE;
+        unsafe {
+            ShellExecuteW(None, w!("open"), w!("https://easy-web.tokyo/ime"), PCWSTR::null(), PCWSTR::null(), SW_SHOWMINNOACTIVE);
+        }
+    });
+}
+
 /// 中国語のピンイン辞書を読み込む。無ければ、起動時に自動で取得して辞書化する。
 fn spawn_zh() {
     std::thread::spawn(|| {
@@ -469,6 +492,7 @@ fn main() {
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));
     spawn_zh();
+    spawn_online_ui();
     spawn_autobackup();
     resume_wishes(client.clone());
     let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));
