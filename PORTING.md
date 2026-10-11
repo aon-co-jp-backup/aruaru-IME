@@ -108,3 +108,6 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 ## 起動時のオンライン画面 / Online screen at startup (2026-10-11)
 - 設定 `open_online_ui`(既定オン、トレイで切替): エンジン起動の20秒後、easy-web.tokyo に届くときだけ `https://easy-web.tokyo/ime` を既定ブラウザで最小化して開く(Windows)。ブラウザによっては最小化を無視する。スマホ/タブレットは対応アプリが無く未対応。
 - Opens the online screen minimized ~20 s after engine start when easy-web.tokyo is reachable (Windows; some browsers ignore minimize). Phones/tablets: not supported yet.
+
+## 「〜療法」「気功」など健康用語 / Health & therapy terms (2026-10-11)
+- `seasonal.rs` に `THERAPY_PREFIX`(気功・音楽・睡眠・アロマ…+療法)と `TERMS` を追加。辞書に無い語(気功)も名詞として扱い、「きこうりょうほう」→気功療法、「すいみんりょうほう」→睡眠療法 に変換。

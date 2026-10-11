@@ -181,7 +181,8 @@ impl Dict {
             out.push(Extra { reading: r.chars().collect(), surface: w, lid, rid, cost });
         }
         for parts in crate::seasonal::phrases() {
-            let ents: Option<Vec<Ent>> = parts.iter().map(|(r, w)| self.find_ent(r, w)).collect();
+            // 辞書に無い語(気功など)は、名詞として扱う
+            let ents: Option<Vec<Ent>> = parts.iter().map(|(r, w)| self.find_ent(r, w).or(noun.map(|n| Ent { cost: 5000, ..n }))).collect();
             let Some(ents) = ents else { continue };
             let mut cost: i32 = ents.iter().map(|e| e.cost as i32).sum();
             for w in ents.windows(2) {
@@ -530,6 +531,16 @@ mod tests {
     fn dict() -> Option<Dict> {
         let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
         Dict::load(&p).ok()
+    }
+
+    #[test]
+    fn real_dictionary_therapy_terms() {
+        let Some(d) = dict() else { return };
+        for (r, want) in [("きこうりょうほう", "気功療法"), ("おんがくりょうほう", "音楽療法"), ("すいみんりょうほう", "睡眠療法"), ("あろまりょうほう", "アロマ療法"), ("りょうほうをうける", "療法を受ける")] {
+            let c = d.candidates(r, 6);
+            assert!(c[0].starts_with(&want[..want.char_indices().nth(2).map(|x| x.0).unwrap_or(want.len())]), "{r}: {c:?}");
+        }
+        assert_eq!(d.candidates("きこうりょうほう", 6)[0], "気功療法");
     }
 
     #[test]
