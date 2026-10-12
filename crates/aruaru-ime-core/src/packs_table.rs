@@ -16,10 +16,10 @@ struct Table {
 }
 
 const TABLES: &[Table] = &[
-    Table { id: "flowers", title: "花の名前", src: include_str!("../data/packs/flowers.tsv"), station: false },
-    Table { id: "countries", title: "国名", src: include_str!("../data/packs/countries.tsv"), station: false },
-    Table { id: "cities", title: "主要な都市名", src: include_str!("../data/packs/cities.tsv"), station: false },
-    Table { id: "stations", title: "日本の駅名", src: include_str!("../data/packs/stations.tsv"), station: true },
+    Table { id: "flowers", title: "花の名前", src: include_str!("../pack_tables/flowers.tsv"), station: false },
+    Table { id: "countries", title: "国名", src: include_str!("../pack_tables/countries.tsv"), station: false },
+    Table { id: "cities", title: "主要な都市名", src: include_str!("../pack_tables/cities.tsv"), station: false },
+    Table { id: "stations", title: "日本の駅名", src: include_str!("../pack_tables/stations.tsv"), station: true },
 ];
 
 fn leak(s: String) -> &'static str {
