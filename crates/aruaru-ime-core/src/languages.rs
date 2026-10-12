@@ -161,6 +161,46 @@ pub fn engine(code: &str) -> Option<Lang> {
     Some(l)
 }
 
+/// 専用エンジンは無いが、同じ文字体系の言語の入力方式で近似できる言語(キリル文字→ロシア語、アラビア文字→アラビア語、
+/// ラテン文字→アクセント記号つき入力)。アクセント記号つき入力は ' ` ^ " ~ : / , の組み合わせで á à â ä ã ü ç などを打つ。
+pub fn approx(code: &str) -> Option<Lang> {
+    const CYRILLIC: &[&str] = &["mn", "kk", "ky", "tg", "bg", "sr", "mk", "be"];
+    const ARABIC: &[&str] = &["ur", "ps", "ckb", "ku", "ug"];
+    const HEBREW: &[&str] = &["yi"];
+    const LATIN: &[&str] = &[
+        "tr", "vi", "id", "ms", "fil", "jv", "su", "uz", "tk", "az", "nl", "sv", "no", "da", "fi", "is", "fo", "et", "lv", "lt", "pl", "cs", "sk", "hu", "ro", "hr", "bs",
+        "sl", "sq", "mt", "ca", "eu", "gl", "ga", "gd", "cy", "br", "lb", "fy", "rm", "co", "eo", "la", "sw", "om", "so", "ha", "yo", "ig", "ff", "wo", "ak", "ee", "ln",
+        "kg", "rw", "rn", "lg", "mg", "ny", "sn", "zu", "xh", "af", "st", "tn", "ht", "qu", "ay", "gn", "mi", "sm", "to", "fj", "haw", "tpi", "tet",
+    ];
+    if CYRILLIC.contains(&code) {
+        Some(Lang::Ru)
+    } else if ARABIC.contains(&code) {
+        Some(Lang::Ar)
+    } else if HEBREW.contains(&code) {
+        Some(Lang::He)
+    } else if LATIN.contains(&code) {
+        Some(Lang::Es)
+    } else {
+        None
+    }
+}
+
+/// 入力に使う入力方式(専用エンジン、なければ近似)。
+pub fn base(code: &str) -> Option<Lang> {
+    engine(code).or_else(|| approx(code))
+}
+
+/// 入力の状態: 専用エンジン / 近似 / 準備中。
+pub fn status(code: &str) -> &'static str {
+    if engine(code).is_some() {
+        "対応 / ready"
+    } else if approx(code).is_some() {
+        "近似 / approximate"
+    } else {
+        "準備中 / planned"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,6 +209,12 @@ mod tests {
         assert!(LANGUAGES.len() >= 120, "{}", LANGUAGES.len());
         assert_eq!(engine("ko"), Some(Lang::Ko));
         assert_eq!(engine("sw"), None);
+        assert_eq!(base("bg"), Some(Lang::Ru));
+        assert_eq!(base("ur"), Some(Lang::Ar));
+        assert_eq!(base("pl"), Some(Lang::Es));
+        assert_eq!(base("hi"), None);
+        let planned = LANGUAGES.iter().filter(|l| base(l.0).is_none()).count();
+        assert!(planned < 40, "{planned}");
         assert!(LANGUAGES.iter().any(|l| l.0 == "sw"));
     }
 }

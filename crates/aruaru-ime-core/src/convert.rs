@@ -80,19 +80,14 @@ pub fn wants_suggest(ctx: &Context) -> bool {
 pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Option<&Dict>) -> Conversion {
     let pred = mode::predict(buffer, ctx);
     let mut c: Vec<Candidate> = vec![];
-    if buffer == "+" {
-        // プラス記号の種類: 半角 + 、全角 ＋ 、太字のプラス、プラスマイナス、カタカナ「プラス」、漢字「加」
-        for h in ["+", "＋", "➕", "±", "﹢", "プラス", "ぷらす", "加", "＋"] {
-            push(&mut c, h.to_string(), "symbol");
+    if buffer.chars().count() == 1 {
+        if let Some(list) = buffer.chars().next().and_then(crate::prefer::lead_symbol) {
+            // 記号の種類を並べる(- + / < > ? ! かっこ、など)
+            for h in list.split(' ') {
+                push(&mut c, h.to_string(), "symbol");
+            }
+            return Conversion { prediction: pred, candidates: c, suggestions: vec![], exact_dict: false };
         }
-        return Conversion { prediction: pred, candidates: c, suggestions: vec![], exact_dict: false };
-    }
-    if buffer == "-" {
-        // ハイフンの種類を並べる: 半角 - 、全角 － 、ダッシュ、マイナス、長音(ー)、半角カタカナの長音(ｰ)など
-        for h in crate::prefer::HYPHENS.chars().chain(['ー', 'ｰ', '～']).chain("マイナス".chars().take(0)) {
-            push(&mut c, h.to_string(), "symbol");
-        }
-        return Conversion { prediction: pred, candidates: c, suggestions: vec![], exact_dict: false };
     }
     let hira = romaji::to_hiragana(buffer);
     let hira_for_exact = hira.clone();

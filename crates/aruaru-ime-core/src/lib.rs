@@ -21,6 +21,7 @@ pub mod userdict;
 pub mod ghbackup;
 pub mod knowledge;
 pub mod languages;
+pub mod packs;
 pub mod prefer;
 pub mod lastime;
 pub mod seasonal;

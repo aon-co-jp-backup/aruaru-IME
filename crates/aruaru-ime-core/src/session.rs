@@ -113,7 +113,7 @@ pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang:
     }
     match key {
         // 最初の - は、ハイフンの種類を候補に並べるためIMEが受ける(直前が英数字のときはIME側でそのまま確定する)
-        Key::Char(c) => c.is_ascii_alphabetic() || composing || matches!(c, '-' | '+') || (matches!(c, ',' | '.') && last_ja),
+        Key::Char(c) => c.is_ascii_alphabetic() || composing || crate::prefer::lead_symbol(*c).is_some() || (matches!(c, ',' | '.') && last_ja),
         Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
@@ -506,7 +506,10 @@ impl Session {
         if is_kana_mode {
             if let Some(u) = self.user.as_mut() {
                 u.reload_if_changed();
-                c.extend(u.exact(&reading));
+                // 読みと同じかな表記だけの登録(きめつのやいば→きめつのやいば)は、ほかの登録語の後ろへ
+                let (mut real, same): (Vec<String>, Vec<String>) = u.exact(&reading).into_iter().partition(|x| *x != reading);
+                real.extend(same);
+                c.extend(real);
                 predictions.extend(u.prefix(&reading, 4));
             }
             c.extend(self.learned.exact(&reading));
@@ -705,16 +708,27 @@ impl Session {
             }
             // 入力の最初の - : 半角 - ・全角 － ・ダッシュ・長音・カタカナのハイフンなどを候補に並べる。
             // 直前が英数字(090-1234 / well-known)のときは、候補を出さずそのまま - にする。
-            Key::Char(sym @ ('-' | '+')) if !self.composing() => {
+            Key::Char(sym) if !self.composing() && crate::prefer::lead_symbol(sym).is_some() => {
                 if self.before.chars().last().is_some_and(|ch| ch.is_ascii_alphanumeric()) {
                     self.note_commit(&sym.to_string());
                     return self.state(true, Some(sym.to_string()));
                 }
                 self.buf.push(sym);
                 self.refresh();
+                if !self.cands.is_empty() {
+                    self.sel = Some(0); // 先頭の候補(/ なら ・)を、打った時点の表示にする
+                    self.auto = true;
+                }
                 self.state(true, None)
             }
             // ハイフンの候補を出している最中に数字が来たら、半角の - として確定して数字を続ける
+            // - と + 以外の記号の候補を出している最中に文字が来たら、先頭の候補で確定してから、その文字を続ける
+            Key::Char(c) if self.composing() && self.buf.chars().count() == 1 && !matches!(self.buf.as_str(), "-" | "+") && self.buf.chars().next().is_some_and(|b| crate::prefer::lead_symbol(b).is_some()) && c != ' ' => {
+                let first = self.commit_current();
+                let mut st = self.key(Key::Char(c));
+                st.commit = Some(format!("{first}{}", st.commit.unwrap_or_default()));
+                st
+            }
             Key::Char(c) if self.composing() && (self.buf == "-" || self.buf == "+") && c.is_ascii_digit() => {
                 let sym = self.buf.clone();
                 self.reset();

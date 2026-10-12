@@ -32,6 +32,9 @@ pub struct Settings {
     /// 辞書に無い固有名詞・作品名のために、変換を求めたとき Web のサジェスト(Google)を引く。入力中の文字を Google に送るので、不要ならオフ。既定オン。
     #[serde(default = "default_true")]
     pub web_suggest: bool,
+    /// 組み込みの用語辞書(パック)のうち、すでに一度入れた(または利用者が外した)もの。起動時の自動インストールは、ここに無いパックだけに行う。
+    #[serde(default)]
+    pub packs_seen: Vec<String>,
     /// 開発で使う言語・フレームワーク(名前)。選ぶと、文脈から判定できなくても常にその語彙で補完・訂正する。
     #[serde(default)]
     pub dev_stack: Vec<String>,
@@ -73,7 +76,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, backup_dir: None }
+        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, packs_seen: vec![], dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, backup_dir: None }
     }
 }
 
@@ -106,42 +109,60 @@ impl Settings {
         if self.candidate_scale.is_finite() { self.candidate_scale.clamp(1.0, 4.0) } else { 1.8 }
     }
 
-    /// 選択中の言語を返す(未知のコードは捨て、重複を除き、最大数で切る)。日本語・英語が無ければ先頭に足す。
-    pub fn selected_languages(&self) -> Vec<crate::translit::Lang> {
-        let mut v: Vec<crate::translit::Lang> = vec![];
+    /// 選択中の言語コード(重複を除き、最大数で切る)。日本語・英語が無ければ先頭に足す。
+    pub fn selected_codes(&self) -> Vec<String> {
+        let mut v: Vec<String> = vec![];
         for c in &self.languages {
-            if let Some(l) = crate::translit::Lang::from_code(c) {
-                if !v.contains(&l) {
-                    v.push(l);
-                }
+            if crate::languages::LANGUAGES.iter().any(|l| l.0 == c) && !v.contains(c) {
+                v.push(c.clone());
             }
         }
-        for must in [crate::translit::Lang::En, crate::translit::Lang::Ja] {
-            if !v.contains(&must) {
-                v.insert(0, must);
+        for must in ["en", "ja"] {
+            if !v.iter().any(|c| c == must) {
+                v.insert(0, must.to_string());
             }
         }
         v.truncate(MAX_LANGUAGES);
         v
     }
 
-    /// 言語の選択を切り替える。上限(7)を超える追加と、日本語・英語の解除は受け付けない。変えたら true。
-    pub fn toggle_language(&mut self, lang: crate::translit::Lang) -> Result<(), String> {
-        use crate::translit::Lang;
-        let mut cur = self.selected_languages();
-        if cur.contains(&lang) {
-            if matches!(lang, Lang::Ja | Lang::En) {
+    /// 選択中の言語が実際に使う入力方式(専用エンジン、なければ同じ文字体系の入力方式で近似。重複は1つ)。
+    pub fn selected_languages(&self) -> Vec<crate::translit::Lang> {
+        let mut v: Vec<crate::translit::Lang> = vec![];
+        for c in self.selected_codes() {
+            if let Some(l) = crate::languages::base(&c) {
+                if !v.contains(&l) {
+                    v.push(l);
+                }
+            }
+        }
+        v
+    }
+
+    /// 言語(コード)の選択を切り替える。上限(7)を超える追加と、日本語・英語の解除、入力方式の無い言語(準備中)の追加は受け付けない。
+    pub fn toggle_code(&mut self, code: &str) -> Result<(), String> {
+        let mut cur = self.selected_codes();
+        if cur.iter().any(|c| c == code) {
+            if matches!(code, "ja" | "en") {
                 return Err("日本語と英語は外せません / Japanese and English cannot be removed".into());
             }
-            cur.retain(|l| *l != lang);
+            cur.retain(|c| c != code);
         } else {
+            if crate::languages::base(code).is_none() {
+                return Err("この言語の入力方式は準備中です / Not available yet".into());
+            }
             if cur.len() >= MAX_LANGUAGES {
                 return Err(format!("選べる言語は最大{MAX_LANGUAGES}つです / You can select up to {MAX_LANGUAGES} languages"));
             }
-            cur.push(lang);
+            cur.push(code.to_string());
         }
-        self.languages = cur.iter().map(|l| l.code().to_string()).collect();
+        self.languages = cur;
         Ok(())
+    }
+
+    /// 言語の選択を切り替える(入力方式の言語で指定)。
+    pub fn toggle_language(&mut self, lang: crate::translit::Lang) -> Result<(), String> {
+        self.toggle_code(lang.code())
     }
 
     pub fn dark(&self) -> bool {

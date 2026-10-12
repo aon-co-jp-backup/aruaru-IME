@@ -389,6 +389,27 @@ fn spawn_online_ui() {
 }
 
 /// 中国語のピンイン辞書を読み込む。無ければ、起動時に自動で取得して辞書化する。
+/// 組み込みの用語辞書(パック)を、既定で入れる。一度入れた(または利用者が外した)ものは、二度と自動では入れない。
+fn install_default_packs() {
+    let root = aruaru_ime_core::components::data_dir();
+    let mut s = aruaru_ime_core::settings::Settings::load();
+    let mut user = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
+    let mut changed = false;
+    for p in aruaru_ime_core::packs::PACKS {
+        if s.packs_seen.iter().any(|x| x == p.id) {
+            continue;
+        }
+        if let Ok(n) = aruaru_ime_core::packs::install(&root, &mut user, p) {
+            eprintln!("pack {}: {n} entries", p.id);
+            s.packs_seen.push(p.id.to_string());
+            changed = true;
+        }
+    }
+    if changed {
+        let _ = s.save();
+    }
+}
+
 fn spawn_zh() {
     std::thread::spawn(|| {
         let root = aruaru_ime_core::components::data_dir();
@@ -568,6 +589,9 @@ fn main() {
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));
     spawn_zh();
+    if !server_mode() {
+        install_default_packs();
+    }
     if !server_mode() {
         spawn_online_ui();
         ensure_autostart();

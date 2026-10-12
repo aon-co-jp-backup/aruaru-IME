@@ -58,6 +58,7 @@ enum Action {
     ToggleLang(translit::Lang),
     ToggleOldForms,
     ToggleLive,
+    TogglePack(String),
     ToggleStack(String),
     GithubSetRepo,
     GithubPush,
@@ -155,6 +156,14 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     // 単語・熟語
     let id = m.push(Action::RegisterWord);
     add(root, MF_STRING, id, "単語・熟語を登録… / Register a word or phrase");
+    // 用語辞書(組み込み): 選ぶと入る / もう一度選ぶと外れる
+    let pack_menu = CreatePopupMenu().unwrap();
+    let root_dir = aruaru_ime_core::components::data_dir();
+    for p in aruaru_ime_core::packs::PACKS {
+        let id = m.push(Action::TogglePack(p.id.to_string()));
+        add(pack_menu, check(aruaru_ime_core::packs::is_installed(&root_dir, p)), id, p.title);
+    }
+    add_sub(root, pack_menu, "用語辞書を選んで入れる / Term dictionary catalog (install / remove)");
     let id = m.push(Action::AddKnowledge);
     add(root, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
     let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir())).len();
@@ -668,6 +677,23 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                     Err(e) => format!("登録できませんでした: {e}"),
                 };
                 notify("単語・熟語", &msg);
+            }
+        }
+        Action::TogglePack(id) => {
+            if let Some(p) = aruaru_ime_core::packs::find(&id) {
+                let root = aruaru_ime_core::components::data_dir();
+                let mut user = UserDict::load(&UserDict::default_path());
+                let msg = if aruaru_ime_core::packs::is_installed(&root, p) {
+                    aruaru_ime_core::packs::uninstall(&root, &mut user, p).map(|n| format!("{} を外しました({n}件)", p.title))
+                } else {
+                    aruaru_ime_core::packs::install(&root, &mut user, p).map(|n| format!("{} を入れました({n}件)", p.title))
+                };
+                with_settings(|s| {
+                    if !s.packs_seen.iter().any(|x| x == &id) {
+                        s.packs_seen.push(id.clone());
+                    }
+                });
+                notify("用語辞書", &msg.unwrap_or_else(|e| e));
             }
         }
         Action::AddKnowledge => {
