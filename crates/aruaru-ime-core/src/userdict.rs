@@ -24,6 +24,16 @@ pub struct UserDict {
     mtime: Option<SystemTime>,
 }
 
+/// 登録する読みを決める。英数字だけの語(GitHub など)は、読みもそのまま小文字で持つ(ローマ字→かな変換しない)。
+fn reading_for(reading: &str, surface: &str) -> String {
+    let raw = reading.trim().to_lowercase();
+    if !raw.is_empty() && raw.chars().all(|c| c.is_ascii_alphanumeric()) && surface.to_lowercase() == raw {
+        raw
+    } else {
+        normalize_reading(reading)
+    }
+}
+
 /// 読みの正規化: 前後の空白を除き、ローマ字ならひらがなに、カタカナならひらがなにする。
 pub fn normalize_reading(r: &str) -> String {
     let r = r.trim();
@@ -80,9 +90,7 @@ impl UserDict {
     pub fn add_from(&mut self, reading: &str, surface: &str, source: Option<&str>) -> std::io::Result<bool> {
         self.reload_if_changed();
         let surface = surface.trim().to_string();
-        // 英数字だけの語(GitHub など)は、読みもそのまま小文字で持つ(ローマ字→かな変換しない)
-        let raw = reading.trim().to_lowercase();
-        let reading = if !raw.is_empty() && raw.chars().all(|c| c.is_ascii_alphanumeric()) && surface.to_lowercase() == raw { raw } else { normalize_reading(reading) };
+        let reading = reading_for(reading, &surface);
         if reading.is_empty() || surface.is_empty() {
             return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "読みと表記の両方が必要です"));
         }
@@ -100,8 +108,8 @@ impl UserDict {
         let mut have: std::collections::HashSet<(String, String)> = self.entries.iter().map(|e| (e.reading.clone(), e.surface.clone())).collect();
         let mut n = 0;
         for (r, s) in pairs {
-            let reading = normalize_reading(r);
             let surface = s.trim().to_string();
+            let reading = reading_for(r, &surface);
             if reading.is_empty() || surface.is_empty() || !have.insert((reading.clone(), surface.clone())) {
                 continue;
             }

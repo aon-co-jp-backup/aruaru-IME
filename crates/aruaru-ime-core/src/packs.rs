@@ -206,14 +206,9 @@ pub fn is_installed(root: &Path, p: &Pack) -> bool {
 pub fn install(root: &Path, user: &mut UserDict, p: &Pack) -> Result<usize, String> {
     let src = source(p);
     user.remove_source(&src).map_err(|e| e.to_string())?;
-    let mut n = 0;
-    for l in p.entries.lines() {
-        if let Some((r, s)) = l.split_once('\t') {
-            if user.add_from(r, s, Some(&src)).map_err(|e| e.to_string())? {
-                n += 1;
-            }
-        }
-    }
+    // まとめて入れる(ファイルへの保存は1回。1件ずつだと、人名辞書のような数千件のパックで、起動に何分もかかる)
+    let pairs: Vec<(String, String)> = p.entries.lines().filter_map(|l| l.split_once('\t')).map(|(r, s)| (r.to_string(), s.to_string())).collect();
+    let n = user.add_many(&pairs, &src).map_err(|e| e.to_string())?;
     let _ = wish::add(root, p.title, p.category);
     wish::set_status(root, p.title, p.category, Status::Done, n, None);
     // 中国語(簡体・繁体)・韓国語・ヨーロッパ言語の版
