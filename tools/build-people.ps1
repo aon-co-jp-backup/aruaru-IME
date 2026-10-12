@@ -5,7 +5,9 @@
 #   - ラテン文字を含む表記(例: ジョージ・W・ブッシュ)は、読みが定まらないので除く
 # 列: よみ / 日本語 / English / 簡体 / 繁体 / ピンイン / 한글 / fr / es / de / it / pt(簡体・繁体・ピンインは空)
 # 使い方: powershell -ExecutionPolicy Bypass -File tools\build-people.ps1 [-MinSitelinks 90] [-PerOccupation 300]
-param([int]$MinSitelinks = 90, [int]$PerOccupation = 300)
+param([int]$MinSitelinks = 90, [int]$PerOccupation = 300, [switch]$Japan)
+if ($Japan -and -not $PSBoundParameters.ContainsKey("MinSitelinks")) { $MinSitelinks = 25 }
+if ($Japan -and -not $PSBoundParameters.ContainsKey("PerOccupation")) { $PerOccupation = 200 }
 $ErrorActionPreference = "Stop"
 $out = Join-Path $PSScriptRoot "..\crates\aruaru-ime-core\pack_tables\people.tsv"
 $ua = "aruaru-IME-dict-builder/0.1 (https://github.com/aon-co-jp/aruaru-IME)"
@@ -45,7 +47,11 @@ function Reading([string]$ja, [string]$kana) {
 }
 
 $seen = @{}
+$seenJa = @{}
 $rows = New-Object System.Collections.Generic.List[string]
+# -Japan: 既存の表に、日本の人物(国籍または出生地が日本)を追加する(世界の上位だけでは日本人が上位300件に入らないため)
+if ($Japan -and (Test-Path $out)) { foreach ($l in [IO.File]::ReadAllLines($out, [Text.Encoding]::UTF8)) { if ($l) { $rows.Add($l); $seenJa[($l -split "`t")[1]] = 1 } } }
+$jpFilter = if ($Japan) { "{ ?p wdt:P27 wd:Q17 } UNION { ?p wdt:P19 ?pl . ?pl wdt:P17 wd:Q17 }" } else { "" }
 $langs = @("ko","fr","es","de","it","pt")
 foreach ($q in $occ) {
   $opt = ($langs | ForEach-Object { "OPTIONAL { ?p rdfs:label ?$_ . FILTER(LANG(?$_)=`"$_`") }" }) -join "`n"
@@ -55,6 +61,7 @@ SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp WHERE {
   ?p rdfs:label ?ja. FILTER(LANG(?ja)="ja")
   ?p rdfs:label ?en. FILTER(LANG(?en)="en")
   OPTIONAL { ?p wdt:P1814 ?kana }
+  $jpFilter
   BIND(EXISTS { ?p wdt:P27 wd:Q17 } AS ?jp)
   $opt
 } ORDER BY DESC(?sl) LIMIT $PerOccupation
@@ -80,11 +87,12 @@ SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp WHERE {
     if ($c.Count -lt 12) { continue }
     $id = $c[0]
     if ($seen.ContainsKey($id)) { continue }
+    if ($seenJa.ContainsKey((Get-Lit $c[1]))) { continue }
     $ja = Get-Lit $c[1]; $en = Get-Lit $c[2]; $kana = Get-Lit $c[3]
     if ($ja -match '[A-Za-z0-9]') { continue }
     $r = Reading $ja $kana
     # 日本国籍で、読みが無い漢字表記: 英語表記(ヘボン式)から読みを作る(先頭の = は「ローマ字から変換」の印。IME側の romaji で変換する)
-    if (-not $r -and $c[11] -match 'true') {
+    if (-not $r -and ($c[11] -match 'true' -or $Japan)) {
       $rom = $en.ToLowerInvariant().Normalize([Text.NormalizationForm]::FormKC)
       foreach ($p in @(@([string][char]0x14D, 'ou'), @([string][char]0x16B, 'uu'), @([string][char]0x101, 'aa'), @([string][char]0x12B, 'ii'), @([string][char]0x113, 'ee'))) { $rom = $rom.Replace($p[0], $p[1]) }
       $rom = ($rom -replace "[^a-z']", '')
