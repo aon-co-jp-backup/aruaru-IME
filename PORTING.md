@@ -133,3 +133,10 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - VPS: `/root/repository/aruaru-IME`(clone・`cargo build --release -p aruaru-ime-daemon`)→ `/opt/aruaru-ime/aruaru-ime-daemon` + `/var/lib/aruaru-ime/dict.bin`、`aruaru-ime-server.service`(`ARUARU_IME_SERVER=1`: 学習・利用者辞書・自動更新・バックアップを止める。127.0.0.1:4660のみ)。更新: git pull → build → バイナリをコピー → `systemctl restart aruaru-ime-server`。
 - open-easy-web: `/ime/api/{health,key,session}` だけをエンジンへ中継(本文4KBまで)。Chrome 等の実ブラウザでの確認は未了(内蔵ブラウザでは候補表示を確認)。
 - 利用者PC側のエンジンへ直接つなぐ従来の経路は、このページでは使わない(PCのエンジンは `http://127.0.0.1:4660/ui`)。
+
+## v0.2.0 公開とインストーラー試験 / v0.2.0 release & installer test (2026-10-12)
+- v0.2.0 を GitHub Releases に公開(プレリリース)。同じファイルを `https://easy-web.tokyo/ime/download/aruaru-ime-windows-x86_64-setup.exe`(VPS `/var/lib/aruaru-ime/downloads/`)からも直接配布(オンライン画面の「ダウンロードはこちら」)。新版を出したら、このフォルダへ scp して入れ替える。
+- インストーラー実機試験(`tools/installer-e2e.ps1`、管理者): 無人インストール exit=0 → 無人アンインストール exit=0 → 直後の再インストールは exit=8(アンインストールで DLL の削除が再起動待ちになるため。Windows の仕様)。**再起動後の再インストールの確認は未了**。試験後は `tools/reregister-dev.ps1`(管理者)で開発版を再登録。
+- Installer test: silent install OK, silent uninstall OK; reinstall right after uninstall needs a reboot (pending DLL delete). Post-reboot reinstall check still pending.
+- 右クリック: 知識ベース(追加・一覧)、世界132言語の一覧(対応/準備中)を追加。
+- 未了: 準備中言語(約117)の入力エンジン、知識ベースの候補窓への表示、macOS/Linux/Android のIME本体。
