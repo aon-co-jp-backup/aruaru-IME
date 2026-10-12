@@ -108,6 +108,14 @@ mod tests {
         assert!(ci.zh.contains("dongjing\t东京\t東京") && ci.ko.contains("도쿄"));
         assert!(ci.eu.contains("en\tnewyork\tNewYork") || ci.eu.contains("en\ttokyo\tTokyo"));
         assert!(ci.eu.contains("it\tnewyork\tNew York") || ci.eu.contains("it\tnewyork\t"));
+        // 人名・有名人・重要人物名(既定で入る): 日本人は読み(かな表記またはローマ字から作ったもの)、外国人はカタカナの読みと英語名の両方で打てる
+        let pe = packs.iter().find(|p| p.id == "people").unwrap();
+        assert!(pe.entries.contains("おだのぶなが\t織田信長\n"), "かな表記からの読み");
+        assert!(pe.entries.contains("あいざっくにゅーとん\tアイザック・ニュートン\n"), "カタカナ表記の読み(中黒は除く)");
+        assert!(pe.entries.lines().count() > 3000);
+        assert!(!pe.entries.lines().any(|l| l.starts_with('=') || l.split('\t').next().is_some_and(|k| k.chars().any(|c| c.is_ascii_alphabetic()))), "ローマ字のまま残った読みが無い");
+        let pi = i18n.iter().find(|x| x.id == "people").unwrap();
+        assert!(pi.eu.contains("en\tisaacnewton\tIsaac Newton"));
         let f = i18n.iter().find(|x| x.id == "flowers").unwrap();
         assert!(f.zh.contains("yinghua\t樱花\t櫻花"));
     }
