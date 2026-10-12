@@ -49,6 +49,8 @@ enum Action {
     ToggleWebSuggest,
     AddVocab,
     RegisterWord,
+    AddKnowledge,
+    ListKnowledge,
     RegisterName,
     ListWords,
     ImportFile,
@@ -115,6 +117,13 @@ unsafe fn build_menu() -> (HMENU, Menu) {
         let id = m.push(Action::ToggleLang(*l));
         add(langs, if on { MF_STRING | MF_CHECKED } else { MF_STRING }, id, &format!("{name}{rtl}"));
     }
+    // 世界の約130言語の一覧。入力エンジンがある言語は上の一覧で選ぶ。ほかは「準備中」と表示する
+    let all_menu = CreatePopupMenu().unwrap();
+    for (code, ja, native) in aruaru_ime_core::languages::LANGUAGES {
+        let ready = aruaru_ime_core::languages::engine(code).is_some();
+        add(all_menu, MF_STRING | MF_GRAYED, 7, &format!("{native} / {ja} ({code}) — {}", if ready { "対応 / ready" } else { "準備中 / planned" }));
+    }
+    add_sub(langs, all_menu, &format!("すべての言語 / All languages ({})", aruaru_ime_core::languages::LANGUAGES.len()));
     let _ = AppendMenuW(langs, MF_SEPARATOR, 0, PCWSTR::null());
     add(langs, MF_STRING | MF_GRAYED, 3, "切替 / Switch: Win+Space");
     add_sub(root, langs, &format!("入力言語 / Input languages ({}/{})", chosen.len(), settings::MAX_LANGUAGES));
@@ -146,6 +155,11 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     // 単語・熟語
     let id = m.push(Action::RegisterWord);
     add(root, MF_STRING, id, "単語・熟語を登録… / Register a word or phrase");
+    let id = m.push(Action::AddKnowledge);
+    add(root, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
+    let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir())).len();
+    let id = m.push(Action::ListKnowledge);
+    add(root, MF_STRING, id, &format!("知識ベースの一覧… / Knowledge base ({kn})"));
     let id = m.push(Action::RegisterName);
     add(root, MF_STRING, id, "人名を登録… / Register a person's name (family + given)");
     let id = m.push(Action::ListWords);
@@ -655,6 +669,24 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                 };
                 notify("単語・熟語", &msg);
             }
+        }
+        Action::AddKnowledge => {
+            if let Some(v) = input_dialog("知識ベースに追加", &["知識(文章)", "タグ(空白区切り・省略可)"], "例:  桜の開花は3月下旬  タグ: 春 花") {
+                let tags: Vec<String> = v[1].split_whitespace().map(String::from).collect();
+                let p = aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir());
+                let msg = match aruaru_ime_core::knowledge::add(&p, &v[0], &tags, "user") {
+                    Ok(true) => "知識ベースに追加しました",
+                    Ok(false) => "追加しませんでした(空・重複)",
+                    Err(_) => "追加できませんでした",
+                };
+                notify("知識ベース", msg);
+            }
+        }
+        Action::ListKnowledge => {
+            let p = aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir());
+            let items = aruaru_ime_core::knowledge::load(&p);
+            let lines: Vec<String> = items.iter().map(|i| format!("{}  [{}]", i.text, i.tags.join(","))).collect();
+            list_dialog(&format!("知識ベース ({}件)", lines.len()), &lines, "閉じる / Close", None);
         }
         Action::RegisterName => {
             if let Some(v) = input_dialog("人名を登録", &["姓の読み", "姓", "名の読み", "名"], "例:  姓の読み「かまど」 姓「竈門」 名の読み「たんじろう」 名「炭治郎」(姓・名・フルネームの3つを登録します)") {
