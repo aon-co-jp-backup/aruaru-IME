@@ -32,6 +32,14 @@ XML
   echo "IBus: registered. Add it in Settings > Keyboard > Input Sources > Japanese > aruaru-IME (or: ibus engine aruaru-ime)."
 fi
 
+# macOS: input method (InputMethodKit). Log out and in, then add it in System Settings > Keyboard > Input Sources > Japanese.
+if [ "$OS" = "Darwin" ] && [ -d "$HERE/aruaru-IME.app" ]; then
+  mkdir -p "$HOME/Library/Input Methods"
+  rm -rf "$HOME/Library/Input Methods/aruaru-IME.app"
+  cp -R "$HERE/aruaru-IME.app" "$HOME/Library/Input Methods/"
+  echo "macOS input method installed. Log out and in, then add aruaru-IME in System Settings > Keyboard > Input Sources > Japanese."
+fi
+
 # data dir (same rule as the engine)
 if [ -z "$DATA" ]; then
   if [ "$OS" = "Darwin" ]; then DATA="$HOME/Library/Application Support/aruaru"; else DATA="${XDG_DATA_HOME:-$HOME/.local/share}/aruaru"; fi

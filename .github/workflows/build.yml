@@ -35,6 +35,9 @@ jobs:
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then D=target/release/aruaru-ime-daemon.exe; else D=target/release/aruaru-ime-daemon; fi
           sh tools/e2e-smoke.sh "$PWD/$D"
+      - name: Build the macOS input method (InputMethodKit)
+        if: runner.os == 'macOS'
+        run: sh macos/build.sh dist/macos-ime
       - name: Generate the shared front end for every OS
         run: cargo run --release -p aruaru-ime-cli -- frontends dist/frontends
       - name: Package (macOS / Linux)
@@ -47,6 +50,7 @@ jobs:
           cp target/release/aruaru-ime-daemon target/release/aruaru-ime "dist/$P/"
           cp installer/unix/install.sh installer/unix/uninstall.sh "dist/$P/"
           [ -f target/release/aruaru-ime-ibus ] && cp target/release/aruaru-ime-ibus "dist/$P/" || true
+          [ -d dist/macos-ime/aruaru-IME.app ] && cp -R dist/macos-ime/aruaru-IME.app "dist/$P/" || true
           cp -r dist/frontends "dist/$P/frontends"
           tar -C dist -czf "dist/$P.tar.gz" "$P"
       - uses: actions/upload-artifact@v4

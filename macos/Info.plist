@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>aruaru-IME</string>
+  <key>CFBundleIdentifier</key><string>jp.aon.aruaru-IME</string>
+  <key>CFBundleName</key><string>aruaru-IME</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.2</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSUIElement</key><true/>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>InputMethodConnectionName</key><string>jp.aon.aruaru-IME_Connection</string>
+  <key>InputMethodServerControllerClass</key><string>AruaruIMEController</string>
+  <key>InputMethodServerDelegateClass</key><string>AruaruIMEController</string>
+  <key>tsInputMethodCharacterRepertoireKey</key><array><string>Latn</string><string>Jpan</string></array>
+  <key>ComponentInputModeDict</key><dict>
+    <key>tsInputModeListKey</key><dict>
+      <key>jp.aon.aruaru-IME.Japanese</key><dict>
+        <key>TISInputSourceID</key><string>jp.aon.aruaru-IME.Japanese</string>
+        <key>TISIntendedLanguage</key><string>ja</string>
+        <key>tsInputModeScriptKey</key><string>smJapanese</string>
+        <key>tsInputModeIsVisibleKey</key><true/>
+        <key>tsInputModePrimaryInputModeKey</key><true/>
+        <key>tsInputModeDefaultStateKey</key><true/>
+      </dict>
+    </dict>
+    <key>tsVisibleInputModeOrderedArrayKey</key><array><string>jp.aon.aruaru-IME.Japanese</string></array>
+  </dict>
+</dict></plist>
