@@ -1,0 +1,17 @@
+[package]
+name = "aruaru-ime-ibus"
+description = "aruaru-IME engine for IBus (Linux): talks to the resident aruaru-ime-daemon over HTTP and to IBus over D-Bus."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "aruaru-ime-ibus"
+path = "src/main.rs"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "4", default-features = false, features = ["async-io"] }
+async-io = "2"
+futures-lite = "2"
+serde_json = "1"
+ureq = "2"
