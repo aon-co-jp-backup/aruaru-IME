@@ -151,7 +151,7 @@ jobs:
           target: google_apis
           profile: ${{ matrix.profile }}
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -dns-server 8.8.8.8,1.1.1.1 -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash tools/android-smoke.sh apk/aruaru-ime-android.apk ${{ matrix.name }}
       - uses: actions/upload-artifact@v4
         if: always()
