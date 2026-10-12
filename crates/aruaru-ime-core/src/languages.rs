@@ -156,6 +156,21 @@ pub fn engine(code: &str) -> Option<Lang> {
         "de" => Lang::De,
         "it" => Lang::It,
         "pt-BR" | "pt-PT" => Lang::Pt,
+        "hi" => Lang::Hi,
+        "mr" => Lang::Mr,
+        "ne" => Lang::Ne,
+        "bn" => Lang::Bn,
+        "as" => Lang::As,
+        "pa" => Lang::Pa,
+        "gu" => Lang::Gu,
+        "or" => Lang::Or,
+        "ta" => Lang::Ta,
+        "te" => Lang::Te,
+        "kn" => Lang::Kn,
+        "ml" => Lang::Ml,
+        "el" => Lang::El,
+        "ka" => Lang::Ka,
+        "hy" => Lang::Hy,
         _ => return None,
     };
     Some(l)
@@ -212,9 +227,11 @@ mod tests {
         assert_eq!(base("bg"), Some(Lang::Ru));
         assert_eq!(base("ur"), Some(Lang::Ar));
         assert_eq!(base("pl"), Some(Lang::Es));
-        assert_eq!(base("hi"), None);
+        assert_eq!(base("hi"), Some(Lang::Hi));
+        assert_eq!(base("ta"), Some(Lang::Ta));
+        assert_eq!(base("th"), None);
         let planned = LANGUAGES.iter().filter(|l| base(l.0).is_none()).count();
-        assert!(planned < 40, "{planned}");
+        assert!(planned <= 12, "{planned}");
         assert!(LANGUAGES.iter().any(|l| l.0 == "sw"));
     }
 }

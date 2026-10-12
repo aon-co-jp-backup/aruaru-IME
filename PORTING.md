@@ -158,3 +158,8 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - 固定の署名鍵 `android/aruaru-alpha.keystore`(**アルファ版の検証用の鍵。公開リポジトリに置いている**。正式版では非公開の鍵へ)。CIが毎回別の鍵で署名していて上書き更新できなかったため。
 - **実機(moto g53y 5G)**: APKを入れ → `adb shell ime enable/set jp.aon.aruaruime/.AruaruImeService` → キーボードが出る → `taiou` で候補 対応/太王四神記/大王/滞欧 → 候補タップで確定、まで確認。試験後は端末の既定キーボードを元(Gboard)に戻した。通常は、設定の「キーボード」でオンにし、キーボード切替(画面右下のアイコン)で選ぶ。
 - CI(`android-test`)は、エミュレーター(スマホ=pixel_6、タブレット=pixel_c)でAPKを入れて起動し、画面の文字を確認(縦横)。タブレットは黒画面になるため、ソフトウェア描画(`-gpu swiftshader_indirect`)で再試験中。
+
+## 言語エンジン15言語を追加 / 15 more language engines (2026-10-12)
+- `indic.rs`: インド系9文字(ヒンディー・マラーティー・ネパール=デーヴァナーガリー、ベンガル、アッサム、パンジャブ、グジャラート、オリヤー、タミル、テルグ、カンナダ、マラヤーラム)のITRANS風ローマ字入力(Unicodeの配置が共通なので1つの変換器)と、ギリシャ・ジョージア・アルメニアの表。`translit.rs` の `Lang` に15言語を追加(TSFのプロファイルも各言語に登録される)。準備中は th lo km my si am ti bo dz dv の10言語。
+- 再起動後の再インストール試験: `tools/schedule-install-after-reboot.ps1` で「ログオン時に installer-e2e.ps1 -Step install を実行」するタスク `aruaru-ime-e2e` を登録済み。再起動後、`dist/installer-e2e.log` に結果が出る(exit=0 なら成功、8なら再起動待ちが残っている)。
+- 未了: 知識ベースの候補窓表示、macOS/Linux の OS 全体の IME、th lo km my si am ti bo dz dv の入力エンジン。

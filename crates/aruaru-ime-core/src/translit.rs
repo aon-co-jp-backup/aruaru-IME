@@ -23,10 +23,26 @@ pub enum Lang {
     De,
     It,
     Pt,
+    Hi,
+    Mr,
+    Ne,
+    Bn,
+    As,
+    Pa,
+    Gu,
+    Or,
+    Ta,
+    Te,
+    Kn,
+    Ml,
+    El,
+    Ka,
+    Hy,
 }
 
 pub const ALL: &[Lang] = &[
     Lang::Ja, Lang::En, Lang::Ru, Lang::Uk, Lang::Ar, Lang::Fa, Lang::He, Lang::Ko, Lang::ZhHans, Lang::ZhHant, Lang::Es, Lang::Fr, Lang::De, Lang::It, Lang::Pt,
+    Lang::Hi, Lang::Mr, Lang::Ne, Lang::Bn, Lang::As, Lang::Pa, Lang::Gu, Lang::Or, Lang::Ta, Lang::Te, Lang::Kn, Lang::Ml, Lang::El, Lang::Ka, Lang::Hy,
 ];
 
 impl Lang {
@@ -47,6 +63,21 @@ impl Lang {
             Lang::De => "de",
             Lang::It => "it",
             Lang::Pt => "pt",
+            Lang::Hi => "hi",
+            Lang::Mr => "mr",
+            Lang::Ne => "ne",
+            Lang::Bn => "bn",
+            Lang::As => "as",
+            Lang::Pa => "pa",
+            Lang::Gu => "gu",
+            Lang::Or => "or",
+            Lang::Ta => "ta",
+            Lang::Te => "te",
+            Lang::Kn => "kn",
+            Lang::Ml => "ml",
+            Lang::El => "el",
+            Lang::Ka => "ka",
+            Lang::Hy => "hy",
         }
     }
 
@@ -72,6 +103,21 @@ impl Lang {
             Lang::De => "Deutsch",
             Lang::It => "Italiano",
             Lang::Pt => "Português",
+            Lang::Hi => "हिन्दी",
+            Lang::Mr => "मराठी",
+            Lang::Ne => "नेपाली",
+            Lang::Bn => "বাংলা",
+            Lang::As => "অসমীয়া",
+            Lang::Pa => "ਪੰਜਾਬੀ",
+            Lang::Gu => "ગુજરાતી",
+            Lang::Or => "ଓଡ଼ିଆ",
+            Lang::Ta => "தமிழ்",
+            Lang::Te => "తెలుగు",
+            Lang::Kn => "ಕನ್ನಡ",
+            Lang::Ml => "മലയാളം",
+            Lang::El => "Ελληνικά",
+            Lang::Ka => "ქართული",
+            Lang::Hy => "Հայերեն",
         }
     }
 
@@ -93,6 +139,21 @@ impl Lang {
             Lang::De => "German",
             Lang::It => "Italian",
             Lang::Pt => "Portuguese",
+            Lang::Hi => "Hindi",
+            Lang::Mr => "Marathi",
+            Lang::Ne => "Nepali",
+            Lang::Bn => "Bengali",
+            Lang::As => "Assamese",
+            Lang::Pa => "Punjabi",
+            Lang::Gu => "Gujarati",
+            Lang::Or => "Odia",
+            Lang::Ta => "Tamil",
+            Lang::Te => "Telugu",
+            Lang::Kn => "Kannada",
+            Lang::Ml => "Malayalam",
+            Lang::El => "Greek",
+            Lang::Ka => "Georgian",
+            Lang::Hy => "Armenian",
         }
     }
 
@@ -124,6 +185,21 @@ impl Lang {
             Lang::De => 0x0407,
             Lang::It => 0x0410,
             Lang::Pt => 0x0416,
+            Lang::Hi => 0x0439,
+            Lang::Mr => 0x044E,
+            Lang::Ne => 0x0461,
+            Lang::Bn => 0x0445,
+            Lang::As => 0x044D,
+            Lang::Pa => 0x0446,
+            Lang::Gu => 0x0447,
+            Lang::Or => 0x0448,
+            Lang::Ta => 0x0449,
+            Lang::Te => 0x044A,
+            Lang::Kn => 0x044B,
+            Lang::Ml => 0x044C,
+            Lang::El => 0x0408,
+            Lang::Ka => 0x0437,
+            Lang::Hy => 0x042B,
         }
     }
 
@@ -152,6 +228,8 @@ impl Lang {
             Lang::Ru | Lang::Uk => c == '\'',
             Lang::Es | Lang::Fr | Lang::De | Lang::It | Lang::Pt => composing && "'`^\"~:/,".contains(c),
             Lang::En => composing && c == '\'',
+            // インド系・ギリシャ・ジョージア・アルメニア: ~ ^ . ' _ (鼻音・アクセント・danda など)
+            Lang::Hi | Lang::Mr | Lang::Ne | Lang::Bn | Lang::As | Lang::Pa | Lang::Gu | Lang::Or | Lang::Ta | Lang::Te | Lang::Kn | Lang::Ml | Lang::El | Lang::Ka | Lang::Hy => composing && "~^.'_".contains(c),
             Lang::Ko | Lang::Ja | Lang::ZhHans | Lang::ZhHant => composing && (c.is_ascii_digit() || c == '\'' || c == '-'),
         }
     }
@@ -452,6 +530,21 @@ pub fn transliterate(lang: Lang, input: &str) -> String {
             hangul_compose(&jamos)
         }
         Lang::Es | Lang::Fr | Lang::De | Lang::It | Lang::Pt => compose_accents(input),
+        Lang::Hi => crate::indic::transliterate(crate::indic::Script::Deva, input),
+        Lang::Mr => crate::indic::transliterate(crate::indic::Script::Deva, input),
+        Lang::Ne => crate::indic::transliterate(crate::indic::Script::Deva, input),
+        Lang::Bn => crate::indic::transliterate(crate::indic::Script::Beng, input),
+        Lang::As => crate::indic::transliterate(crate::indic::Script::Assam, input),
+        Lang::Pa => crate::indic::transliterate(crate::indic::Script::Guru, input),
+        Lang::Gu => crate::indic::transliterate(crate::indic::Script::Gujr, input),
+        Lang::Or => crate::indic::transliterate(crate::indic::Script::Orya, input),
+        Lang::Ta => crate::indic::transliterate(crate::indic::Script::Taml, input),
+        Lang::Te => crate::indic::transliterate(crate::indic::Script::Telu, input),
+        Lang::Kn => crate::indic::transliterate(crate::indic::Script::Knda, input),
+        Lang::Ml => crate::indic::transliterate(crate::indic::Script::Mlym, input),
+        Lang::El => crate::indic::greek_final_sigma(&apply(crate::indic::GREEK, input, none)),
+        Lang::Ka => apply(crate::indic::GEORGIAN, input, none),
+        Lang::Hy => apply(crate::indic::ARMENIAN, input, none),
         Lang::En | Lang::Ja | Lang::ZhHans | Lang::ZhHant => input.to_string(),
     }
 }
