@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aruaru-ime-core",
  "open-runo-crossui",
@@ -36,7 +36,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -53,7 +53,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-daemon"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aruaru-ime-core",
  "image",
@@ -66,7 +66,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-tsf"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "aruaru-ime-core",
  "serde_json",
