@@ -37,9 +37,9 @@ pub fn current_version() -> Version {
 }
 
 /// GitHub の release JSON から、現在より新しく、この環境向けの資産(`platform_pat` を名前に含む .zip)を持つ版を選ぶ。
-/// 下書き・プレリリースは選ばない。
-pub fn pick_release(json: &Value, current: Version, platform_pat: &str) -> Option<Release> {
-    if json["draft"].as_bool().unwrap_or(false) || json["prerelease"].as_bool().unwrap_or(false) {
+/// 下書きは選ばない。プレリリース(アルファ版)は、`allow_pre`(更新チャンネルが alpha)のときだけ選ぶ。
+pub fn pick_release(json: &Value, current: Version, platform_pat: &str, allow_pre: bool) -> Option<Release> {
+    if json["draft"].as_bool().unwrap_or(false) || (!allow_pre && json["prerelease"].as_bool().unwrap_or(false)) {
         return None;
     }
     let tag = json["tag_name"].as_str()?.to_string();
@@ -84,13 +84,20 @@ fn agent() -> ureq::Agent {
 
 /// 新しい版があれば返す。ネットワークエラーは Err(静かに次回へ)。リリースがまだ無い場合は Ok(None)。
 pub fn check(repo: &str, current: Version) -> Result<Option<Release>, String> {
-    let resp = agent().get(&format!("https://api.github.com/repos/{repo}/releases/latest")).call();
+    // /releases/latest はプレリリースを返さないので、一覧(新しい順)から、現在より新しい最大の版を選ぶ
+    let allow_pre = crate::settings::Settings::load().update_channel != "stable";
+    let resp = agent().get(&format!("https://api.github.com/repos/{repo}/releases?per_page=15")).call();
     let v: Value = match resp {
         Ok(r) => r.into_json().map_err(|e| e.to_string())?,
         Err(ureq::Error::Status(404, _)) => return Ok(None),
         Err(e) => return Err(e.to_string()),
     };
-    Ok(pick_release(&v, current, platform_pattern()))
+    Ok(pick_newest(v.as_array().map(|a| a.as_slice()).unwrap_or(&[]), current, platform_pattern(), allow_pre))
+}
+
+/// 一覧から、現在より新しく、この環境向けの資産を持つ最大の版を選ぶ。
+pub fn pick_newest(list: &[Value], current: Version, platform_pat: &str, allow_pre: bool) -> Option<Release> {
+    list.iter().filter_map(|j| pick_release(j, current, platform_pat, allow_pre)).max_by_key(|r| r.version)
 }
 
 fn read_all(url: &str) -> Result<Vec<u8>, String> {
@@ -239,20 +246,30 @@ mod tests {
     #[test]
     fn picks_only_newer_stable_for_this_platform() {
         let cur = (0, 1, 0);
-        let r = pick_release(&release_json("v0.2.0", false), cur, "windows-x86_64").unwrap();
+        let r = pick_release(&release_json("v0.2.0", false), cur, "windows-x86_64", false).unwrap();
         assert_eq!(r.tag, "v0.2.0");
         assert!(r.sha256_url.is_some());
-        assert!(pick_release(&release_json("v0.1.0", false), cur, "windows-x86_64").is_none(), "同じ版は更新しない");
-        assert!(pick_release(&release_json("v0.0.9", false), cur, "windows-x86_64").is_none(), "古い版へは戻さない");
-        assert!(pick_release(&release_json("v0.3.0", true), cur, "windows-x86_64").is_none(), "プレリリースは対象外");
-        assert!(pick_release(&release_json("v0.2.0", false), cur, "macos").is_none(), "この環境向けの資産が無ければ更新しない");
+        assert!(pick_release(&release_json("v0.1.0", false), cur, "windows-x86_64", false).is_none(), "同じ版は更新しない");
+        assert!(pick_release(&release_json("v0.0.9", false), cur, "windows-x86_64", false).is_none(), "古い版へは戻さない");
+        assert!(pick_release(&release_json("v0.3.0", true), cur, "windows-x86_64", false).is_none(), "プレリリースは対象外");
+        assert!(pick_release(&release_json("v0.2.0", false), cur, "macos", false).is_none(), "この環境向けの資産が無ければ更新しない");
+    }
+
+    #[test]
+    fn alpha_channel_takes_prereleases_and_picks_the_newest() {
+        let cur = (0, 2, 7);
+        assert!(pick_release(&release_json("v0.2.8", true), cur, "windows-x86_64", true).is_some(), "alpha チャンネルはプレリリースも対象");
+        assert!(pick_release(&release_json("v0.2.8", true), cur, "windows-x86_64", false).is_none(), "stable チャンネルは対象外");
+        let list = vec![release_json("v0.2.8", true), release_json("v0.2.10", true), release_json("v0.2.9", true), release_json("v0.2.7", true)];
+        assert_eq!(pick_newest(&list, cur, "windows-x86_64", true).unwrap().tag, "v0.2.10", "数値として最大");
+        assert!(pick_newest(&list, (0, 2, 10), "windows-x86_64", true).is_none());
     }
 
     #[test]
     fn rejects_untrusted_download_hosts() {
         let mut j = release_json("v0.2.0", false);
         j["assets"][0]["browser_download_url"] = json!("https://evil.example.com/a-windows-x86_64.zip");
-        assert!(pick_release(&j, (0, 1, 0), "windows-x86_64").is_none());
+        assert!(pick_release(&j, (0, 1, 0), "windows-x86_64", false).is_none());
         assert!(!is_trusted_url("http://github.com/x"), "http は拒否");
         assert!(!is_trusted_url("https://github.com.evil.com/x"));
         assert!(is_trusted_url("https://objects.githubusercontent.com/x"));

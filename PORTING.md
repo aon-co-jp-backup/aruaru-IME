@@ -197,3 +197,8 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 ## 取り込んだ公開データ (2026-10-13)
 - **郵便番号**: 取得先は `https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip`(旧 `/zipcode/dl/utf/zip/` は404)。この PC に 120,720 件を取り込み、`1000001`→東京都千代田区千代田 を確認。
 - **全国の駅名**: OpenStreetMap(Overpass API、ODbL)から 8,086 駅を取り込み(読みが無い駅は英語名のヘボン式から作る=長音で誤ることがある)。右クリックの「全国の駅名を取り込む」/ `aruaru-ime stations-install`。出典の表示が必要(`installer/LICENSES.txt`に記載)。
+
+## 自動アップデートの設定を更新 (2026-10-13)
+- **不具合の修正**: 自動アップデートは `/releases/latest`(プレリリースを返さない)を使い、プレリリースを選ばない作りだったため、**アルファ版(全リリースがプレリリース)は一度も自動更新の対象になっていなかった**。一覧(`/releases?per_page=15`)から、現在より新しい最大の版を選ぶ(`pick_newest`)ように変更。
+- **更新チャンネル** `update_channel`(既定 `alpha`=プレリリースも対象 / `stable`=正式版だけ)。右クリックの「アルファ版も自動更新の対象にする」で切替。
+- 仕組みは従来どおり: 起動時の1回だけ確認 → `aruaru-ime-windows-x86_64.zip` を取得(`.sha256` で検証、取得先は GitHub のみ) → 版ごとのフォルダに展開してエンジンを入れ替え(アプリの再起動不要)。macOS / Linux は tar.gz のため自動更新の対象外(`install.sh` を再実行)。

@@ -32,6 +32,9 @@ pub struct Settings {
     /// 辞書に無い固有名詞・作品名のために、変換を求めたとき Web のサジェスト(Google)を引く。入力中の文字を Google に送るので、不要ならオフ。既定オン。
     #[serde(default = "default_true")]
     pub web_suggest: bool,
+    /// 更新チャンネル: `alpha`(既定。プレリリースも自動更新の対象)か `stable`(正式版だけ)。
+    #[serde(default = "default_channel")]
+    pub update_channel: String,
     /// 組み込みの用語辞書(パック)のうち、すでに一度入れた(または利用者が外した)もの。起動時の自動インストールは、ここに無いパックだけに行う。
     #[serde(default)]
     pub packs_seen: Vec<String>,
@@ -58,6 +61,10 @@ pub struct Settings {
 /// 同時に選べる入力言語の最大数。
 pub const MAX_LANGUAGES: usize = 7;
 
+fn default_channel() -> String {
+    "alpha".to_string()
+}
+
 fn default_languages() -> Vec<String> {
     ["ja", "en", "zh-Hans", "ko", "ru", "ar", "fa"].iter().map(|s| s.to_string()).collect()
 }
@@ -76,7 +83,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, packs_seen: vec![], dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, backup_dir: None }
+        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, update_channel: default_channel(), packs_seen: vec![], dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, backup_dir: None }
     }
 }
 

@@ -70,6 +70,7 @@ enum Action {
     ToggleAutocorrect,
     ToggleTheme,
     ToggleAutoUpdate,
+    ToggleChannel,
     ToggleOnlineUi,
     Scale(f32),
     Exit,
@@ -221,6 +222,8 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add(root, check(s.open_online_ui), id, "起動時にオンライン画面を最小化で開く / Open online screen at startup (minimized)");
     let id = m.push(Action::ToggleAutoUpdate);
     add(root, check(s.auto_update), id, "自動アップデート / Auto-update (checked at startup)");
+    let id = m.push(Action::ToggleChannel);
+    add(root, check(s.update_channel != "stable"), id, "アルファ版も自動更新の対象にする / Include alpha releases in auto-update");
     let id = m.push(Action::UpdateNow);
     add(root, MF_STRING, id, "今すぐ最新版に更新(再起動不要) / Update now (no restart)");
     let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
@@ -523,6 +526,7 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
         Action::TogglePreferKanji => with_settings(|s| s.prefer_kanji = !s.prefer_kanji),
         Action::ToggleAutocorrect => with_settings(|s| s.autocorrect = !s.autocorrect),
         Action::ToggleOnlineUi => with_settings(|s| s.open_online_ui = !s.open_online_ui),
+        Action::ToggleChannel => with_settings(|s| s.update_channel = if s.update_channel == "stable" { "alpha".into() } else { "stable".into() }),
         Action::ToggleAutoUpdate => with_settings(|s| s.auto_update = !s.auto_update),
         Action::ToggleTheme => with_settings(|s| {
             s.toggle_theme();
