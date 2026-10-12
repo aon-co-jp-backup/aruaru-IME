@@ -30,6 +30,9 @@ exec dbus-run-session -- bash -c '
   ibus-daemon --daemonize --replace --address "unix:path='"$T"'/ibus.sock" --panel disable --config disable --emoji-extension disable --cache none 2>"'"$T"'/ibus.log"
   for i in $(seq 1 30); do [ -S "'"$T"'/ibus.sock" ] && break; sleep 0.5; done
   export IBUS_ADDRESS="unix:path='"$T"'/ibus.sock"
+  # IBus が起動する前に、自分でエンジンを起動しておく(ibus の起動方法に依らず確かめる)
+  ("'"$BIN"'/aruaru-ime-ibus" --ibus 2>"'"$T"'/engine.log" &)
+  sleep 3; cat "'"$T"'/engine.log"
   echo "ibus address: $IBUS_ADDRESS"
   [ -s "'"$T"'/ibus.log" ] && head -5 "'"$T"'/ibus.log"
   python3 - <<PY
@@ -66,7 +69,7 @@ ok_commit = any("こんにちは" in c for c in got["commit"])
 sys.exit(0 if (ok_pre and ok_commit) else 1)
 PY
   rc=$?
-  echo "--- ibus.log"; tail -15 "'"$T"'/ibus.log"
+  echo "--- ibus.log"; tail -15 "'"$T"'/ibus.log"; echo "--- engine.log"; tail -15 "'"$T"'/engine.log"
   ps -eo pid,args | grep -E "aruaru-ime-(ibus|daemon)" | grep -v grep
   ibus exit 2>/dev/null
   exit $rc
