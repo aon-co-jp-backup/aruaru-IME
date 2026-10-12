@@ -316,6 +316,7 @@ impl ITfTextInputProcessorEx_Impl for TextService_Impl {
                 let mut p = TF_INPUTPROCESSORPROFILE::default();
                 if mgr.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut p).is_ok() {
                     if p.clsid == crate::CLSID_ARUARU_IME {
+                        aruaru_ime_core::lastime::write(&aruaru_ime_core::components::data_dir(), aruaru_ime_core::lastime::Last::Aruaru(p.guidProfile.to_u128()));
                         if let Some(l) = aruaru_ime_core::translit::Lang::from_profile_guid(p.guidProfile.to_u128()) {
                             self.inner.borrow_mut().session.set_lang(l);
                         }
@@ -421,6 +422,15 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
 impl ITfActiveLanguageProfileNotifySink_Impl for TextService_Impl {
     fn OnActivated(&self, rclsid: *const GUID, guidprofile: *const GUID, factivated: BOOL) -> Result<()> {
         unsafe {
+            if factivated.as_bool() && !rclsid.is_null() && !guidprofile.is_null() {
+                // 最後に選ばれた入力方式を記録(再起動後に自動で選び直すため)
+                let root = aruaru_ime_core::components::data_dir();
+                if *rclsid == crate::CLSID_ARUARU_IME {
+                    aruaru_ime_core::lastime::write(&root, aruaru_ime_core::lastime::Last::Aruaru((*guidprofile).to_u128()));
+                } else {
+                    aruaru_ime_core::lastime::write(&root, aruaru_ime_core::lastime::Last::Other);
+                }
+            }
             if factivated.as_bool() && !rclsid.is_null() && !guidprofile.is_null() && *rclsid == crate::CLSID_ARUARU_IME {
                 if let Some(l) = aruaru_ime_core::translit::Lang::from_profile_guid((*guidprofile).to_u128()) {
                     crate::log(&format!("language profile -> {}", l.code()));

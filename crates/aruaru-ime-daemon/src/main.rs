@@ -291,6 +291,48 @@ fn spawn_glossary(slot: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glo
     });
 }
 
+/// 最後に選ばれていた入力方式が aruaru-IME なら、起動時(再起動後)に自動で選び直す。
+/// 1) 既定の入力方式にする(以後のサインイン・新しいアプリ) 2) いまのセッションでも有効にする。ほかの入力方式が最後なら何もしない。
+fn spawn_restore_ime() {
+    #[cfg(windows)]
+    std::thread::spawn(|| {
+        use aruaru_ime_core::lastime::{read, Last};
+        let Last::Aruaru(guid) = read(&aruaru_ime_core::components::data_dir()) else { return };
+        std::thread::sleep(std::time::Duration::from_secs(8)); // デスクトップとテキストサービスの準備待ち
+        let g = windows::core::GUID::from_u128(guid);
+        let langid = aruaru_ime_core::translit::Lang::from_profile_guid(guid).map(|l| l.langid()).unwrap_or(0x0411);
+        unsafe {
+            use windows::Win32::System::Com::*;
+            use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
+            use windows::Win32::UI::TextServices::*;
+            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            let clsid = windows::core::GUID::from_u128(0xB7C2A1E4_5D3F_4F7A_9A61_0C8E2D4B6A11);
+            if let Ok(mgr) = CoCreateInstance::<_, ITfInputProcessorProfileMgr>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER) {
+                let r = mgr.ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, langid, &clsid, &g, HKL::default(), TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
+                eprintln!("restore ime: {:?}", r);
+            }
+        }
+        // 既定の入力方式(次回のサインイン以降)
+        let tip = format!("{:04X}:{{B7C2A1E4-5D3F-4F7A-9A61-0C8E2D4B6A11}}{{{:?}}}", langid, g);
+        let _ = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &format!("Set-WinDefaultInputMethodOverride -InputTip '{tip}'")])
+            .creation_flags_hidden()
+            .status();
+    });
+}
+
+#[cfg(windows)]
+trait HiddenExt {
+    fn creation_flags_hidden(&mut self) -> &mut Self;
+}
+#[cfg(windows)]
+impl HiddenExt for std::process::Command {
+    fn creation_flags_hidden(&mut self) -> &mut Self {
+        use std::os::windows::process::CommandExt;
+        self.creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+    }
+}
+
 /// エンジンの起動と同時に、オンライン画面を最小化したブラウザで開く(設定 `open_online_ui`、Windows)。
 /// デスクトップが整うまで待ち、easy-web.tokyo に届かないとき(オフライン)は開かない。
 fn spawn_online_ui() {
@@ -493,6 +535,7 @@ fn main() {
     spawn_glossary(Arc::clone(&gloss));
     spawn_zh();
     spawn_online_ui();
+    spawn_restore_ime();
     spawn_autobackup();
     resume_wishes(client.clone());
     let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));

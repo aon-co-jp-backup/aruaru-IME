@@ -111,3 +111,7 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 
 ## 「〜療法」「気功」など健康用語 / Health & therapy terms (2026-10-11)
 - `seasonal.rs` に `THERAPY_PREFIX`(気功・音楽・睡眠・アロマ…+療法)と `TERMS` を追加。辞書に無い語(気功)も名詞として扱い、「きこうりょうほう」→気功療法、「すいみんりょうほう」→睡眠療法 に変換。
+
+## 最後に選んだIMEの自動選択 / Re-select the last IME after reboot (2026-10-11)
+- TSF DLL が、選ばれた入力方式を `%LOCALAPPDATA%\aruaru\last-ime.txt` に記録(`aruaru <プロファイルGUID>` / `other`)。常駐エンジンは起動8秒後、最後が aruaru-IME なら `ActivateProfile`(現在のセッション)と `Set-WinDefaultInputMethodOverride`(次回サインイン以降の既定)で選び直す。ほかのIMEが最後なら何もしない。実機で既定の入力方式が設定されることを確認。
+- The DLL records the last selected input method; at startup the engine re-activates aruaru-IME and sets it as the default override. If another IME was last, it does nothing.
