@@ -152,3 +152,9 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - **試験**: CI(`.github/workflows/build.yml`)が Windows / macOS(arm64, intel) / Linux でコアのテスト+エンジンのスモーク試験(`tools/e2e-smoke.sh`)を実行(いずれも成功)。手元では WSL の Ubuntu で CI 成果物のスモーク試験・install.sh・uninstall.sh を通した(エンジン起動・辞書取得・systemd --user 自動起動・削除)。macOS / Android の実機/実端末での試験は未実施。
 - **二重起動**: 同じ版のエンジンが動いているとき、後から起動したものは何も表示せず終了(`port busy ... retrying` の連続表示を解消)。常駐エンジンはコンソール画面を出さない(Windows)。
 - **オンライン画面**: OSのIMEが有効なとき(`Process` / 229)と、スマホの画面キーボード(beforeinput / compositionend)でも入力できるようにした。トップページ(https://easy-web.tokyo/)に紹介とダウンロードを追加、`/ime` に OS 別インストーラー一覧(利用中のOSを強調)。
+
+## v0.2.3 Android: キーボード(IME)・実機試験 (2026-10-12)
+- `android/` に **InputMethodService のキーボード**(`AruaruImeService.java`: ローマ字キー → サーバー `https://easy-web.tokyo/ime/api` で変換 → `setComposingText` / `commitText`、候補ストリップのタップで確定(`/session op=choose`)、あ/A 切替、`, .` は 、。、`/ +` など記号の候補)。通信できないときは打った文字をそのまま入力。入力はサーバーに送られるが保存・学習しない。
+- 固定の署名鍵 `android/aruaru-alpha.keystore`(**アルファ版の検証用の鍵。公開リポジトリに置いている**。正式版では非公開の鍵へ)。CIが毎回別の鍵で署名していて上書き更新できなかったため。
+- **実機(moto g53y 5G)**: APKを入れ → `adb shell ime enable/set jp.aon.aruaruime/.AruaruImeService` → キーボードが出る → `taiou` で候補 対応/太王四神記/大王/滞欧 → 候補タップで確定、まで確認。試験後は端末の既定キーボードを元(Gboard)に戻した。通常は、設定の「キーボード」でオンにし、キーボード切替(画面右下のアイコン)で選ぶ。
+- CI(`android-test`)は、エミュレーター(スマホ=pixel_6、タブレット=pixel_c)でAPKを入れて起動し、画面の文字を確認(縦横)。タブレットは黒画面になるため、ソフトウェア描画(`-gpu swiftshader_indirect`)で再試験中。
