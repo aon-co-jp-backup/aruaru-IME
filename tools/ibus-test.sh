@@ -24,9 +24,10 @@ cat > "$T/share/ibus/component/aruaru-ime.xml" <<XML
 </component>
 XML
 export XDG_DATA_DIRS="$T/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+export IBUS_COMPONENT_PATH="$T/share/ibus/component${IBUS_ROOT:+:$IBUS_ROOT/usr/share/ibus/component}"
 export ARUARU_IME_PORT=4660
 exec dbus-run-session -- bash -c '
-  ibus-daemon --daemonize --replace --panel disable --cache none 2>"'"$T"'/ibus.log"
+  ibus-daemon --daemonize --replace --panel disable --config disable --emoji-extension disable --cache none 2>"'"$T"'/ibus.log"
   for i in $(seq 1 30); do ibus address >/dev/null 2>&1 && break; sleep 0.5; done
   export IBUS_ADDRESS="$(ibus address 2>/dev/null)"
   echo "ibus address: $IBUS_ADDRESS"
