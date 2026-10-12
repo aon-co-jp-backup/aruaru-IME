@@ -53,18 +53,23 @@ $rows = New-Object System.Collections.Generic.List[string]
 if ($Japan -and (Test-Path $out)) { foreach ($l in [IO.File]::ReadAllLines($out, [Text.Encoding]::UTF8)) { if ($l) { $rows.Add($l); $seenJa[($l -split "`t")[1]] = 1 } } }
 $jpFilter = if ($Japan) { "{ ?p wdt:P27 wd:Q17 } UNION { ?p wdt:P19 ?pl . ?pl wdt:P17 wd:Q17 }" } else { "" }
 $langs = @("ko","fr","es","de","it","pt")
+if ($Japan) { $occ = $occ + "ANY" }
 foreach ($q in $occ) {
+  $occLine = if ($q -eq "ANY") { "" } else { "wdt:P106 wd:$q;" }
+  $lim = if ($q -eq "ANY") { 3000 } else { $PerOccupation }
   $opt = ($langs | ForEach-Object { "OPTIONAL { ?p rdfs:label ?$_ . FILTER(LANG(?$_)=`"$_`") }" }) -join "`n"
   $query = @"
 SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp WHERE {
-  ?p wdt:P31 wd:Q5; wdt:P106 wd:$q; wikibase:sitelinks ?sl. FILTER(?sl >= $MinSitelinks)
+  ?p wdt:P31 wd:Q5; $occLine wikibase:sitelinks ?sl. FILTER(?sl >= $MinSitelinks)
   ?p rdfs:label ?ja. FILTER(LANG(?ja)="ja")
-  ?p rdfs:label ?en. FILTER(LANG(?en)="en")
+  OPTIONAL { ?p rdfs:label ?en1 . FILTER(LANG(?en1)="en") }
+  OPTIONAL { ?p rdfs:label ?en2 . FILTER(LANG(?en2)="mul") }
+  BIND(COALESCE(?en1, ?en2) AS ?en)
   OPTIONAL { ?p wdt:P1814 ?kana }
   $jpFilter
   BIND(EXISTS { ?p wdt:P27 wd:Q17 } AS ?jp)
   $opt
-} ORDER BY DESC(?sl) LIMIT $PerOccupation
+} ORDER BY DESC(?sl) LIMIT $lim
 "@
   $tmp = [IO.Path]::GetTempFileName()
   [IO.File]::WriteAllText($tmp, $query, (New-Object System.Text.UTF8Encoding($false)))

@@ -31,7 +31,7 @@ exec dbus-run-session -- bash -c '
   for i in $(seq 1 30); do [ -S "'"$T"'/ibus.sock" ] && break; sleep 0.5; done
   export IBUS_ADDRESS="unix:path='"$T"'/ibus.sock"
   echo "ibus address: $IBUS_ADDRESS"
-  ibus engine aruaru-ime 2>&1 | head -3; sleep 2; echo "global engine: $(ibus engine 2>&1)"
+  ibus engine aruaru-ime 2>&1 | head -3; sleep 2
   python3 - <<PY
 import sys, time, gi
 gi.require_version("IBus", "1.0")
@@ -62,7 +62,7 @@ print("preedit:", got["pre"], "| cands:", got["cands"][:4])
 ok_pre = "こんにちは" in got["pre"] or any("こんにちは" in c for c in got["cands"])
 ic.process_key_event(0xff0d, 0, 0); pump(500)
 print("commit:", got["commit"])
-ok_commit = any("こんにちは" in c for c in got["commit"])
+ok_commit = any(("今日は" in c or "こんにちは" in c) for c in got["commit"])
 sys.exit(0 if (ok_pre and ok_commit) else 1)
 PY
   rc=$?

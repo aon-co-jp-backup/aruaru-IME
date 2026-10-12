@@ -27,6 +27,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --release -p aruaru-ime-core
       - run: cargo build --release -p aruaru-ime-daemon -p aruaru-ime-cli
+      - name: Build the IBus engine (Linux)
+        if: runner.os == 'Linux'
+        run: cargo build --release -p aruaru-ime-ibus
       - name: Smoke test (engine end to end)
         shell: bash
         run: |
@@ -43,6 +46,7 @@ jobs:
           mkdir -p "dist/$P"
           cp target/release/aruaru-ime-daemon target/release/aruaru-ime "dist/$P/"
           cp installer/unix/install.sh installer/unix/uninstall.sh "dist/$P/"
+          [ -f target/release/aruaru-ime-ibus ] && cp target/release/aruaru-ime-ibus "dist/$P/" || true
           cp -r dist/frontends "dist/$P/frontends"
           tar -C dist -czf "dist/$P.tar.gz" "$P"
       - uses: actions/upload-artifact@v4
@@ -55,6 +59,20 @@ jobs:
         with:
           name: aruaru-ime-frontends
           path: dist/frontends
+  ibus-test:
+    # Linux の IBus エンジン: ibus-daemon を起動して、入力コンテキストからキーを送り、変換結果を確かめる
+    needs: engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git clone --depth 1 https://github.com/aon-co-jp/RPoem ../RPoem
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y ibus gir1.2-ibus-1.0 python3-gi dbus
+      - run: cargo build --release -p aruaru-ime-ibus -p aruaru-ime-daemon
+      - name: Download the dictionary
+        run: mkdir -p ~/.local/share/aruaru && curl -fL -o ~/.local/share/aruaru/dict.bin https://easy-web.tokyo/ime/download/dict.bin
+      - name: IBus end-to-end
+        run: bash tools/ibus-test.sh "$PWD/target/release"
   android-core:
     runs-on: ubuntu-latest
     steps:

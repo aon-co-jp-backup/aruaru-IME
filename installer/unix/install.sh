@@ -13,6 +13,24 @@ echo "== aruaru-IME installer ($OS) =="
 mkdir -p "$BIN"
 cp "$HERE/aruaru-ime-daemon" "$HERE/aruaru-ime" "$BIN/"
 chmod +x "$BIN/aruaru-ime-daemon" "$BIN/aruaru-ime"
+# Linux: IBus engine (system-wide IME for GTK/Qt/browsers). Needs IBus; skipped if the binary is not in the package.
+if [ "$OS" = "Linux" ] && [ -f "$HERE/aruaru-ime-ibus" ]; then
+  cp "$HERE/aruaru-ime-ibus" "$BIN/"; chmod +x "$BIN/aruaru-ime-ibus"
+  CD="${XDG_DATA_HOME:-$HOME/.local/share}/ibus/component"
+  mkdir -p "$CD"
+  cat > "$CD/aruaru-ime.xml" <<XML
+<component>
+  <name>org.freedesktop.IBus.AruaruIME</name>
+  <description>aruaru-IME</description>
+  <exec>$BIN/aruaru-ime-ibus --ibus</exec>
+  <version>0.2</version><author>aon-co-jp</author><license>MIT</license>
+  <homepage>https://github.com/aon-co-jp/aruaru-IME</homepage><textdomain>aruaru-ime</textdomain>
+  <engines><engine><name>aruaru-ime</name><language>ja</language><license>MIT</license><author>aon-co-jp</author><icon></icon><layout>default</layout><longname>aruaru-IME</longname><description>AI IME</description><rank>80</rank></engine></engines>
+</component>
+XML
+  if command -v ibus >/dev/null 2>&1; then ibus write-cache >/dev/null 2>&1 || true; ibus restart >/dev/null 2>&1 || true; fi
+  echo "IBus: registered. Add it in Settings > Keyboard > Input Sources > Japanese > aruaru-IME (or: ibus engine aruaru-ime)."
+fi
 
 # data dir (same rule as the engine)
 if [ -z "$DATA" ]; then
