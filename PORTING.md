@@ -127,3 +127,9 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - 「そのような→その様な」(こ/そ/あ/どの+様な/様に…)、「じゅんい」は junni で 順に に加えて 順位 も2番目に出す、「9足」など数字入りの言い換えは後ろへ。
 - 右クリック: 人名の登録(姓・名・フルネーム)、開発で使う言語・フレームワークの選択(`dev_stack`。選択にないものは入力フォーム→検索→学習し自動で選択に追加)。
 - オンライン画面(/ime): ダウンロード(GitHub Releases)と「このPCの画面で開く」のリンク、接続できないときの案内とエラー表示を追加。
+
+## オンライン画面のサーバー変換 / Server-side conversion for the online screen (2026-10-12)
+- ブラウザがローカルネットワークへの通信を止める問題を避けるため、`https://easy-web.tokyo/ime` は VPS のエンジンで変換する(入力はサーバーを通る。保存・学習はしない。画面にも明記)。
+- VPS: `/root/repository/aruaru-IME`(clone・`cargo build --release -p aruaru-ime-daemon`)→ `/opt/aruaru-ime/aruaru-ime-daemon` + `/var/lib/aruaru-ime/dict.bin`、`aruaru-ime-server.service`(`ARUARU_IME_SERVER=1`: 学習・利用者辞書・自動更新・バックアップを止める。127.0.0.1:4660のみ)。更新: git pull → build → バイナリをコピー → `systemctl restart aruaru-ime-server`。
+- open-easy-web: `/ime/api/{health,key,session}` だけをエンジンへ中継(本文4KBまで)。Chrome 等の実ブラウザでの確認は未了(内蔵ブラウザでは候補表示を確認)。
+- 利用者PC側のエンジンへ直接つなぐ従来の経路は、このページでは使わない(PCのエンジンは `http://127.0.0.1:4660/ui`)。
