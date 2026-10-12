@@ -131,15 +131,25 @@ struct SessReq {
 }
 
 /// セッションを取り出して `f` を実行する。無ければ作る。15分使われていないセッションは捨てる。
+/// サーバー用の運転(環境変数 ARUARU_IME_SERVER=1)。オンライン画面(easy-web.tokyo/ime)向けに VPS で動かす。
+/// 利用者どうしの入力が混ざらないよう、学習・利用者辞書・設定の読み書き、自動更新、バックアップを行わない。
+fn server_mode() -> bool {
+    std::env::var("ARUARU_IME_SERVER").as_deref() == Ok("1")
+}
+
 fn with_session<T>(sid: &str, conv: impl FnOnce() -> EngineConv, f: impl FnOnce(&mut Session) -> T) -> T {
     let mut g = sessions().lock().unwrap_or_else(|e| e.into_inner());
     g.retain(|_, (_, t)| t.elapsed() < Duration::from_secs(900));
     let entry = g.entry(sid.to_string()).or_insert_with(|| {
         let mut s = Session::new(Box::new(conv()));
         let root = aruaru_ime_core::components::data_dir();
-        s.enable_learning(root.join("learned.json"));
-        s.enable_user_dict(&root.join("user_dict.json"));
-        s.apply_settings(&aruaru_ime_core::settings::Settings::load());
+        if server_mode() {
+            s.apply_settings(&aruaru_ime_core::settings::Settings::default());
+        } else {
+            s.enable_learning(root.join("learned.json"));
+            s.enable_user_dict(&root.join("user_dict.json"));
+            s.apply_settings(&aruaru_ime_core::settings::Settings::load());
+        }
         (s, Instant::now())
     });
     entry.1 = Instant::now();
@@ -517,6 +527,7 @@ fn main() {
     // 画面キャプチャ + OCR スレッド
     {
         let (state, client) = (Arc::clone(&state), client.clone());
+        if !server_mode() {
         std::thread::spawn(move || {
             let mut store = match CaptureStore::new() {
                 Ok(s) => s,
@@ -550,17 +561,20 @@ fn main() {
                 }
             }
         });
+        }
     }
 
     // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));
     spawn_zh();
-    spawn_online_ui();
-    ensure_autostart();
-    spawn_restore_ime();
-    spawn_autobackup();
-    resume_wishes(client.clone());
+    if !server_mode() {
+        spawn_online_ui();
+        ensure_autostart();
+        spawn_restore_ime();
+        spawn_autobackup();
+        resume_wishes(client.clone());
+    }
     let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));
     #[cfg(windows)]
     {
@@ -581,7 +595,9 @@ fn main() {
 
 fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>>) {
     let server = bind_with_retry();
-    spawn_updater();
+    if !server_mode() {
+        spawn_updater();
+    }
     println!("aruaru-ime-daemon listening on 127.0.0.1:{PORT} (dict: {} entries)", dict.as_ref().as_ref().map_or(0, |d| d.len()));
     for mut req in server.incoming_requests() {
         let mut body = String::new();
