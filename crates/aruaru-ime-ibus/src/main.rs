@@ -117,7 +117,7 @@ mod linux {
         Value::Structure(t)
     }
 
-    /// `IBusLookupTable` = ("IBusLookupTable", {}, page_size, cursor_pos, cursor_visible, round, orientation, [candidates])
+    /// `IBusLookupTable` = ("IBusLookupTable", {}, page_size, cursor_pos, cursor_visible, round, orientation, [candidates], [labels])
     pub fn ibus_lookup_table(cands: &[String], cursor: u32) -> Value<'static> {
         let items: Vec<Value> = cands.iter().map(|c| Value::new(ibus_text(c))).collect();
         let t = StructureBuilder::new()
@@ -129,6 +129,7 @@ mod linux {
             .add_field(false)
             .add_field(1i32) // vertical
             .add_field(items)
+            .add_field(Vec::<Value>::new()) // labels
             .build();
         Value::Structure(t)
     }
@@ -294,7 +295,7 @@ mod linux {
             let v = ibus_text("あ");
             assert_eq!(v.value_signature().to_string(), "(sa{sv}sv)");
             let t = ibus_lookup_table(&["a".into(), "b".into()], 0);
-            assert_eq!(t.value_signature().to_string(), "(sa{sv}uubbiav)");
+            assert_eq!(t.value_signature().to_string(), "(sa{sv}uubbiavav)");
             let _ = <Value as Type>::signature();
         }
     }
