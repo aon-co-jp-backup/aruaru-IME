@@ -131,6 +131,9 @@ struct SessReq {
     op: String,
     #[serde(default)]
     lang: Option<String>,
+    /// op=choose のとき、確定する候補の番号(0始まり)。
+    #[serde(default)]
+    idx: Option<usize>,
 }
 
 /// セッションを取り出して `f` を実行する。無ければ作る。15分使われていないセッションは捨てる。
@@ -703,6 +706,11 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                         let step = with_session(&r.sid, mk, |s| {
                             match r.op.as_str() {
                                 "cancel" => s.cancel(),
+                                "choose" => {
+                                    if let Some(i) = r.idx {
+                                        return s.choose(i);
+                                    }
+                                }
                                 "settings" => s.apply_settings(&aruaru_ime_core::settings::Settings::load()),
                                 "lang" => {
                                     if let Some(l) = r.lang.as_deref().and_then(aruaru_ime_core::translit::Lang::from_code) {
