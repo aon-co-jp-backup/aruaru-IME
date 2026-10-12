@@ -637,6 +637,14 @@ fn main() {
         }
     }
 
+    // 初めての起動(設定ファイルがまだ無い)ときは、使い方を案内する
+    #[cfg(windows)]
+    if !server_mode() && !aruaru_ime_core::settings::Settings::path().is_file() {
+        std::thread::spawn(|| {
+            std::thread::sleep(Duration::from_secs(4));
+            tray::notify("aruaru-IME", "使えるようになりました。Win+Space で aruaru-IME を選び、通知領域のアイコンを右クリックすると設定・辞書・更新を開けます。 / Press Win+Space to select aruaru-IME; right-click the tray icon for settings.");
+        });
+    }
     // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));

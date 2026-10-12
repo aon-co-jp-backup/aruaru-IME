@@ -133,13 +133,15 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add(langs, MF_STRING | MF_GRAYED, 3, "切替 / Switch: Win+Space");
     add_sub(root, langs, &format!("入力言語 / Input languages ({}/{})", chosen.len(), settings::MAX_LANGUAGES));
 
+    // 開発(プログラミング言語・フレームワーク)
+    let dev = CreatePopupMenu().unwrap();
     // 対応しているプログラミング言語・フレームワーク(★ = 追加・自動学習したもの)
     let code_menu = CreatePopupMenu().unwrap();
     let list = code::list();
     for (name, n, user) in &list {
         add(code_menu, MF_STRING | MF_GRAYED, 4, &format!("{}{}  ({} words / {}語)", if *user { "★ " } else { "" }, name, n, n));
     }
-    add_sub(root, code_menu, &format!("対応しているプログラミング言語・フレームワーク / Programming languages & frameworks ({})", list.len()));
+    add_sub(dev, code_menu, &format!("対応しているプログラミング言語・フレームワーク / Programming languages & frameworks ({})", list.len()));
     // 開発で使う言語・フレームワークの選択(チェック)。選ぶと常にその語彙で補完・訂正する
     let stack_menu = CreatePopupMenu().unwrap();
     let stack = s.dev_stack.clone();
@@ -147,19 +149,21 @@ unsafe fn build_menu() -> (HMENU, Menu) {
         let id = m.push(Action::ToggleStack(name.clone()));
         add(stack_menu, check(stack.iter().any(|x| x.eq_ignore_ascii_case(name))), id, name);
     }
-    add_sub(root, stack_menu, &format!("開発で使う言語・フレームワークを選ぶ / My stack ({})", stack.len()));
+    add_sub(dev, stack_menu, &format!("開発で使う言語・フレームワークを選ぶ / My stack ({})", stack.len()));
     let id = m.push(Action::AddVocab);
-    add(root, MF_STRING, id, "言語・フレームワークを追加… / Add a language or framework (auto-support)");
+    add(dev, MF_STRING, id, "言語・フレームワークを追加… / Add a language or framework (auto-support)");
+    add_sub(root, dev, "開発 / Development (languages & frameworks)");
+    // 辞書・登録
+    let dict = CreatePopupMenu().unwrap();
     let id = m.push(Action::WishAdd);
-    add(root, MF_STRING, id, "用語辞書を作る… / Build a term dictionary (漫画・アニメ・ゲーム・ドラマ・映画…)");
+    add(dict, MF_STRING, id, "用語辞書を作る… / Build a term dictionary (漫画・アニメ・ゲーム・ドラマ・映画…)");
     let id = m.push(Action::WishList);
     let wishes = wish::load(&aruaru_ime_core::components::data_dir());
-    add(root, MF_STRING, id, &format!("用語辞書の一覧… / Term dictionaries ({})", wishes.len()));
-    let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
+    add(dict, MF_STRING, id, &format!("用語辞書の一覧… / Term dictionaries ({})", wishes.len()));
 
     // 単語・熟語
     let id = m.push(Action::RegisterWord);
-    add(root, MF_STRING, id, "単語・熟語を登録… / Register a word or phrase");
+    add(dict, MF_STRING, id, "単語・熟語を登録… / Register a word or phrase");
     // 用語辞書(組み込み): 選ぶと入る / もう一度選ぶと外れる
     let pack_menu = CreatePopupMenu().unwrap();
     let root_dir = aruaru_ime_core::components::data_dir();
@@ -167,27 +171,27 @@ unsafe fn build_menu() -> (HMENU, Menu) {
         let id = m.push(Action::TogglePack(p.id.to_string()));
         add(pack_menu, check(aruaru_ime_core::packs::is_installed(&root_dir, p)), id, p.title);
     }
-    add_sub(root, pack_menu, "用語辞書を選んで入れる / Term dictionary catalog (install / remove)");
+    add_sub(dict, pack_menu, "用語辞書を選んで入れる / Term dictionary catalog (install / remove)");
     let id = m.push(Action::PostalInstall);
     let have = aruaru_ime_core::postal::is_installed(&aruaru_ime_core::components::data_dir());
-    add(root, MF_STRING, id, &format!("郵便番号の住所辞書を取得(日本郵便の公開データ){} / Get postal-code address data", if have { "  ✓取得済み" } else { "" }));
+    add(dict, MF_STRING, id, &format!("郵便番号の住所辞書を取得(日本郵便の公開データ){} / Get postal-code address data", if have { "  ✓取得済み" } else { "" }));
     let id = m.push(Action::GeoInstall);
     let have_geo = aruaru_ime_core::geo::is_installed(&aruaru_ime_core::components::data_dir());
-    add(root, MF_STRING, id, &format!("世界の郵便番号データを取得(GeoNames・現在地の国も判定){} / Get world postal-code data", if have_geo { "  ✓取得済み" } else { "" }));
+    add(dict, MF_STRING, id, &format!("世界の郵便番号データを取得(GeoNames・現在地の国も判定){} / Get world postal-code data", if have_geo { "  ✓取得済み" } else { "" }));
     let id = m.push(Action::StationsInstall);
-    add(root, MF_STRING, id, "全国の駅名を取り込む(OpenStreetMap の公開データ) / Import all station names");
+    add(dict, MF_STRING, id, "全国の駅名を取り込む(OpenStreetMap の公開データ) / Import all station names");
     let id = m.push(Action::AddKnowledge);
-    add(root, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
+    add(dict, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
     let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir())).len();
     let id = m.push(Action::ListKnowledge);
-    add(root, MF_STRING, id, &format!("知識ベースの一覧… / Knowledge base ({kn})"));
+    add(dict, MF_STRING, id, &format!("知識ベースの一覧… / Knowledge base ({kn})"));
     let id = m.push(Action::RegisterName);
-    add(root, MF_STRING, id, "人名を登録… / Register a person's name (family + given)");
+    add(dict, MF_STRING, id, "人名を登録… / Register a person's name (family + given)");
     let id = m.push(Action::ListWords);
     let count = UserDict::load(&UserDict::default_path()).entries().len();
-    add(root, MF_STRING, id, &format!("登録した単語・熟語の一覧… / Registered words & phrases ({count})"));
+    add(dict, MF_STRING, id, &format!("登録した単語・熟語の一覧… / Registered words & phrases ({count})"));
     let id = m.push(Action::ImportFile);
-    add(root, MF_STRING, id, "ファイルから登録… / Register from a file (txt / xlsx / docx / pptx / pdf)");
+    add(dict, MF_STRING, id, "ファイルから登録… / Register from a file (txt / xlsx / docx / pptx / pdf)");
     let sources = UserDict::load(&UserDict::default_path()).sources();
     if !sources.is_empty() {
         let sub = CreatePopupMenu().unwrap();
@@ -195,35 +199,41 @@ unsafe fn build_menu() -> (HMENU, Menu) {
             let id = m.push(Action::RemoveSource(name.clone()));
             add(sub, MF_STRING, id, &format!("{name} ({n}) を削除 / Remove"));
         }
-        add_sub(root, sub, "ファイル単位で登録を削除 / Remove registrations by file");
+        add_sub(dict, sub, "ファイル単位で登録を削除 / Remove registrations by file");
     }
+
+    add_sub(root, dict, "辞書・登録 / Dictionaries & registration");
     let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
 
-    // 表示・動作
+    // 設定(表示・動作・更新)
+    let set_menu = CreatePopupMenu().unwrap();
     let id = m.push(Action::ToggleOldForms);
-    add(root, check(s.old_forms), id, "旧字体で表示 / Old character forms (國・學・體)");
+    add(set_menu, check(s.old_forms), id, "旧字体で表示 / Old character forms (國・學・體)");
     let id = m.push(Action::ToggleLive);
-    add(root, check(s.live_conversion), id, "ライブ変換 / Live conversion (kanji as you type)");
+    add(set_menu, check(s.live_conversion), id, "ライブ変換 / Live conversion (kanji as you type)");
     let id = m.push(Action::TogglePreferKanji);
-    add(root, check(s.prefer_kanji), id, "漢字を優先 / Prefer kanji (御座います・お願いします)");
+    add(set_menu, check(s.prefer_kanji), id, "漢字を優先 / Prefer kanji (御座います・お願いします)");
     let id = m.push(Action::ToggleAutocorrect);
-    add(root, check(s.autocorrect), id, "プログラミング用語の自動訂正 / Auto-correct code words");
+    add(set_menu, check(s.autocorrect), id, "プログラミング用語の自動訂正 / Auto-correct code words");
     let id = m.push(Action::ToggleTheme);
-    add(root, MF_STRING, id, if s.dark() { "候補窓を白背景・黒文字に / Candidate window: white bg, black text" } else { "候補窓を黒背景・白文字に / Candidate window: black bg, white text" });
+    add(set_menu, MF_STRING, id, if s.dark() { "候補窓を白背景・黒文字に / Candidate window: white bg, black text" } else { "候補窓を黒背景・白文字に / Candidate window: black bg, white text" });
     let size = CreatePopupMenu().unwrap();
     for (label, v) in [("標準 / Normal (1.0x)", 1.0f32), ("大きい / Large (1.8x, default)", 1.8), ("とても大きい / Very large (2.5x)", 2.5), ("特大 / Huge (3.2x)", 3.2)] {
         let id = m.push(Action::Scale(v));
         add(size, check((s.scale() - v).abs() < 0.05), id, label);
     }
-    add_sub(root, size, "候補窓の大きさ / Candidate window size");
+    add_sub(set_menu, size, "候補窓の大きさ / Candidate window size");
     let id = m.push(Action::ToggleWebSuggest);
-    add(root, check(s.web_suggest), id, "固有名詞をWebのサジェストで補う / Web suggestions for names (sends your typing to Google)");
+    add(set_menu, check(s.web_suggest), id, "固有名詞をWebのサジェストで補う / Web suggestions for names (sends your typing to Google)");
     let id = m.push(Action::ToggleOnlineUi);
-    add(root, check(s.open_online_ui), id, "起動時にオンライン画面を最小化で開く / Open online screen at startup (minimized)");
+    add(set_menu, check(s.open_online_ui), id, "起動時にオンライン画面を最小化で開く / Open online screen at startup (minimized)");
     let id = m.push(Action::ToggleAutoUpdate);
-    add(root, check(s.auto_update), id, "自動アップデート / Auto-update (checked at startup)");
+    add(set_menu, check(s.auto_update), id, "自動アップデート / Auto-update (checked at startup)");
     let id = m.push(Action::ToggleChannel);
-    add(root, check(s.update_channel != "stable"), id, "アルファ版も自動更新の対象にする / Include alpha releases in auto-update");
+    add(set_menu, check(s.update_channel != "stable"), id, "アルファ版も自動更新の対象にする / Include alpha releases in auto-update");
+    let id = m.push(Action::UpdateNow);
+    add(set_menu, MF_STRING, id, "今すぐ最新版に更新(再起動不要) / Update now (no restart)");
+    add_sub(root, set_menu, "設定 / Settings");
     let id = m.push(Action::UpdateNow);
     add(root, MF_STRING, id, "今すぐ最新版に更新(再起動不要) / Update now (no restart)");
     let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
