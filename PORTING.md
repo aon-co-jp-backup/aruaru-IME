@@ -145,3 +145,10 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - 組み込みの用語辞書(パック): 鬼滅の刃・ワンピース・セーラームーン・ドラゴンボール・UFOロボ グレンダイザー(フランス語版 Goldorak・ゴルドラック含む)・マジンガーZ・グレートマジンガー・大空魔竜ガイキング・鋼鉄ジーグ(`packs.rs`)。日本語の読み・表記に、英語・ヨーロッパ各国での呼び名(Goldorak/Goldrake/Actarus 等)をローマ字の読みで併記。**網羅ではなく主要な語**。既定で自動インストール(一度入れた/外したものは二度と自動では入れない `packs_seen`)。右クリック「用語辞書を選んで入れる」で入れる/外す。
 - 記号: 最初(または日本語・記号の直後)に `/ < > ? ! [ ] ( ) ~ * = など` を打つと種類を候補に並べ、先頭を表示(`/` → ・ ／ / ･ …)。「なかてん」「かっこ」「まる」「さんかく」「しかく」「ほし」「やじるし」読みでも一覧。
 - 言語: キリル文字系(ブルガリア語等)=ロシア語、アラビア文字系(ウルドゥー語等)=アラビア語、ラテン文字系(約75言語)=アクセント記号つき入力で**近似**対応。右クリック「すべての言語」で選べる(最大7)。インド系・タイ・ジョージア・アルメニア・ギリシャ等(約27言語)は準備中。
+
+## v0.2.2 (2026-10-12): 他OSのインストーラー・Android・二重起動の修正・オンライン画面の入力
+- **macOS / Linux**: `installer/unix/install.sh`(ユーザー権限。エンジンとCLIを `~/.local/share/aruaru-ime` に置き、辞書(約64MB)を `https://easy-web.tokyo/ime/download/dict.bin` から取得、macOS=LaunchAgent / Linux=systemd --user(なければ XDG autostart)で自動起動、`http://127.0.0.1:4660/ui` を開く)と `uninstall.sh`。CIが tar.gz を作り、`v*` タグで GitHub Releases へ添付。**OS全体のIME(macOS InputMethodKit・Linux IBus/Fcitx)は未実装**で、`/ui` の画面で入力する。
+- **Android**: `android/`(WebViewのシェル、`https://easy-web.tokyo/ime` を開く。CIが `gradle assembleDebug` で APK を作る)。OS全体のキーボード(InputMethodService)は未実装。
+- **試験**: CI(`.github/workflows/build.yml`)が Windows / macOS(arm64, intel) / Linux でコアのテスト+エンジンのスモーク試験(`tools/e2e-smoke.sh`)を実行(いずれも成功)。手元では WSL の Ubuntu で CI 成果物のスモーク試験・install.sh・uninstall.sh を通した(エンジン起動・辞書取得・systemd --user 自動起動・削除)。macOS / Android の実機/実端末での試験は未実施。
+- **二重起動**: 同じ版のエンジンが動いているとき、後から起動したものは何も表示せず終了(`port busy ... retrying` の連続表示を解消)。常駐エンジンはコンソール画面を出さない(Windows)。
+- **オンライン画面**: OSのIMEが有効なとき(`Process` / 229)と、スマホの画面キーボード(beforeinput / compositionend)でも入力できるようにした。トップページ(https://easy-web.tokyo/)に紹介とダウンロードを追加、`/ime` に OS 別インストーラー一覧(利用中のOSを強調)。
