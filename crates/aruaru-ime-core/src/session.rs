@@ -113,7 +113,7 @@ pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang:
     }
     match key {
         // 最初の - は、ハイフンの種類を候補に並べるためIMEが受ける(直前が英数字のときはIME側でそのまま確定する)
-        Key::Char(c) => c.is_ascii_alphabetic() || composing || crate::prefer::lead_symbol(*c).is_some() || (matches!(c, ',' | '.') && last_ja),
+        Key::Char(c) => c.is_ascii_alphabetic() || composing || crate::prefer::lead_symbol(*c).is_some() || matches!(c, ',' | '.'),
         Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
@@ -752,11 +752,12 @@ impl Session {
                     self.note_commit("");
                     return self.state(true, Some(s));
                 }
-                // 日本語の直後の , . は 、。にする
-                if matches!(c, ',' | '.') && self.before.chars().last().is_some_and(is_ja) {
-                    let s = if c == ',' { "、" } else { "。" };
-                    self.note_commit(s);
-                    return self.state(true, Some(s.into()));
+                // ひらがな入力モードでは , . は 、。にする。ただし直前が英数字(3.14・example.com・a,b)のときは、そのまま
+                if matches!(c, ',' | '.') {
+                    let after_ascii = self.before.chars().last().is_some_and(|ch| ch.is_ascii_alphanumeric());
+                    let s = if after_ascii { c.to_string() } else if c == ',' { "、".to_string() } else { "。".to_string() };
+                    self.note_commit(&s);
+                    return self.state(true, Some(s));
                 }
                 self.note_commit(&c.to_string());
                 Step::default()
@@ -1034,6 +1035,20 @@ impl Converter for LocalConverter {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn comma_and_period_become_japanese_punctuation_except_after_ascii() {
+        let mut m = s();
+        assert_eq!(m.key(Key::Char(',')).commit.as_deref(), Some("、"), "先頭でも 、");
+        m.set_before("");
+        assert_eq!(m.key(Key::Char('.')).commit.as_deref(), Some("。"));
+        m.set_before("今日は");
+        assert_eq!(m.key(Key::Char('.')).commit.as_deref(), Some("。"));
+        m.set_before("3");
+        assert_eq!(m.key(Key::Char('.')).commit.as_deref(), Some("."), "数字の直後(3.14)はそのまま");
+        m.set_before("example");
+        assert_eq!(m.key(Key::Char('.')).commit.as_deref(), Some("."));
+    }
+
     #[test]
     fn leading_hyphen_and_plus_show_many_kinds_but_numbers_stay_plain() {
         let mut m = s();

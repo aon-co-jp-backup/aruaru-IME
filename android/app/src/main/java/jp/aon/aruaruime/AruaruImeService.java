@@ -207,7 +207,7 @@ public class AruaruImeService extends InputMethodService {
         try {
             if (res == null) {
                 // 通信できないときは、打った文字をそのまま入力する
-                if (keyJson.startsWith("{")) ic.commitText(new JSONObject(keyJson).getString("Char"), 1);
+                if (keyJson.startsWith("{")) ic.commitText(jpPunct(new JSONObject(keyJson).getString("Char")), 1);
                 return;
             }
             JSONObject r = new JSONObject(res);
@@ -231,6 +231,13 @@ public class AruaruImeService extends InputMethodService {
         } catch (Exception e) {
             // 解釈できない応答は無視する
         }
+    }
+
+    /** 通信できないときの、日本語の句読点(, . → 、。)。 */
+    private String jpPunct(String c) {
+        if (!direct && c.equals(",")) return "、";
+        if (!direct && c.equals(".")) return "。";
+        return c;
     }
 
     private void showCandidates(JSONArray c) {

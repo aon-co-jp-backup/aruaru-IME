@@ -11,6 +11,8 @@ for i in $(seq 1 40); do
   sleep 3
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   adb pull /sdcard/ui.xml "android-test-$NAME-ui.xml" >/dev/null 2>&1
+  # キーボードの有効化を案内するダイアログが出ていたら、閉じる
+  if grep -q "キーボード / keyboard" "android-test-$NAME-ui.xml" 2>/dev/null; then adb shell input keyevent KEYCODE_BACK; sleep 2; continue; fi
   if grep -q "ダウンロードはこちら\|aruaru-IME" "android-test-$NAME-ui.xml" 2>/dev/null && grep -q "Download the installer\|ダウンロード" "android-test-$NAME-ui.xml" 2>/dev/null; then ok=1; break; fi
 done
 adb exec-out screencap -p > "android-test-$NAME-portrait.png"
