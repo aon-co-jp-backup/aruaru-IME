@@ -175,7 +175,7 @@ impl Dict {
         let mut out = vec![];
         for (r, w) in crate::seasonal::words() {
             let (lid, rid, cost) = match self.find_ent(&r, &w).or(noun) {
-                Some(e) => (e.lid, e.rid, if self.find_ent(&r, &w).is_some() { e.cost as i32 - 800 } else { 4000 }),
+                Some(e) => (e.lid, e.rid, if self.find_ent(&r, &w).is_some() { e.cost as i32 - 2500 } else { 1500 }),
                 None => continue,
             };
             out.push(Extra { reading: r.chars().collect(), surface: w, lid, rid, cost });
@@ -552,6 +552,8 @@ mod tests {
             ("ゆきがふる", "雪が降る"),
             ("あきにはもみじがいろづき", "秋には紅葉が色づき"),
             ("はなびたいかい", "花火大会"),
+            ("あきのこうよう", "秋の紅葉"),
+            ("はるのさくら", "春の桜"),
         ] {
             let c = d.candidates(r, 5);
             assert_eq!(c[0], want, "{r}: {c:?}");

@@ -641,9 +641,9 @@ impl Session {
         // 変換キー・無変換キー(日本語キーボード)
         match key {
             Key::NonConvert if self.on && self.composing() => {
-                // ひらがな → カタカナ → 全角英数 → 半角英数 → ひらがな
+                // 最初の1回はひらがな(変換中の漢字・候補も、読みのひらがなに戻す)。以後は ひらがな → カタカナ → 全角英数 → 半角英数 → ひらがな
                 let next = match self.form {
-                    None | Some(Form::Raw) => Form::Kata,
+                    None | Some(Form::Raw) => Form::Hira,
                     Some(Form::Hira) => Form::Kata,
                     Some(Form::Kata) => Form::Full,
                     Some(Form::Full) => Form::Half,
@@ -1287,7 +1287,8 @@ mod tests {
     fn muhenkan_cycles_forms_and_henkan_converts() {
         let mut s = s();
         type_str(&mut s, "kamera");
-        assert_eq!(s.key(Key::NonConvert).preedit, "カメラ", "無変換: ひらがな/初期表示 → カタカナ");
+        assert_eq!(s.key(Key::NonConvert).preedit, "かめら", "無変換の最初の1回: ひらがな");
+        assert_eq!(s.key(Key::NonConvert).preedit, "カメラ", "→ カタカナ");
         assert_eq!(s.key(Key::NonConvert).preedit, "ｋａｍｅｒａ", "→ 全角英数");
         assert_eq!(s.key(Key::NonConvert).preedit, "kamera", "→ 半角英数");
         assert_eq!(s.key(Key::NonConvert).preedit, "かめら", "→ ひらがなに戻る");

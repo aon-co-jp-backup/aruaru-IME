@@ -89,6 +89,12 @@ pub fn phrases() -> Vec<Vec<(String, String)>> {
             out.push(vec![a.clone(), (parts[1].to_string(), parts[1].to_string()), c.clone()]);
         }
     }
+    // 季節 + の + 季節の語(秋の紅葉、春の桜 …)
+    for (sr, ss) in SEASONS {
+        for (r, w) in pairs(WORDS) {
+            out.push(vec![(sr.to_string(), ss.to_string()), ("の".into(), "の".into()), (r, w)]);
+        }
+    }
     // 〜療法
     for (r, s) in pairs(THERAPY_PREFIX) {
         out.push(vec![(r, s), ("りょうほう".into(), "療法".into())]);

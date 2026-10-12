@@ -115,3 +115,8 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 ## 最後に選んだIMEの自動選択 / Re-select the last IME after reboot (2026-10-11)
 - TSF DLL が、選ばれた入力方式を `%LOCALAPPDATA%\aruaru\last-ime.txt` に記録(`aruaru <プロファイルGUID>` / `other`)。常駐エンジンは起動8秒後、最後が aruaru-IME なら `ActivateProfile`(現在のセッション)と `Set-WinDefaultInputMethodOverride`(次回サインイン以降の既定)で選び直す。ほかのIMEが最後なら何もしない。実機で既定の入力方式が設定されることを確認。
 - The DLL records the last selected input method; at startup the engine re-activates aruaru-IME and sets it as the default override. If another IME was last, it does nothing.
+
+## 再起動後の自動選択のBUG修正ほか / Reboot auto-select fix, etc. (2026-10-12)
+- 原因: エンジンがサインイン時に自動起動しておらず(開発機にRunキー無し)、再選択が走らなかった。エンジン起動時にHKLM/HKCUのRunキーを確認し、無ければHKCUに自己登録(`ensure_autostart`)。再選択後に `restore-ime.log` へ「aruaru-IME active afterwards」を記録。手動の再選択で active=true を確認。再起動での再確認は未了。
+- 無変換キー: 最初の1回は必ずひらがな(変換中の漢字も読みに戻す)、以後 カタカナ→全角英数→半角英数→ひらがな。
+- 「あきのこうよう」→「秋の紅葉」: 季節+の+季節語を言い回しに追加、辞書に無い季節語のコストを下げた。

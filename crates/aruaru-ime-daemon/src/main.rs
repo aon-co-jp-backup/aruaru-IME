@@ -291,6 +291,24 @@ fn spawn_glossary(slot: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glo
     });
 }
 
+/// サインイン時にエンジンが自動で起動するようにする(インストーラーを使わない開発機・手動配置でも)。
+/// HKLM / HKCU のどちらかに登録済みなら何もしない。無ければ、このユーザーの Run キーに自分自身を登録する。
+fn ensure_autostart() {
+    #[cfg(windows)]
+    {
+        let has = |hive: &str| std::process::Command::new("reg").args(["query", &format!(r"{hive}\Software\Microsoft\Windows\CurrentVersion\Run"), "/v", "aruaru-IME"]).creation_flags_hidden().output().map(|o| o.status.success()).unwrap_or(false);
+        if has("HKLM") || has("HKCU") {
+            return;
+        }
+        if let Ok(exe) = std::env::current_exe() {
+            let _ = std::process::Command::new("reg")
+                .args(["add", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "aruaru-IME", "/t", "REG_SZ", "/d", &format!("\"{}\"", exe.display()), "/f"])
+                .creation_flags_hidden()
+                .status();
+        }
+    }
+}
+
 /// 最後に選ばれていた入力方式が aruaru-IME なら、起動時(再起動後)に自動で選び直す。
 /// 1) 既定の入力方式にする(以後のサインイン・新しいアプリ) 2) いまのセッションでも有効にする。ほかの入力方式が最後なら何もしない。
 fn spawn_restore_ime() {
@@ -310,8 +328,10 @@ fn spawn_restore_ime() {
             if let Ok(mgr) = CoCreateInstance::<_, ITfInputProcessorProfileMgr>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER) {
                 let r = mgr.ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, langid, &clsid, &g, HKL::default(), TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
                 eprintln!("restore ime: {:?}", r);
-                let _ = std::fs::write(aruaru_ime_core::components::data_dir().join("restore-ime.log"), format!("ActivateProfile: {:?}
-", r));
+                let mut p = TF_INPUTPROCESSORPROFILE::default();
+                let after = mgr.GetActiveProfile(&GUID_TFCAT_TIP_KEYBOARD, &mut p).map(|_| p.clsid == clsid);
+                let _ = std::fs::write(aruaru_ime_core::components::data_dir().join("restore-ime.log"), format!("ActivateProfile: {:?}; aruaru-IME active afterwards: {:?}
+", r, after));
             }
         }
         // 既定の入力方式(次回のサインイン以降)
@@ -537,6 +557,7 @@ fn main() {
     spawn_glossary(Arc::clone(&gloss));
     spawn_zh();
     spawn_online_ui();
+    ensure_autostart();
     spawn_restore_ime();
     spawn_autobackup();
     resume_wishes(client.clone());
