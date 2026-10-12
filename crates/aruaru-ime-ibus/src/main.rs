@@ -248,6 +248,7 @@ mod linux {
     }
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        eprintln!("aruaru-ime-ibus: start (IBUS_ADDRESS={:?}, args={:?})", std::env::var("IBUS_ADDRESS").ok(), std::env::args().collect::<Vec<_>>());
         ensure_daemon();
         let addr = ibus_address().ok_or("IBus のバスに接続できません(ibus-daemon が動いていません)")?;
         async_io::block_on(async move {
