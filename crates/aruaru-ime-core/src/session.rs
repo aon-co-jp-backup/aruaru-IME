@@ -80,6 +80,9 @@ pub struct Step {
     pub sel_en: Option<usize>,
     #[serde(default)]
     pub composing: bool,
+    /// 選んでいる候補に関する、知識ベースの補足(候補ウィンドウに出す)。
+    #[serde(default)]
+    pub note: Option<String>,
     /// いまの入力言語のコード(ja / en / ru / ar …)。DLL が通信なしで「このキーを食うか」を判定するために持ち帰る。
     #[serde(default)]
     pub lang: String,
@@ -390,6 +393,7 @@ impl Session {
             mode: if self.composing() { self.mode_label.clone() } else { String::new() },
             on: self.on,
             composing: self.composing(),
+            note: if self.composing() { crate::knowledge::note_for(&self.cands.get(self.sel.unwrap_or(0)).cloned().unwrap_or_default()) } else { None },
             lang: self.lang.code().to_string(),
             last_ja: self.before.chars().last().is_some_and(is_ja),
         }

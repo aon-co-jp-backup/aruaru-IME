@@ -75,6 +75,27 @@ pub fn search(items: &[Item], query: &str, max: usize) -> Vec<Item> {
     v
 }
 
+/// 候補ウィンドウの補足表示用。選んでいる候補(語)を含む知識を1件、短くして返す。ファイルが変わったときだけ読み直す。
+pub fn note_for(word: &str) -> Option<String> {
+    use std::sync::Mutex;
+    use std::time::SystemTime;
+    static CACHE: Mutex<Option<(SystemTime, Vec<Item>)>> = Mutex::new(None);
+    let w = word.trim();
+    if w.chars().count() < 2 {
+        return None;
+    }
+    let p = path(&crate::components::data_dir());
+    let mt = std::fs::metadata(&p).and_then(|m| m.modified()).ok()?;
+    let mut g = CACHE.lock().ok()?;
+    if g.as_ref().map(|(t, _)| *t != mt).unwrap_or(true) {
+        *g = Some((mt, load(&p)));
+    }
+    let items = &g.as_ref()?.1;
+    let hit = items.iter().rev().find(|i| i.text.contains(w) || i.tags.iter().any(|t| t == w))?;
+    let t: String = hit.text.chars().take(60).collect();
+    Some(if hit.text.chars().count() > 60 { format!("{t}…") } else { t })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -172,7 +172,7 @@ impl TextService {
                         let mut rc = RECT::default();
                         let mut clipped = BOOL(0);
                         if view.GetTextExt(ec, &range, &mut rc, &mut clipped).is_ok() {
-                            candwin::show(&step.cands, step.sel, &step.cands_en, step.col, step.sel_en, &step.mode, rc.left, rc.bottom);
+                            candwin::show(&step.cands, step.sel, &step.cands_en, step.col, step.sel_en, &match &step.note { Some(n) => format!("{}  ※ {}", step.mode, n), None => step.mode.clone() }, rc.left, rc.bottom);
                         }
                     }
                 } else {

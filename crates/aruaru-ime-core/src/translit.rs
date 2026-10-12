@@ -38,11 +38,22 @@ pub enum Lang {
     El,
     Ka,
     Hy,
+    Th,
+    Lo,
+    Km,
+    My,
+    Si,
+    Am,
+    Ti,
+    Bo,
+    Dz,
+    Dv,
 }
 
 pub const ALL: &[Lang] = &[
     Lang::Ja, Lang::En, Lang::Ru, Lang::Uk, Lang::Ar, Lang::Fa, Lang::He, Lang::Ko, Lang::ZhHans, Lang::ZhHant, Lang::Es, Lang::Fr, Lang::De, Lang::It, Lang::Pt,
     Lang::Hi, Lang::Mr, Lang::Ne, Lang::Bn, Lang::As, Lang::Pa, Lang::Gu, Lang::Or, Lang::Ta, Lang::Te, Lang::Kn, Lang::Ml, Lang::El, Lang::Ka, Lang::Hy,
+    Lang::Th, Lang::Lo, Lang::Km, Lang::My, Lang::Si, Lang::Am, Lang::Ti, Lang::Bo, Lang::Dz, Lang::Dv,
 ];
 
 impl Lang {
@@ -78,6 +89,16 @@ impl Lang {
             Lang::El => "el",
             Lang::Ka => "ka",
             Lang::Hy => "hy",
+            Lang::Th => "th",
+            Lang::Lo => "lo",
+            Lang::Km => "km",
+            Lang::My => "my",
+            Lang::Si => "si",
+            Lang::Am => "am",
+            Lang::Ti => "ti",
+            Lang::Bo => "bo",
+            Lang::Dz => "dz",
+            Lang::Dv => "dv",
         }
     }
 
@@ -118,6 +139,16 @@ impl Lang {
             Lang::El => "Ελληνικά",
             Lang::Ka => "ქართული",
             Lang::Hy => "Հայերեն",
+            Lang::Th => "ไทย",
+            Lang::Lo => "ລາວ",
+            Lang::Km => "ខ្មែរ",
+            Lang::My => "မြန်မာ",
+            Lang::Si => "සිංහල",
+            Lang::Am => "አማርኛ",
+            Lang::Ti => "ትግርኛ",
+            Lang::Bo => "བོད་ཡིག",
+            Lang::Dz => "རྫོང་ཁ",
+            Lang::Dv => "ދިވެހި",
         }
     }
 
@@ -154,6 +185,16 @@ impl Lang {
             Lang::El => "Greek",
             Lang::Ka => "Georgian",
             Lang::Hy => "Armenian",
+            Lang::Th => "Thai",
+            Lang::Lo => "Lao",
+            Lang::Km => "Khmer",
+            Lang::My => "Burmese",
+            Lang::Si => "Sinhala",
+            Lang::Am => "Amharic",
+            Lang::Ti => "Tigrinya",
+            Lang::Bo => "Tibetan",
+            Lang::Dz => "Dzongkha",
+            Lang::Dv => "Dhivehi",
         }
     }
 
@@ -164,7 +205,7 @@ impl Lang {
 
     /// 右から左へ書く言語か。
     pub fn rtl(self) -> bool {
-        matches!(self, Lang::Ar | Lang::Fa | Lang::He)
+        matches!(self, Lang::Ar | Lang::Fa | Lang::He | Lang::Dv)
     }
 
     /// Windows の言語ID(LANGID)。
@@ -200,6 +241,16 @@ impl Lang {
             Lang::El => 0x0408,
             Lang::Ka => 0x0437,
             Lang::Hy => 0x042B,
+            Lang::Th => 0x041E,
+            Lang::Lo => 0x0454,
+            Lang::Km => 0x0453,
+            Lang::My => 0x0455,
+            Lang::Si => 0x045B,
+            Lang::Am => 0x045E,
+            Lang::Ti => 0x0473,
+            Lang::Bo => 0x0451,
+            Lang::Dz => 0x0C51,
+            Lang::Dv => 0x0465,
         }
     }
 
@@ -229,7 +280,7 @@ impl Lang {
             Lang::Es | Lang::Fr | Lang::De | Lang::It | Lang::Pt => composing && "'`^\"~:/,".contains(c),
             Lang::En => composing && c == '\'',
             // インド系・ギリシャ・ジョージア・アルメニア: ~ ^ . ' _ (鼻音・アクセント・danda など)
-            Lang::Hi | Lang::Mr | Lang::Ne | Lang::Bn | Lang::As | Lang::Pa | Lang::Gu | Lang::Or | Lang::Ta | Lang::Te | Lang::Kn | Lang::Ml | Lang::El | Lang::Ka | Lang::Hy => composing && "~^.'_".contains(c),
+            Lang::Hi | Lang::Mr | Lang::Ne | Lang::Bn | Lang::As | Lang::Pa | Lang::Gu | Lang::Or | Lang::Ta | Lang::Te | Lang::Kn | Lang::Ml | Lang::El | Lang::Ka | Lang::Hy | Lang::Th | Lang::Lo | Lang::Km | Lang::My | Lang::Si | Lang::Am | Lang::Ti | Lang::Bo | Lang::Dz | Lang::Dv => composing && "~^.'_".contains(c),
             Lang::Ko | Lang::Ja | Lang::ZhHans | Lang::ZhHant => composing && (c.is_ascii_digit() || c == '\'' || c == '-'),
         }
     }
@@ -545,6 +596,16 @@ pub fn transliterate(lang: Lang, input: &str) -> String {
         Lang::El => crate::indic::greek_final_sigma(&apply(crate::indic::GREEK, input, none)),
         Lang::Ka => apply(crate::indic::GEORGIAN, input, none),
         Lang::Hy => apply(crate::indic::ARMENIAN, input, none),
+        Lang::Th => crate::abugida::transliterate(crate::abugida::Abu::Thai, input),
+        Lang::Lo => crate::abugida::transliterate(crate::abugida::Abu::Lao, input),
+        Lang::Km => crate::abugida::transliterate(crate::abugida::Abu::Khmer, input),
+        Lang::My => crate::abugida::transliterate(crate::abugida::Abu::Myanmar, input),
+        Lang::Si => crate::abugida::transliterate(crate::abugida::Abu::Sinhala, input),
+        Lang::Am => crate::abugida::transliterate_ethiopic(input),
+        Lang::Ti => crate::abugida::transliterate_ethiopic(input),
+        Lang::Bo => crate::abugida::transliterate(crate::abugida::Abu::Tibetan, input),
+        Lang::Dz => crate::abugida::transliterate(crate::abugida::Abu::Tibetan, input),
+        Lang::Dv => crate::abugida::transliterate(crate::abugida::Abu::Thaana, input),
         Lang::En | Lang::Ja | Lang::ZhHans | Lang::ZhHant => input.to_string(),
     }
 }

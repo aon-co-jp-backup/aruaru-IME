@@ -20,6 +20,7 @@ pub mod uservocab;
 pub mod userdict;
 pub mod ghbackup;
 pub mod knowledge;
+pub mod abugida;
 pub mod indic;
 pub mod languages;
 pub mod packs;
