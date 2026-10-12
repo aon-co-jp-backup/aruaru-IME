@@ -17,6 +17,16 @@ mod linux {
     use zbus::{connection, interface, Connection};
 
     const ENGINE_PORT: u16 = 4660;
+
+    /// 診断ログ(環境変数 ARUARU_IME_IBUS_DEBUG にファイル名を入れたときだけ書く)。
+    pub fn dbg(msg: &str) {
+        if let Ok(p) = std::env::var("ARUARU_IME_IBUS_DEBUG") {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(p) {
+                let _ = writeln!(f, "{msg}");
+            }
+        }
+    }
     const COMPONENT_NAME: &str = "org.freedesktop.IBus.AruaruIME";
 
     // ---- X11 キーシム ----
@@ -161,9 +171,7 @@ mod linux {
     #[interface(name = "org.freedesktop.IBus.Engine")]
     impl Engine {
         async fn process_key_event(&self, keyval: u32, _keycode: u32, state: u32, #[zbus(signal_context)] ctxt: SignalContext<'_>) -> bool {
-            if std::env::var("ARUARU_IME_IBUS_DEBUG").is_ok() {
-                eprintln!("aruaru-ime-ibus: ProcessKeyEvent keyval=0x{keyval:x} state=0x{state:x}");
-            }
+            dbg(&format!("ProcessKeyEvent keyval=0x{keyval:x} state=0x{state:x}"));
             let Some(k) = key_json(keyval, state) else { return false };
             let body = format!("{{\"sid\":\"{}\",\"key\":{k}}}", self.sid);
             let Some(r) = http("POST", "/key", &body) else { return false };
@@ -228,7 +236,7 @@ mod linux {
     impl Factory {
         async fn create_engine(&self, _name: &str, #[zbus(connection)] conn: &Connection) -> zbus::fdo::Result<OwnedObjectPath> {
             let n = self.next.fetch_add(1, Ordering::SeqCst);
-            eprintln!("aruaru-ime-ibus: CreateEngine({_name}) -> #{n}");
+            dbg(&format!("CreateEngine({_name}) -> #{n}"));
             let path = format!("/org/freedesktop/IBus/Engine/{n}");
             conn.object_server().at(path.as_str(), Engine::new(n)).await?;
             Ok(ObjectPath::try_from(path).map_err(zbus::Error::from)?.into())
@@ -248,7 +256,7 @@ mod linux {
     }
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        eprintln!("aruaru-ime-ibus: start (IBUS_ADDRESS={:?}, args={:?})", std::env::var("IBUS_ADDRESS").ok(), std::env::args().collect::<Vec<_>>());
+        dbg(&format!("start IBUS_ADDRESS={:?} args={:?}", std::env::var("IBUS_ADDRESS").ok(), std::env::args().collect::<Vec<_>>()));
         ensure_daemon();
         let addr = ibus_address().ok_or("IBus のバスに接続できません(ibus-daemon が動いていません)")?;
         async_io::block_on(async move {
@@ -257,6 +265,7 @@ mod linux {
                 .serve_at("/org/freedesktop/IBus/Factory", Factory { next: AtomicU32::new(1) })?
                 .build()
                 .await?;
+            dbg("ready");
             eprintln!("aruaru-ime-ibus: ready ({COMPONENT_NAME})");
             futures_lite::future::pending::<()>().await;
             Ok::<(), Box<dyn std::error::Error>>(())
@@ -294,6 +303,7 @@ mod linux {
 #[cfg(target_os = "linux")]
 fn main() {
     if let Err(e) = linux::run() {
+        linux::dbg(&format!("error: {e}"));
         eprintln!("aruaru-ime-ibus: {e}");
         std::process::exit(1);
     }
