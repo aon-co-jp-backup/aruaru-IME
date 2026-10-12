@@ -16,9 +16,23 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    // アルファ版の署名鍵(公開リポジトリに置く検証用の鍵)。毎回同じ鍵で署名するので、APK を上書き更新できる。
+    // 正式版では、非公開の鍵に置き換える。
+    signingConfigs {
+        alpha {
+            storeFile file('../aruaru-alpha.keystore')
+            storePassword 'aruaru-alpha'
+            keyAlias 'aruaru'
+            keyPassword 'aruaru-alpha'
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.alpha
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.alpha
         }
     }
 }
