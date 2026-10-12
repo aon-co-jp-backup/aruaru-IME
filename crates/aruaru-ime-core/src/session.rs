@@ -116,7 +116,7 @@ pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang:
     }
     match key {
         // 最初の - は、ハイフンの種類を候補に並べるためIMEが受ける(直前が英数字のときはIME側でそのまま確定する)
-        Key::Char(c) => c.is_ascii_alphabetic() || composing || crate::prefer::lead_symbol(*c).is_some() || matches!(c, ',' | '.'),
+        Key::Char(c) => c.is_ascii_alphabetic() || composing || c.is_ascii_digit() || crate::prefer::lead_symbol(*c).is_some() || matches!(c, ',' | '.'),
         Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
@@ -397,6 +397,11 @@ impl Session {
             lang: self.lang.code().to_string(),
             last_ja: self.before.chars().last().is_some_and(is_ja),
         }
+    }
+
+    /// 組み立て中の入力が、数字(と郵便番号の -)だけか。
+    fn is_digit_buf(&self) -> bool {
+        !self.buf.is_empty() && self.buf.chars().next().is_some_and(|c| c.is_ascii_digit()) && self.buf.chars().all(|c| c.is_ascii_digit() || c == '-')
     }
 
     fn reset(&mut self) {
@@ -709,6 +714,47 @@ impl Session {
                     return self.choose(idx);
                 }
                 self.state(true, None)
+            }
+            // 数字の入力: 英数字の直後(abc123・3.14 の続き)でなければ、数字を未確定にして候補を出す(郵便番号 → 住所、全角、漢数字)。
+            // 英字・記号・Enter などが来たら、そのまま確定する。
+            Key::Char(d) if d.is_ascii_digit() && !self.composing() => {
+                if self.before.chars().last().is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '.' || ch == ',') {
+                    self.note_commit(&d.to_string());
+                    return self.state(true, Some(d.to_string()));
+                }
+                self.buf.push(d);
+                self.refresh();
+                if !self.cands.is_empty() {
+                    self.sel = Some(0);
+                    self.auto = true;
+                }
+                self.state(true, None)
+            }
+            Key::Char(d) if d.is_ascii_digit() && self.composing() && self.is_digit_buf() => {
+                self.buf.push(d);
+                self.refresh();
+                if !self.cands.is_empty() {
+                    self.sel = Some(0);
+                    self.auto = true;
+                }
+                self.state(true, None)
+            }
+            Key::Char('-') if self.composing() && self.is_digit_buf() && self.buf.len() == 3 => {
+                self.buf.push('-');
+                self.refresh();
+                if !self.cands.is_empty() {
+                    self.sel = Some(0);
+                    self.auto = true;
+                }
+                self.state(true, None)
+            }
+            Key::Char(c) if self.composing() && self.is_digit_buf() && !c.is_ascii_digit() => {
+                // 数字の途中で別の文字が来たら、数字を確定してから、その文字を続ける
+                let first = self.commit_current();
+                let mut st = self.key(Key::Char(c));
+                st.commit = Some(format!("{first}{}", st.commit.unwrap_or_default()));
+                st.eaten = true;
+                st
             }
             // 入力の最初の - : 半角 - ・全角 － ・ダッシュ・長音・カタカナのハイフンなどを候補に並べる。
             // 直前が英数字(090-1234 / well-known)のときは、候補を出さずそのまま - にする。
@@ -1275,11 +1321,35 @@ mod tests {
     }
 
     #[test]
-    fn digits_and_symbols_pass_through_when_idle() {
+    fn digits_are_composed_and_commit_as_typed_but_not_after_alphanumerics() {
+        // 数字は未確定になり、Enter でそのまま確定する(候補に 全角・漢数字も出る)
         let mut s = s();
         let st = s.key(Key::Char('5'));
-        assert!(!st.eaten);
-        // 日本語の直後のカンマは読点にする
+        assert!(st.eaten && st.composing && st.preedit == "5", "{st:?}");
+        assert!(st.cands.contains(&"５".to_string()) && st.cands.contains(&"五".to_string()), "{:?}", st.cands);
+        assert_eq!(s.key(Key::Enter).commit.as_deref(), Some("5"));
+        // 数字の後に英字が来たら、数字を確定してから英字の入力を始める
+        let mut s = self::tests::s();
+        s.key(Key::Char('1'));
+        s.key(Key::Char('2'));
+        let st = s.key(Key::Char('k'));
+        assert_eq!(st.commit.as_deref(), Some("12"), "{st:?}");
+        // 英数字の直後(abc1 / 3.14)は、そのまま数字を確定する
+        let mut s = self::tests::s();
+        s.set_before("abc");
+        let st = s.key(Key::Char('1'));
+        assert_eq!(st.commit.as_deref(), Some("1"));
+        let mut s = self::tests::s();
+        s.set_before("3.");
+        assert_eq!(s.key(Key::Char('1')).commit.as_deref(), Some("1"));
+        // 郵便番号の形(7桁)は、123-4567 の形も候補になる
+        let mut s = self::tests::s();
+        for ch in "1000001".chars() {
+            s.key(Key::Char(ch));
+        }
+        let st = s.key(Key::Space);
+        assert!(st.cands.iter().any(|c| c == "100-0001" || c == "〒100-0001"), "{:?}", st.cands);
+        // カンマは読点にする
         let mut s = self::tests::s();
         let st = s.key(Key::Char(','));
         assert_eq!(st.commit.as_deref(), Some("、"));

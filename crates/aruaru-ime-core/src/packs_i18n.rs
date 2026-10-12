@@ -101,7 +101,7 @@ kuluoluo\t库洛洛\t庫洛洛\nhuanyinglvtuan\t幻影旅团\t幻影旅團\nnian
 ];
 
 pub fn find(id: &str) -> Option<&'static I18n> {
-    I18N.iter().find(|x| x.id == id)
+    I18N.iter().find(|x| x.id == id).or_else(|| crate::packs::table_i18n().iter().find(|x| x.id == id))
 }
 
 /// 各言語のファイルを書く。書いたファイル数を返す。
@@ -125,7 +125,7 @@ pub fn install(root: &Path, id: &str) -> usize {
             .collect();
         n += usize::from(std::fs::write(words.join(format!("ko.{id}.tsv")), t).is_ok());
     }
-    for lang in ["es", "fr", "de", "it", "pt"] {
+    for lang in ["en", "es", "fr", "de", "it", "pt"] {
         let t: String = x.eu.lines().filter_map(|l| l.strip_prefix(&format!("{lang}\t"))).map(|l| format!("{l}\n")).collect();
         if !t.is_empty() && std::fs::create_dir_all(&words).is_ok() {
             n += usize::from(std::fs::write(words.join(format!("{lang}.{id}.tsv")), t).is_ok());
@@ -136,7 +136,7 @@ pub fn install(root: &Path, id: &str) -> usize {
 
 pub fn uninstall(root: &Path, id: &str) {
     let _ = std::fs::remove_file(root.join("zh-extra").join(format!("{id}.tsv")));
-    for lang in ["ko", "es", "fr", "de", "it", "pt"] {
+    for lang in ["ko", "en", "es", "fr", "de", "it", "pt"] {
         let _ = std::fs::remove_file(root.join("words").join(format!("{lang}.{id}.tsv")));
     }
 }
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn every_pack_has_localized_entries_and_files_roundtrip() {
-        for p in crate::packs::PACKS {
+        for p in crate::packs::all() {
             assert!(find(p.id).is_some(), "{}: 多言語の版が無い", p.id);
         }
         let d = std::env::temp_dir().join(format!("aruaru-i18n-{}", std::process::id()));

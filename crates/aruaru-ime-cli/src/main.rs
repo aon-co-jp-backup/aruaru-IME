@@ -90,6 +90,14 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("postal-install") {
+        // aruaru-ime postal-install: 日本郵便の公開データ(utf_ken_all.zip)を取得して、郵便番号 → 住所の辞書を作る
+        match aruaru_ime_core::postal::install(&aruaru_ime_core::components::data_dir()) {
+            Ok(n) => println!("{n} 件の郵便番号を取り込みました"),
+            Err(e) => eprintln!("取得できませんでした: {e}"),
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("knowledge") {
         // aruaru-ime knowledge add <本文> [タグ…] | search <キーワード> | import <knowledge.json>
         use aruaru_ime_core::knowledge as kb;

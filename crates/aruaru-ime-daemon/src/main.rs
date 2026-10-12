@@ -438,8 +438,8 @@ fn install_default_packs() {
     let mut user = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
     let mut changed = false;
     // 版(PACKS_REV)が上がったときは、入れたままのパックだけ入れ直す(外したものは、そのまま)。新しいパックは入れる。
-    const PACKS_REV: &str = "r3";
-    for p in aruaru_ime_core::packs::PACKS {
+    const PACKS_REV: &str = "r4";
+    for p in aruaru_ime_core::packs::all() {
         let seen = s.packs_seen.iter().any(|x| x == p.id);
         let stamped = s.packs_seen.iter().any(|x| *x == format!("{}@{}", p.id, PACKS_REV));
         if seen && (stamped || !aruaru_ime_core::packs::is_installed(&root, p)) {

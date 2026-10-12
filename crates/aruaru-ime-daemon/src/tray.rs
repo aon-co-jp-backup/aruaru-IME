@@ -58,6 +58,7 @@ enum Action {
     ToggleLang(translit::Lang),
     ToggleOldForms,
     ToggleLive,
+    PostalInstall,
     TogglePack(String),
     ToggleStack(String),
     GithubSetRepo,
@@ -159,11 +160,14 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     // 用語辞書(組み込み): 選ぶと入る / もう一度選ぶと外れる
     let pack_menu = CreatePopupMenu().unwrap();
     let root_dir = aruaru_ime_core::components::data_dir();
-    for p in aruaru_ime_core::packs::PACKS {
+    for p in aruaru_ime_core::packs::all() {
         let id = m.push(Action::TogglePack(p.id.to_string()));
         add(pack_menu, check(aruaru_ime_core::packs::is_installed(&root_dir, p)), id, p.title);
     }
     add_sub(root, pack_menu, "用語辞書を選んで入れる / Term dictionary catalog (install / remove)");
+    let id = m.push(Action::PostalInstall);
+    let have = aruaru_ime_core::postal::is_installed(&aruaru_ime_core::components::data_dir());
+    add(root, MF_STRING, id, &format!("郵便番号の住所辞書を取得(日本郵便の公開データ){} / Get postal-code address data", if have { "  ✓取得済み" } else { "" }));
     let id = m.push(Action::AddKnowledge);
     add(root, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
     let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir())).len();
@@ -695,6 +699,16 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                 });
                 notify("用語辞書", &msg.unwrap_or_else(|e| e));
             }
+        }
+        Action::PostalInstall => {
+            notify("郵便番号", "日本郵便の公開データ(約2MB)を取得しています…");
+            std::thread::spawn(|| {
+                let m = aruaru_ime_core::postal::install(&aruaru_ime_core::components::data_dir());
+                notify("郵便番号", &match m {
+                    Ok(n) => format!("{n} 件の郵便番号を取り込みました。7桁の数字を打って Space で住所に変換できます"),
+                    Err(e) => format!("取得できませんでした: {e}"),
+                });
+            });
         }
         Action::AddKnowledge => {
             if let Some(v) = input_dialog("知識ベースに追加", &["知識(文章)", "タグ(空白区切り・省略可)"], "例:  桜の開花は3月下旬  タグ: 春 花") {

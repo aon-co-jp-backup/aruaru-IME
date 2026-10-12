@@ -171,8 +171,27 @@ gon\tGon\nkillua\tKillua\nkurapika\tKurapika\nleorio\tLeorio\nhisoka\tHisoka\nch
     },
 ];
 
+/// 手で書いたパックと、表から作ったパック(花・国・都市・駅)。
+pub fn all() -> &'static [Pack] {
+    static ALL: std::sync::OnceLock<Vec<Pack>> = std::sync::OnceLock::new();
+    ALL.get_or_init(|| {
+        let mut v: Vec<Pack> = PACKS.iter().map(|p| Pack { id: p.id, title: p.title, category: p.category, entries: p.entries }).collect();
+        v.extend(table_cache().0.iter().map(|p| Pack { id: p.id, title: p.title, category: p.category, entries: p.entries }));
+        v
+    })
+}
+
+fn table_cache() -> &'static (Vec<Pack>, Vec<crate::packs_i18n::I18n>) {
+    static T: std::sync::OnceLock<(Vec<Pack>, Vec<crate::packs_i18n::I18n>)> = std::sync::OnceLock::new();
+    T.get_or_init(crate::packs_table::build)
+}
+
+pub fn table_i18n() -> &'static [crate::packs_i18n::I18n] {
+    &table_cache().1
+}
+
 pub fn find(id: &str) -> Option<&'static Pack> {
-    PACKS.iter().find(|p| p.id == id)
+    all().iter().find(|p| p.id == id)
 }
 
 fn source(p: &Pack) -> String {
@@ -233,7 +252,7 @@ mod tests {
 
     #[test]
     fn every_pack_line_is_well_formed() {
-        for p in PACKS {
+        for p in all() {
             let lines: Vec<&str> = p.entries.lines().collect();
             assert!(lines.len() >= 6, "{}: {}", p.id, lines.len());
             for l in lines {

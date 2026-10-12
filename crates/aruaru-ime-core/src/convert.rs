@@ -80,6 +80,24 @@ pub fn wants_suggest(ctx: &Context) -> bool {
 pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Option<&Dict>) -> Conversion {
     let pred = mode::predict(buffer, ctx);
     let mut c: Vec<Candidate> = vec![];
+    // 数字の入力(郵便番号 1000001 / 100-0001 は、住所も候補に)。先頭は打った数字そのまま。
+    if buffer.chars().next().is_some_and(|ch| ch.is_ascii_digit()) && buffer.chars().all(|ch| ch.is_ascii_digit() || ch == '-') {
+        push(&mut c, buffer.to_string(), "number");
+        let full: String = buffer.chars().map(|ch| if ch == '-' { '－' } else { char::from_u32(0xFF10 + ch.to_digit(10).unwrap_or(0)).unwrap_or(ch) }).collect();
+        if let Some(z) = crate::postal::normalize_zip(buffer) {
+            for a in crate::postal::lookup(&z) {
+                push(&mut c, a, "address");
+            }
+            push(&mut c, format!("〒{}-{}", &z[..3], &z[3..]), "postal");
+            push(&mut c, format!("{}-{}", &z[..3], &z[3..]), "postal");
+        }
+        push(&mut c, full, "number");
+        if buffer.len() <= 12 && !buffer.contains('-') {
+            let kan: String = buffer.chars().map(|ch| ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'][ch.to_digit(10).unwrap_or(0) as usize]).collect();
+            push(&mut c, kan, "number");
+        }
+        return Conversion { prediction: pred, candidates: c, suggestions: vec![], exact_dict: false };
+    }
     if buffer.chars().count() == 1 {
         if let Some(list) = buffer.chars().next().and_then(crate::prefer::lead_symbol) {
             // 記号の種類を並べる(- + / < > ? ! かっこ、など)
