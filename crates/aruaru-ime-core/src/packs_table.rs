@@ -23,6 +23,39 @@ const TABLES: &[Table] = &[
     Table { id: "people", title: "人名・有名人・重要人物名", src: include_str!("../pack_tables/people.tsv"), station: false },
 ];
 
+
+/// 長音「ー」を、直前のかなの母音に置き換えた読みを返す(長音が無ければ None)。お段は「う」にする(とうきょう型)。
+/// 例: にゅーとん → にゅうとん、らーめん → らあめん。
+fn long_vowel_variant(kana: &str) -> Option<String> {
+    if !kana.contains('ー') {
+        return None;
+    }
+    fn vowel(c: char) -> Option<char> {
+        const A: &str = "ぁあかがさざただなはばぱまゃやらゎわ";
+        const I: &str = "ぃいきぎしじちぢにひびぴみり";
+        const U: &str = "ぅうくぐすずつづぬふぶぷむゅゆるゔ";
+        const E: &str = "ぇえけげせぜてでねへべぺめれ";
+        const O: &str = "ぉおこごそぞとどのほぼぽもょよろを";
+        if A.contains(c) { Some('あ') } else if I.contains(c) { Some('い') } else if U.contains(c) { Some('う') } else if E.contains(c) { Some('え') } else if O.contains(c) { Some('う') } else { None }
+    }
+    let mut out = String::new();
+    let mut prev: Option<char> = None;
+    for c in kana.chars() {
+        if c == 'ー' {
+            match prev.and_then(vowel) {
+                Some(v) => {
+                    out.push(v);
+                    prev = Some(v);
+                    continue;
+                }
+                None => return None,
+            }
+        }
+        out.push(c);
+        prev = Some(c);
+    }
+    (out != kana).then_some(out)
+}
 fn leak(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
 }
@@ -58,7 +91,13 @@ pub fn build() -> (Vec<Pack>, Vec<I18n>) {
             if kana.is_empty() || ja.is_empty() {
                 continue;
             }
-            entries.push_str(&format!("{kana}\t{ja}\n"));
+            entries.push_str(&format!("{kana}	{ja}
+"));
+            // 長音「ー」を母音に直した読みでも打てるようにする(にゅーとん → にゅうとん。ローマ字で nyuuton と打つ人向け)
+            if let Some(alt) = long_vowel_variant(kana) {
+                entries.push_str(&format!("{alt}	{ja}
+"));
+            }
             if t.station {
                 entries.push_str(&format!("{kana}えき\t{ja}駅\n"));
             }
@@ -116,6 +155,12 @@ mod tests {
         assert!(!pe.entries.lines().any(|l| l.starts_with('=') || l.split('\t').next().is_some_and(|k| k.chars().any(|c| c.is_ascii_alphabetic()))), "ローマ字のまま残った読みが無い");
         let pi = i18n.iter().find(|x| x.id == "people").unwrap();
         assert!(pi.eu.contains("en\tisaacnewton\tIsaac Newton"));
+        // 長音は、母音に直した読みでも打てる(nyuuton / nyu-ton どちらでも)
+        assert!(pe.entries.contains("あいざっくにゅうとん\tアイザック・ニュートン\n"), "長音を母音にした読み");
+        assert_eq!(long_vowel_variant("にゅーとん").as_deref(), Some("にゅうとん"));
+        assert_eq!(long_vowel_variant("らーめん").as_deref(), Some("らあめん"));
+        assert_eq!(long_vowel_variant("こーひー").as_deref(), Some("こうひい"));
+        assert_eq!(long_vowel_variant("さくら"), None);
         let f = i18n.iter().find(|x| x.id == "flowers").unwrap();
         assert!(f.zh.contains("yinghua\t樱花\t櫻花"));
     }
