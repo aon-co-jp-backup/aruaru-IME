@@ -4,7 +4,7 @@ import Cocoa
 import InputMethodKit
 
 let kConnectionName = "jp.aon.aruaru-IME_Connection"
-var server: IMKServer! = nil
+var imkServer: IMKServer! = nil
 
 let enginePort = ProcessInfo.processInfo.environment["ARUARU_IME_PORT"] ?? "4660"
 
@@ -45,7 +45,7 @@ class AruaruIMEController: IMKInputController {
     let sid = "mac-" + UUID().uuidString.prefix(8)
     var cands: [String] = []
     var composing = false
-    lazy var panel: IMKCandidates = IMKCandidates(server: server, panelType: kIMKSingleColumnScrollingCandidatePanel)
+    lazy var panel: IMKCandidates = IMKCandidates(server: imkServer, panelType: kIMKSingleColumnScrollingCandidatePanel)
 
     /// macOS key code / characters → the engine's Key JSON ("Space" or {"Char":"a"}).
     func keyJSON(_ event: NSEvent) -> Any? {
@@ -121,6 +121,6 @@ class AruaruIMEController: IMKInputController {
 
 autoreleasepool {
     ensureEngine()
-    server = IMKServer(name: kConnectionName, bundleIdentifier: Bundle.main.bundleIdentifier)
+    imkServer = IMKServer(name: kConnectionName, bundleIdentifier: Bundle.main.bundleIdentifier)
     NSApplication.shared.run()
 }
