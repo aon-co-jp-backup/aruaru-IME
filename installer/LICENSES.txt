@@ -36,3 +36,9 @@ aruaru-IME  ライセンス / Licenses
 4. 画面の文字を読む機能・変換の補助 / Optional components installed on request
    aruaru-llm / open-cuda / open-easy-web (aon-co-jp)  それぞれのリポジトリのライセンスに従います。
    Qwen2.5 (Alibaba Cloud)  Apache-2.0
+
+--- 全国の駅名(任意の取り込み) / Station names (optional import) ---
+駅名データ © OpenStreetMap contributors, Open Database License (ODbL) 1.0: https://www.openstreetmap.org/copyright
+利用者が右クリックの「全国の駅名を取り込む」を選んだときだけ、Overpass API から取得します。 / Fetched only when the user chooses "Import all station names".
+--- 郵便番号(任意の取り込み) / Postal codes (optional import) ---
+日本郵便株式会社の郵便番号データ(utf_ken_all): https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html

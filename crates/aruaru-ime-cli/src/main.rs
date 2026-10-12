@@ -90,6 +90,15 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("stations-install") {
+        // aruaru-ime stations-install: 全国の駅名を OpenStreetMap の公開データから取り込む(利用者辞書へ)
+        let mut u = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
+        match aruaru_ime_core::stations::install(&mut u) {
+            Ok(n) => println!("{n} 駅を取り込みました(© OpenStreetMap contributors, ODbL)"),
+            Err(e) => eprintln!("取り込めませんでした: {e}"),
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("postal-install") {
         // aruaru-ime postal-install: 日本郵便の公開データ(utf_ken_all.zip)を取得して、郵便番号 → 住所の辞書を作る
         match aruaru_ime_core::postal::install(&aruaru_ime_core::components::data_dir()) {

@@ -94,6 +94,26 @@ impl UserDict {
         Ok(true)
     }
 
+    /// まとめて登録する(ファイルへの保存は最後に1回)。新しく入れた件数を返す。
+    pub fn add_many(&mut self, pairs: &[(String, String)], source: &str) -> std::io::Result<usize> {
+        self.reload_if_changed();
+        let mut have: std::collections::HashSet<(String, String)> = self.entries.iter().map(|e| (e.reading.clone(), e.surface.clone())).collect();
+        let mut n = 0;
+        for (r, s) in pairs {
+            let reading = normalize_reading(r);
+            let surface = s.trim().to_string();
+            if reading.is_empty() || surface.is_empty() || !have.insert((reading.clone(), surface.clone())) {
+                continue;
+            }
+            self.entries.push(UEntry { reading, surface, source: Some(source.to_string()) });
+            n += 1;
+        }
+        if n > 0 {
+            self.save()?;
+        }
+        Ok(n)
+    }
+
     /// (読み, 表記)を削除する。表記を省略(None)すると、その読みの登録を全て削除。削除件数を返す。
     pub fn remove(&mut self, reading: &str, surface: Option<&str>) -> std::io::Result<usize> {
         self.reload_if_changed();

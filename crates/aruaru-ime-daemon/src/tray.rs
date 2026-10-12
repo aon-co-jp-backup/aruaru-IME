@@ -59,6 +59,7 @@ enum Action {
     ToggleOldForms,
     ToggleLive,
     PostalInstall,
+    StationsInstall,
     GeoInstall,
     TogglePack(String),
     ToggleStack(String),
@@ -172,6 +173,8 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     let id = m.push(Action::GeoInstall);
     let have_geo = aruaru_ime_core::geo::is_installed(&aruaru_ime_core::components::data_dir());
     add(root, MF_STRING, id, &format!("世界の郵便番号データを取得(GeoNames・現在地の国も判定){} / Get world postal-code data", if have_geo { "  ✓取得済み" } else { "" }));
+    let id = m.push(Action::StationsInstall);
+    add(root, MF_STRING, id, "全国の駅名を取り込む(OpenStreetMap の公開データ) / Import all station names");
     let id = m.push(Action::AddKnowledge);
     add(root, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
     let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir())).len();
@@ -703,6 +706,16 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                 });
                 notify("用語辞書", &msg.unwrap_or_else(|e| e));
             }
+        }
+        Action::StationsInstall => {
+            notify("駅名", "全国の駅名を取得しています(1〜2分かかります)…");
+            std::thread::spawn(|| {
+                let mut u = UserDict::load(&UserDict::default_path());
+                notify("駅名", &match aruaru_ime_core::stations::install(&mut u) {
+                    Ok(n) => format!("{n} 駅を取り込みました(© OpenStreetMap contributors)"),
+                    Err(e) => format!("取り込めませんでした: {e}"),
+                });
+            });
         }
         Action::PostalInstall => {
             notify("郵便番号", "日本郵便の公開データ(約2MB)を取得しています…");

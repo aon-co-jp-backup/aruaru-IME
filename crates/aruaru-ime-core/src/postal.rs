@@ -5,7 +5,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-pub const SOURCE_URL: &str = "https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip";
+pub const SOURCE_URL: &str = "https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip";
 
 pub fn path(root: &Path) -> PathBuf {
     root.join("postal.tsv")

@@ -20,6 +20,7 @@ const TABLES: &[Table] = &[
     Table { id: "countries", title: "国名", src: include_str!("../pack_tables/countries.tsv"), station: false },
     Table { id: "cities", title: "主要な都市名", src: include_str!("../pack_tables/cities.tsv"), station: false },
     Table { id: "stations", title: "日本の駅名", src: include_str!("../pack_tables/stations.tsv"), station: true },
+    Table { id: "people", title: "人名・有名人・重要人物名", src: include_str!("../pack_tables/people.tsv"), station: false },
 ];
 
 fn leak(s: String) -> &'static str {
@@ -42,6 +43,18 @@ pub fn build() -> (Vec<Pack>, Vec<I18n>) {
             let c: Vec<&str> = l.split('\t').collect();
             let col = |i: usize| c.get(i).map(|s| s.trim()).unwrap_or("");
             let (kana, ja, en) = (col(0), col(1), col(2));
+            // 読みが `=` で始まる行は、ローマ字(ヘボン式)から読みを作る(日本人の人名で、かな表記の無いもの)
+            let derived;
+            let kana = if let Some(rom) = kana.strip_prefix('=') {
+                derived = crate::romaji::to_hiragana(rom);
+                // ローマ字が変換しきれずに残っていたら、誤った読みになるので入れない
+                if derived.chars().any(|c| c.is_ascii_alphabetic()) {
+                    continue;
+                }
+                derived.as_str()
+            } else {
+                kana
+            };
             if kana.is_empty() || ja.is_empty() {
                 continue;
             }
@@ -86,7 +99,7 @@ mod tests {
     #[test]
     fn tables_build_into_packs_with_every_language() {
         let (packs, i18n) = build();
-        assert_eq!(packs.len(), 4);
+        assert_eq!(packs.len(), 5);
         let c = packs.iter().find(|p| p.id == "countries").unwrap();
         assert!(c.entries.contains("にほん\t日本\n"));
         let s = packs.iter().find(|p| p.id == "stations").unwrap();

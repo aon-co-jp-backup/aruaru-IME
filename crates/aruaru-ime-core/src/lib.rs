@@ -26,6 +26,7 @@ pub mod indic;
 pub mod languages;
 pub mod packs;
 pub mod postal;
+pub mod stations;
 pub mod packs_i18n;
 pub mod packs_table;
 pub mod prefer;

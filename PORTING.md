@@ -193,3 +193,7 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - 制限: 英字を含む郵便番号(英国 SW1A 1AA、カナダ K1A 0B1)は、組み立て中が数字だけの入力にしか反応しないため未対応。GeoNames に無い国(台湾・ギリシャ)は無し。
   ブラジルは GeoNames が市の代表コードのみ(01310-100 は出ない)。IME のキー入力経由(Session)での通し確認は未実施(候補関数の単体と実データのみ)。
 - 出典表示: GeoNames (https://www.geonames.org/) CC BY 4.0。
+
+## 取り込んだ公開データ (2026-10-13)
+- **郵便番号**: 取得先は `https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip`(旧 `/zipcode/dl/utf/zip/` は404)。この PC に 120,720 件を取り込み、`1000001`→東京都千代田区千代田 を確認。
+- **全国の駅名**: OpenStreetMap(Overpass API、ODbL)から 8,086 駅を取り込み(読みが無い駅は英語名のヘボン式から作る=長音で誤ることがある)。右クリックの「全国の駅名を取り込む」/ `aruaru-ime stations-install`。出典の表示が必要(`installer/LICENSES.txt`に記載)。
