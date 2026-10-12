@@ -81,7 +81,8 @@ pub fn note_for(word: &str) -> Option<String> {
     use std::time::SystemTime;
     static CACHE: Mutex<Option<(SystemTime, Vec<Item>)>> = Mutex::new(None);
     let w = word.trim();
-    if w.chars().count() < 2 {
+    // 1文字の英数字では引かない(漢字・かな1字は引く)
+    if w.is_empty() || (w.chars().count() < 2 && w.is_ascii()) {
         return None;
     }
     let p = path(&crate::components::data_dir());
