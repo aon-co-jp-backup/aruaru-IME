@@ -239,6 +239,18 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             }
         }
     }
+    // 英語としても読める入力(you → よう)でも、日本語の読みの漢字候補(用・様・要 …)を後ろに並べる
+    if matches!(pred.mode, Mode::Alpha) && buffer.chars().all(|ch| ch.is_ascii_alphabetic()) && romaji::is_romaji_parsable(buffer) && hira_for_exact != buffer {
+        if let Some(d) = dict {
+            let user = crate::prefer::load_user(&crate::components::data_dir());
+            for p in crate::prefer::preferred(&hira_for_exact, &user) {
+                push(&mut c, p, "dict");
+            }
+            for e in d.exact(&hira_for_exact, 10) {
+                push(&mut c, e, "dict");
+            }
+        }
+    }
     // 検索フォーム型の予測: 検索欄(または画面が検索/商品ページ)で、確定見込みの語から続きの検索語を出す
     let mut suggestions = vec![];
     if let Some(cl) = client {
