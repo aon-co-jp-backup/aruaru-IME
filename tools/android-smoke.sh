@@ -12,6 +12,8 @@ for i in $(seq 1 40); do
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   adb pull /sdcard/ui.xml "android-test-$NAME-ui.xml" >/dev/null 2>&1
   # キーボードの有効化を案内するダイアログが出ていたら、閉じる
+  # 通信エラーの画面なら、再読み込みする
+  if grep -q "ERR_NAME_NOT_RESOLVED\|インターネットにつながっていない" "android-test-$NAME-ui.xml" 2>/dev/null; then adb shell am start -n jp.aon.aruaruime/.MainActivity >/dev/null 2>&1; adb shell input keyevent KEYCODE_REFRESH; sleep 5; fi
   if grep -q "キーボード / keyboard" "android-test-$NAME-ui.xml" 2>/dev/null; then adb shell input keyevent KEYCODE_BACK; sleep 2; continue; fi
   if grep -q "ダウンロードはこちら\|aruaru-IME" "android-test-$NAME-ui.xml" 2>/dev/null && grep -q "Download the installer\|ダウンロード" "android-test-$NAME-ui.xml" 2>/dev/null; then ok=1; break; fi
 done

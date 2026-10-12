@@ -31,7 +31,18 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onReceivedError(WebView view, android.webkit.WebResourceRequest request, android.webkit.WebResourceError error) {
+                // 通信できないとき(本体のページ読み込みの失敗)は、分かりやすい案内と再読み込みのリンクを出す
+                if (request.isForMainFrame()) {
+                    view.loadDataWithBaseURL(HOME, "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>"
+                        + "<body style='font:18px sans-serif;padding:24px;background:#111;color:#fff'>"
+                        + "<h3>aruaru-IME</h3><p>インターネットにつながっていないようです。つながってから、もう一度お試しください。<br>No internet connection. Please try again when you are online.</p>"
+                        + "<p><a style='color:#4a9eff' href='" + HOME + "'>再読み込み / Retry</a></p></body></html>", "text/html", "UTF-8", null);
+                }
+            }
+        });
         web.setWebChromeClient(new WebChromeClient());
         offerKeyboard();
         if (savedInstanceState != null) {
