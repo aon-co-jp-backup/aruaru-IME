@@ -225,3 +225,9 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - 表の辞書(人名・国名・都市名など)の読みに長音「ー」があるとき(にゅーとん)、母音に直した読み(にゅうとん。お段は「う」)も同じ表記で登録する(`packs_table::long_vowel_variant`)。
   ローマ字で `nyuuton` と打つ人向け(`nyu-ton` はそのまま)。確認: `aizakkunyuuton` → アイザック・ニュートン、`nyuujiirando` → ニュージーランド(先頭)。
 - 既存の利用者にも反映するため、パックの版(`PACKS_REV`)を r4 → r5 に上げた(入れたままのパックだけ入れ直す)。
+
+## Linux の IBus エンジン・macOS の入力メソッド・メニュー整理 (2026-10-13, v0.2.10)
+- **Linux IBus** (`crates/aruaru-ime-ibus`、Rust + zbus 4): IBus の `org.freedesktop.IBus.Factory/Engine` を実装し、常駐エンジン(HTTP)にキーを送って、確定(`CommitText`)・未確定(`UpdatePreeditText`)・候補(`UpdateLookupTable`、`IBusLookupTable`=`(sa{sv}uubbiavav)`)を IBus に返す。`tools/ibus-test.sh`(ibus-daemon + python gi の入力コンテキストで `konnichiha`→今日は→Enterで確定)を、**WSL の Ubuntu と CI(ubuntu)で実行して成功**。`install.sh` が `~/.local/share/ibus/component/aruaru-ime.xml` を書いて `ibus restart`。Fcitx は未対応。落とし穴: `ibus-daemon` は `--daemonize` で起動しないと親の終了で止まる、`IBusLookupTable` は labels(`av`)まで必要(足りないと ibus-daemon が落ちる)。
+- **macOS** (`macos/main.swift` + `Info.plist` + `build.sh`、InputMethodKit): `IMKInputController` がキーをエンジンへ送り、`insertText` / `setMarkedText` / `IMKCandidates` で反映。**CI(macos-latest / macos-15-intel)でビルドは成功、実機での入力試験は未実施**(`install.sh` が `~/Library/Input Methods` へ入れる。ログアウト・ログイン後に入力ソースへ追加)。落とし穴: `IMKInputController.server()` と名前が衝突するのでグローバルは `imkServer`。署名は ad-hoc(Gatekeeper の警告が出ることがある)。
+- **メニュー整理**: 通知領域の右クリックを 開発 / 辞書・登録 / 設定 / バックアップ にまとめた。初回起動(設定ファイルが無い)で使い方を案内。**目視確認は未了**(この PC のエンジンが管理者権限で動いており入れ替えられないため)。
+- CI の `android-test`(エミュレーター)は起動が不安定なため `continue-on-error`(失敗してもリリースは止めない)。直近2回は成果物なしで失敗しており、原因は未調査。
