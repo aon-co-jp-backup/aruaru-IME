@@ -161,6 +161,9 @@ mod linux {
     #[interface(name = "org.freedesktop.IBus.Engine")]
     impl Engine {
         async fn process_key_event(&self, keyval: u32, _keycode: u32, state: u32, #[zbus(signal_context)] ctxt: SignalContext<'_>) -> bool {
+            if std::env::var("ARUARU_IME_IBUS_DEBUG").is_ok() {
+                eprintln!("aruaru-ime-ibus: ProcessKeyEvent keyval=0x{keyval:x} state=0x{state:x}");
+            }
             let Some(k) = key_json(keyval, state) else { return false };
             let body = format!("{{\"sid\":\"{}\",\"key\":{k}}}", self.sid);
             let Some(r) = http("POST", "/key", &body) else { return false };
@@ -225,6 +228,7 @@ mod linux {
     impl Factory {
         async fn create_engine(&self, _name: &str, #[zbus(connection)] conn: &Connection) -> zbus::fdo::Result<OwnedObjectPath> {
             let n = self.next.fetch_add(1, Ordering::SeqCst);
+            eprintln!("aruaru-ime-ibus: CreateEngine({_name}) -> #{n}");
             let path = format!("/org/freedesktop/IBus/Engine/{n}");
             conn.object_server().at(path.as_str(), Engine::new(n)).await?;
             Ok(ObjectPath::try_from(path).map_err(zbus::Error::from)?.into())

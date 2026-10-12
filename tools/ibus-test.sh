@@ -25,7 +25,7 @@ cat > "$T/share/ibus/component/aruaru-ime.xml" <<XML
 XML
 export XDG_DATA_DIRS="$T/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 export IBUS_COMPONENT_PATH="$T/share/ibus/component${IBUS_ROOT:+:$IBUS_ROOT/usr/share/ibus/component}"
-export ARUARU_IME_PORT=4660
+export ARUARU_IME_PORT=4660 ARUARU_IME_IBUS_DEBUG=1
 exec dbus-run-session -- bash -c '
   ibus-daemon --daemonize --replace --address "unix:path='"$T"'/ibus.sock" --panel disable --config disable --emoji-extension disable --cache none 2>"'"$T"'/ibus.log"
   for i in $(seq 1 30); do [ -S "'"$T"'/ibus.sock" ] && break; sleep 0.5; done
@@ -49,7 +49,6 @@ ic.connect("update-preedit-text", lambda c, t, pos, vis, mode: got.__setitem__("
 ic.connect("update-lookup-table", lambda c, tbl, vis: got.__setitem__("cands", [tbl.get_candidate(i).get_text() for i in range(tbl.get_number_of_candidates())]))
 print("engines:", [e.get_name() for e in bus.list_engines() if "aruaru" in e.get_name()])
 ic.set_engine("aruaru-ime")
-print("engine after set:", ic.get_engine().get_name() if ic.get_engine() else None)
 ic.focus_in()
 loop = GLib.MainLoop()
 def pump(ms=300):
@@ -57,6 +56,7 @@ def pump(ms=300):
     while time.time() < end:
         ctx.iteration(False); time.sleep(0.01)
 pump(1500)
+print("engine after set:", ic.get_engine().get_name() if ic.get_engine() else None)
 def key(ch):
     ok = ic.process_key_event(ord(ch), 0, 0); pump(250); return ok
 for ch in "konnichiha":
