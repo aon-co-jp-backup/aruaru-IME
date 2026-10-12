@@ -49,12 +49,14 @@ enum Action {
     ToggleWebSuggest,
     AddVocab,
     RegisterWord,
+    RegisterName,
     ListWords,
     ImportFile,
     RemoveSource(String),
     ToggleLang(translit::Lang),
     ToggleOldForms,
     ToggleLive,
+    ToggleStack(String),
     GithubSetRepo,
     GithubPush,
     GithubPull,
@@ -124,6 +126,14 @@ unsafe fn build_menu() -> (HMENU, Menu) {
         add(code_menu, MF_STRING | MF_GRAYED, 4, &format!("{}{}  ({} words / {}語)", if *user { "★ " } else { "" }, name, n, n));
     }
     add_sub(root, code_menu, &format!("対応しているプログラミング言語・フレームワーク / Programming languages & frameworks ({})", list.len()));
+    // 開発で使う言語・フレームワークの選択(チェック)。選ぶと常にその語彙で補完・訂正する
+    let stack_menu = CreatePopupMenu().unwrap();
+    let stack = s.dev_stack.clone();
+    for (name, _, _) in &list {
+        let id = m.push(Action::ToggleStack(name.clone()));
+        add(stack_menu, check(stack.iter().any(|x| x.eq_ignore_ascii_case(name))), id, name);
+    }
+    add_sub(root, stack_menu, &format!("開発で使う言語・フレームワークを選ぶ / My stack ({})", stack.len()));
     let id = m.push(Action::AddVocab);
     add(root, MF_STRING, id, "言語・フレームワークを追加… / Add a language or framework (auto-support)");
     let id = m.push(Action::WishAdd);
@@ -136,6 +146,8 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     // 単語・熟語
     let id = m.push(Action::RegisterWord);
     add(root, MF_STRING, id, "単語・熟語を登録… / Register a word or phrase");
+    let id = m.push(Action::RegisterName);
+    add(root, MF_STRING, id, "人名を登録… / Register a person's name (family + given)");
     let id = m.push(Action::ListWords);
     let count = UserDict::load(&UserDict::default_path()).entries().len();
     add(root, MF_STRING, id, &format!("登録した単語・熟語の一覧… / Registered words & phrases ({count})"));
@@ -607,6 +619,13 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                 Err(e) => notify("aruaru-IME", &format!("更新できませんでした: {e}")),
             });
         }
+        Action::ToggleStack(name) => with_settings(|s| {
+            if let Some(i) = s.dev_stack.iter().position(|x| x.eq_ignore_ascii_case(&name)) {
+                s.dev_stack.remove(i);
+            } else {
+                s.dev_stack.push(name.clone());
+            }
+        }),
         Action::AddVocab => {
             if let Some(v) = input_dialog(
                 "対応する言語・フレームワークを追加",
@@ -615,7 +634,13 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
             ) {
                 let name = v[0].trim().to_string();
                 if !name.is_empty() {
-                    notify("aruaru-IME", &format!("{name} の語彙を作っています…"));
+                    // 選択にないものはフォームに入力 → 検索して語彙を作り、自分の開発環境にも追加する
+                    with_settings(|s| {
+                        if !s.dev_stack.iter().any(|x| x.eq_ignore_ascii_case(&name)) {
+                            s.dev_stack.push(name.clone());
+                        }
+                    });
+                    notify("aruaru-IME", &format!("{name} の語彙を、検索して作っています…"));
                     crate::learn_in_background(client, name);
                 }
             }
@@ -629,6 +654,22 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                     Err(e) => format!("登録できませんでした: {e}"),
                 };
                 notify("単語・熟語", &msg);
+            }
+        }
+        Action::RegisterName => {
+            if let Some(v) = input_dialog("人名を登録", &["姓の読み", "姓", "名の読み", "名"], "例:  姓の読み「かまど」 姓「竈門」 名の読み「たんじろう」 名「炭治郎」(姓・名・フルネームの3つを登録します)") {
+                let mut u = UserDict::load(&UserDict::default_path());
+                let mut n = 0;
+                let (fr, fs, gr, gs) = (v[0].trim(), v[1].trim(), v[2].trim(), v[3].trim());
+                let mut add1 = |r: String, s: String| {
+                    if !r.is_empty() && !s.is_empty() && matches!(u.add(&r, &s), Ok(true)) {
+                        n += 1;
+                    }
+                };
+                add1(fr.to_string(), fs.to_string());
+                add1(gr.to_string(), gs.to_string());
+                add1(format!("{fr}{gr}"), format!("{fs}{gs}"));
+                notify("人名", &format!("{n} 件登録しました({fs}{gs})"));
             }
         }
         Action::ListWords => {

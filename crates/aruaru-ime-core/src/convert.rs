@@ -80,6 +80,20 @@ pub fn wants_suggest(ctx: &Context) -> bool {
 pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Option<&Dict>) -> Conversion {
     let pred = mode::predict(buffer, ctx);
     let mut c: Vec<Candidate> = vec![];
+    if buffer == "+" {
+        // プラス記号の種類: 半角 + 、全角 ＋ 、太字のプラス、プラスマイナス、カタカナ「プラス」、漢字「加」
+        for h in ["+", "＋", "➕", "±", "﹢", "プラス", "ぷらす", "加", "＋"] {
+            push(&mut c, h.to_string(), "symbol");
+        }
+        return Conversion { prediction: pred, candidates: c, suggestions: vec![], exact_dict: false };
+    }
+    if buffer == "-" {
+        // ハイフンの種類を並べる: 半角 - 、全角 － 、ダッシュ、マイナス、長音(ー)、半角カタカナの長音(ｰ)など
+        for h in crate::prefer::HYPHENS.chars().chain(['ー', 'ｰ', '～']).chain("マイナス".chars().take(0)) {
+            push(&mut c, h.to_string(), "symbol");
+        }
+        return Conversion { prediction: pred, candidates: c, suggestions: vec![], exact_dict: false };
+    }
     let hira = romaji::to_hiragana(buffer);
     let hira_for_exact = hira.clone();
     let kata = romaji::hira_to_kata(&hira);
@@ -100,12 +114,29 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             }
         }
     }
+    // `nn` の直後が母音のとき、「ん」+「な行」と読んだ変換(junni → 順に)のほかに、「ん」+母音と読んだ変換(→ 順位)も2番目に出す
+    if let (Some(d), Some(alt)) = (dict, romaji::to_hiragana_alt(buffer)) {
+        if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && !dict_cands.is_empty() {
+            if let Some(a) = d.candidates_pref(&alt, 3, ctx.prefer_kanji).into_iter().find(|x| *x != alt && !dict_cands.contains(x)) {
+                dict_cands.insert(1.min(dict_cands.len()), a);
+            }
+        }
+    }
     let mut predicted: Vec<String> = vec![];
     // 1文字だけでは候補が多すぎて役に立たないので、読みが2文字以上になってから予測する
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::to_hiragana_partial(buffer).0.chars().count() >= 2 {
         if let Some(d) = dict {
             // 打ちかけの読み(確定したかな部分)から、より長い語・フレーズを予測する
             predicted = d.predict(&romaji::to_hiragana_partial(buffer).0, 8).into_iter().map(|(_, s)| s).collect();
+        }
+    }
+    // 同じ読みの語が複数あるとき(対応/大王/滞欧)、読みの先頭が一致する「別の長い固有名詞・作品名」(太王四神記)は、
+    // 最有力の語の次、残りの同音語の前に出す。最有力の語から派生しただけの語(対応付け)は対象にしない。
+    if dict_cands.len() >= 3 && romaji::to_hiragana_partial(buffer).0.chars().count() >= 3 {
+        let is_kanji = |ch: char| ('一'..='龥').contains(&ch);
+        if let Some(i) = predicted.iter().position(|p| p.chars().count() >= 3 && p.chars().all(is_kanji) && !dict_cands.contains(p)) {
+            let promoted = predicted.remove(i);
+            dict_cands.insert(1, promoted);
         }
     }
     let mut kanji: Option<String> = None;
@@ -181,6 +212,38 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             push(&mut c, hira, "hiragana");
         }
     }
+    // 優先順位の調整(組み込み + 利用者の prefer.tsv)と、記号の一覧(はいふん → - － ‐ – — ― …)、ハイフンの種類
+    if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
+        let user = crate::prefer::load_user(&crate::components::data_dir());
+        let want = crate::prefer::preferred(&hira_for_exact, &user);
+        if !want.is_empty() {
+            let mut texts: Vec<String> = c.iter().map(|x| x.text.clone()).collect();
+            crate::prefer::reorder(&mut texts, &want);
+            c = texts.into_iter().map(|t| Candidate { kind: if want.contains(&t) { "dict" } else { "other" }, text: t }).collect();
+        }
+        let syms = crate::prefer::symbols_for(&hira_for_exact);
+        if !syms.is_empty() {
+            let mut head: Vec<Candidate> = syms.iter().map(|s| Candidate { text: s.clone(), kind: "symbol" }).collect();
+            c.retain(|x| !syms.contains(&x.text));
+            head.extend(c);
+            c = head;
+        }
+        if buffer.contains('-') {
+            // 打った - を、半角・全角・ダッシュ・マイナスなどに替えた候補
+            for h in crate::prefer::HYPHENS.chars() {
+                if h != '-' {
+                    let t = hira_for_exact.replace('ー', &h.to_string());
+                    if !c.iter().any(|x| x.text == t) {
+                        c.push(Candidate { text: t, kind: "symbol" });
+                    }
+                }
+            }
+            let half = hira_for_exact.replace('ー', "-");
+            if !c.iter().any(|x| x.text == half) {
+                c.push(Candidate { text: half, kind: "symbol" });
+            }
+        }
+    }
     // 検索フォーム型の予測: 検索欄(または画面が検索/商品ページ)で、確定見込みの語から続きの検索語を出す
     let mut suggestions = vec![];
     if let Some(cl) = client {
@@ -198,6 +261,15 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn same_reading_puts_a_famous_title_second() {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
+        let Ok(d) = crate::kanji::Dict::load(&p) else { return };
+        let r = convert("taiou", &cx(""), None, Some(&d));
+        let t: Vec<&str> = r.candidates.iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(&t[..4], ["対応", "太王四神記", "大王", "滞欧"], "{t:?}");
+    }
+
     use super::*;
     fn cx(b: &str) -> Context {
         Context { before: b.into(), ..Default::default() }

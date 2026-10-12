@@ -112,7 +112,8 @@ pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang:
         };
     }
     match key {
-        Key::Char(c) => c.is_ascii_alphabetic() || composing || (matches!(c, ',' | '.') && last_ja),
+        // 最初の - は、ハイフンの種類を候補に並べるためIMEが受ける(直前が英数字のときはIME側でそのまま確定する)
+        Key::Char(c) => c.is_ascii_alphabetic() || composing || matches!(c, '-' | '+') || (matches!(c, ',' | '.') && last_ja),
         Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
@@ -517,6 +518,11 @@ impl Session {
         c.extend(predictions);
         let mut seen = vec![];
         c.retain(|x| !seen.contains(x) && { seen.push(x.clone()); true });
+        // 優先順位の指定(組み込み + 利用者の prefer.tsv)は、学習履歴より優先する
+        if is_kana_mode {
+            let want = crate::prefer::preferred(&reading, &crate::prefer::load_user(&crate::components::data_dir()));
+            crate::prefer::reorder(&mut c, &want);
+        }
         // 旧字体: オンなら候補を旧字体にし、オフなら上位候補の旧字体版を末尾に足す
         if self.old_forms {
             c = c.into_iter().map(|x| crate::kyujitai::to_old(&x)).collect();
@@ -696,6 +702,25 @@ impl Session {
                     return self.choose(idx);
                 }
                 self.state(true, None)
+            }
+            // 入力の最初の - : 半角 - ・全角 － ・ダッシュ・長音・カタカナのハイフンなどを候補に並べる。
+            // 直前が英数字(090-1234 / well-known)のときは、候補を出さずそのまま - にする。
+            Key::Char(sym @ ('-' | '+')) if !self.composing() => {
+                if self.before.chars().last().is_some_and(|ch| ch.is_ascii_alphanumeric()) {
+                    self.note_commit(&sym.to_string());
+                    return self.state(true, Some(sym.to_string()));
+                }
+                self.buf.push(sym);
+                self.refresh();
+                self.state(true, None)
+            }
+            // ハイフンの候補を出している最中に数字が来たら、半角の - として確定して数字を続ける
+            Key::Char(c) if self.composing() && (self.buf == "-" || self.buf == "+") && c.is_ascii_digit() => {
+                let sym = self.buf.clone();
+                self.reset();
+                let s = format!("{sym}{c}");
+                self.note_commit(&s);
+                self.state(true, Some(s))
             }
             Key::Char(c) => {
                 let word = c.is_ascii_alphabetic() || (self.composing() && (c.is_ascii_digit() || "-'".contains(c)));
@@ -995,6 +1020,24 @@ impl Converter for LocalConverter {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn leading_hyphen_and_plus_show_many_kinds_but_numbers_stay_plain() {
+        let mut m = s();
+        let st = m.key(Key::Char('-'));
+        assert!(st.eaten && st.cands.contains(&"-".to_string()) && st.cands.contains(&"－".to_string()) && st.cands.contains(&"ー".to_string()) && st.cands.contains(&"ｰ".to_string()), "{st:?}");
+        // 数字が続くとき(-5)は半角の - のまま
+        assert_eq!(m.key(Key::Char('5')).commit.as_deref(), Some("-5"));
+        m.set_before("");
+        let st = m.key(Key::Char('+'));
+        assert!(st.cands.contains(&"+".to_string()) && st.cands.contains(&"＋".to_string()) && st.cands.contains(&"プラス".to_string()), "{st:?}");
+        m.key(Key::Esc);
+        // 直前が英数字のとき(090-1234)は候補を出さずそのまま
+        let mut n = s();
+        n.set_before("090");
+        let st = n.key(Key::Char('-'));
+        assert_eq!(st.commit.as_deref(), Some("-"));
+    }
+
     use super::*;
 
     fn s() -> Session {

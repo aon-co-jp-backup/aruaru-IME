@@ -131,7 +131,17 @@ pub fn detect(ctx: &Context) -> Vec<usize> {
         .filter(|(_, n)| *n > 0)
         .collect();
     scored.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-    scored.into_iter().map(|(i, _)| i).collect()
+    let mut out: Vec<usize> = scored.into_iter().map(|(i, _)| i).collect();
+    // 利用者が「開発で使う」と選んだもの。文脈の手がかりが無くても対象にする(手がかりがあるものの後ろ)
+    for name in &crate::settings::Settings::load().dev_stack {
+        let n = name.trim().to_lowercase();
+        if let Some(i) = all().iter().position(|e| e.name.to_lowercase() == n) {
+            if !out.contains(&i) {
+                out.push(i);
+            }
+        }
+    }
+    out
 }
 
 pub fn lang_name(i: usize) -> String {

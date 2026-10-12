@@ -461,7 +461,8 @@ impl Dict {
         };
         let mut out: Vec<String> = vec![];
         let mut push = |t: String, out: &mut Vec<String>| {
-            if t != standard && !out.contains(&t) {
+            // 数字入りの言い換え(9足)は、読みに数字が無いかぎり出さない
+            if t != standard && !out.contains(&t) && !t.chars().any(|c| c.is_ascii_digit()) {
                 out.push(t);
             }
         };
@@ -488,9 +489,12 @@ impl Dict {
                 out.push(v.clone());
             }
         }
+        let mut digit_best: Option<String> = None;
         if let Some(p) = self.best_path(reading) {
             let t: String = p.iter().map(|x| x.1.as_str()).collect();
-            if !out.contains(&t) {
+            if t.chars().any(|c| c.is_ascii_digit()) && !reading.chars().any(|c| c.is_ascii_digit()) {
+                digit_best = Some(t); // 9足 のような数字入りの最有力は、ほかの漢字語の後ろへ
+            } else if !out.contains(&t) {
                 out.push(t);
             }
         }
@@ -499,11 +503,23 @@ impl Dict {
                 out.push(v.clone());
             }
         }
+        // 読みよりずっと長いかな交じりの語(「この」→「好ましから」のような活用語尾つきの見出し)は、同音の短い語の後ろに回す
+        let rl = reading.chars().count();
+        let (mut normal, mut odd): (Vec<String>, Vec<String>) = (vec![], vec![]);
         for s in self.exact(reading, max) {
-            if !out.contains(&s) {
-                out.push(s);
+            if out.contains(&s) {
+                continue;
+            }
+            // 数字を含む表記(9足)も、読みだけから漢字語を打つ場面では後ろに回す
+            if s.chars().count() > rl * 2 || s.chars().any(|c| c.is_ascii_digit()) {
+                odd.push(s);
+            } else {
+                normal.push(s);
             }
         }
+        out.extend(normal);
+        out.extend(digit_best);
+        out.extend(odd);
         out.truncate(max);
         out
     }
@@ -553,6 +569,8 @@ mod tests {
             ("あきにはもみじがいろづき", "秋には紅葉が色づき"),
             ("はなびたいかい", "花火大会"),
             ("あきのこうよう", "秋の紅葉"),
+            ("そのような", "その様な"),
+            ("このように", "この様に"),
             ("はるのさくら", "春の桜"),
         ] {
             let c = d.candidates(r, 5);
