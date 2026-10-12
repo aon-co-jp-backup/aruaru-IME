@@ -52,8 +52,7 @@ public class MainActivity extends Activity {
             if (enabled) return;
             new AlertDialog.Builder(this)
                 .setTitle("aruaru-IME キーボード / keyboard")
-                .setMessage("どのアプリでも日本語入力できるキーボードを有効にします。「設定を開く」で aruaru-IME をオンにし、入力欄で aruaru-IME を選んでください。
-Enable the aruaru-IME keyboard to type Japanese in any app.")
+                .setMessage("どのアプリでも日本語入力できるキーボードを有効にします。「設定を開く」で aruaru-IME をオンにし、入力欄で aruaru-IME を選んでください。\nEnable the aruaru-IME keyboard to type Japanese in any app.")
                 .setPositiveButton("設定を開く / Open settings", (d, w) -> startActivity(new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)))
                 .setNegativeButton("あとで / Later", null)
                 .show();
