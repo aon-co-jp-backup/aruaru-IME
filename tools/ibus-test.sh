@@ -44,7 +44,9 @@ got = {"commit": [], "pre": "", "cands": []}
 ic.connect("commit-text", lambda c, t: got["commit"].append(t.get_text()))
 ic.connect("update-preedit-text", lambda c, t, pos, vis, mode: got.__setitem__("pre", t.get_text()))
 ic.connect("update-lookup-table", lambda c, tbl, vis: got.__setitem__("cands", [tbl.get_candidate(i).get_text() for i in range(tbl.get_number_of_candidates())]))
+print("engines:", [e.get_name() for e in bus.list_engines() if "aruaru" in e.get_name()])
 ic.set_engine("aruaru-ime")
+print("engine after set:", ic.get_engine().get_name() if ic.get_engine() else None)
 ic.focus_in()
 loop = GLib.MainLoop()
 def pump(ms=300):
@@ -64,6 +66,8 @@ ok_commit = any("こんにちは" in c for c in got["commit"])
 sys.exit(0 if (ok_pre and ok_commit) else 1)
 PY
   rc=$?
+  echo "--- ibus.log"; tail -15 "'"$T"'/ibus.log"
+  ps -eo pid,args | grep -E "aruaru-ime-(ibus|daemon)" | grep -v grep
   ibus exit 2>/dev/null
   exit $rc
 '
