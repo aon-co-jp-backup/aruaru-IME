@@ -59,6 +59,7 @@ enum Action {
     ToggleOldForms,
     ToggleLive,
     PostalInstall,
+    GeoInstall,
     TogglePack(String),
     ToggleStack(String),
     GithubSetRepo,
@@ -168,6 +169,9 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     let id = m.push(Action::PostalInstall);
     let have = aruaru_ime_core::postal::is_installed(&aruaru_ime_core::components::data_dir());
     add(root, MF_STRING, id, &format!("郵便番号の住所辞書を取得(日本郵便の公開データ){} / Get postal-code address data", if have { "  ✓取得済み" } else { "" }));
+    let id = m.push(Action::GeoInstall);
+    let have_geo = aruaru_ime_core::geo::is_installed(&aruaru_ime_core::components::data_dir());
+    add(root, MF_STRING, id, &format!("世界の郵便番号データを取得(GeoNames・現在地の国も判定){} / Get world postal-code data", if have_geo { "  ✓取得済み" } else { "" }));
     let id = m.push(Action::AddKnowledge);
     add(root, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
     let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir())).len();
@@ -706,6 +710,16 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                 let m = aruaru_ime_core::postal::install(&aruaru_ime_core::components::data_dir());
                 notify("郵便番号", &match m {
                     Ok(n) => format!("{n} 件の郵便番号を取り込みました。7桁の数字を打って Space で住所に変換できます"),
+                    Err(e) => format!("取得できませんでした: {e}"),
+                });
+            });
+        }
+        Action::GeoInstall => {
+            notify("郵便番号(世界)", "世界の郵便番号データ(約30MB)を取得しています。現在地の国を調べるため、IPから国を返す公開の窓口(Cloudflare)へ1回だけ問い合わせます…");
+            std::thread::spawn(|| {
+                let m = aruaru_ime_core::geo::install(&aruaru_ime_core::components::data_dir());
+                notify("郵便番号(世界)", &match m {
+                    Ok((n, c)) => format!("{n} か国を取り込みました(現在地の国: {})。郵便番号を打って Space で、国名と住所の候補が出ます", c.unwrap_or_else(|| "不明".into())),
                     Err(e) => format!("取得できませんでした: {e}"),
                 });
             });

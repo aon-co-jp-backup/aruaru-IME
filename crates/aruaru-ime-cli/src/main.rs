@@ -98,6 +98,23 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("geo-install") {
+        // aruaru-ime geo-install: 世界の郵便番号データ(GeoNames, CC BY 4.0)を取得し、現在地の国も調べる
+        match aruaru_ime_core::geo::install(&aruaru_ime_core::components::data_dir()) {
+            Ok((n, c)) => println!("{n} か国の郵便番号を取り込みました。現在地の国: {}", c.unwrap_or_else(|| "不明".into())),
+            Err(e) => eprintln!("取得できませんでした: {e}"),
+        }
+        return;
+    }
+    if args.first().map(String::as_str) == Some("geo") {
+        // aruaru-ime geo <郵便番号> [言語コード]: 国名つきの住所の候補を表示する(動作確認用)
+        let z = args.get(1).cloned().unwrap_or_default();
+        let lang = args.get(2).cloned().unwrap_or_else(|| "ja".into());
+        for (i, c) in aruaru_ime_core::geo::candidates(&aruaru_ime_core::components::data_dir(), &z, &lang).iter().enumerate() {
+            println!("{}. {c}", i + 1);
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("knowledge") {
         // aruaru-ime knowledge add <本文> [タグ…] | search <キーワード> | import <knowledge.json>
         use aruaru_ime_core::knowledge as kb;
