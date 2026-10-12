@@ -5,6 +5,9 @@
 //! 入力欄にフォーカスがある間だけ、数秒に一度画面をキャプチャして(一時フォルダ・60秒/30枚で自動削除)
 //! aruaru-llm の OCR に渡し、得た画面上の文字を入力モード予測・変換の文脈にする。パスワード欄では撮らない。
 
+// 常駐エンジンはコンソール画面を出さない(サインイン時の自動起動でコマンド画面が開かないように)
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod capture;
 #[cfg(windows)]
 mod tray;
@@ -265,6 +268,30 @@ fn dict_path_old() -> PathBuf {
     PathBuf::from("data/dict.bin")
 }
 
+static PORT_BUSY_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// いま待ち受けているエンジンの版(`/health` の `v=`)。応答が無ければ None。
+fn running_version() -> Option<String> {
+    use std::io::{Read, Write};
+    let mut st = std::net::TcpStream::connect_timeout(&format!("127.0.0.1:{PORT}").parse().ok()?, Duration::from_millis(500)).ok()?;
+    st.set_read_timeout(Some(Duration::from_millis(800))).ok()?;
+    st.write_all(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n").ok()?;
+    // 応答が閉じられなくても、必要な部分が読めた時点で判断する
+    let mut raw = Vec::new();
+    let mut chunk = [0u8; 512];
+    while let Ok(n) = st.read(&mut chunk) {
+        if n == 0 {
+            break;
+        }
+        raw.extend_from_slice(&chunk[..n]);
+        if String::from_utf8_lossy(&raw).contains("proto=") {
+            break;
+        }
+    }
+    let buf = String::from_utf8_lossy(&raw).into_owned();
+    buf.split(" v=").nth(1)?.split_whitespace().next().map(String::from)
+}
+
 /// 更新で入れ替わるとき、前のエンジンが終了するまで待ってポートを取り直す。
 fn bind_with_retry() -> tiny_http::Server {
     let deadline = Instant::now() + Duration::from_secs(20);
@@ -272,7 +299,14 @@ fn bind_with_retry() -> tiny_http::Server {
         match tiny_http::Server::http(format!("127.0.0.1:{PORT}")) {
             Ok(s) => return s,
             Err(e) if Instant::now() < deadline => {
-                eprintln!("port busy ({e}); retrying");
+                // 同じ版のエンジンがすでに動いている(自動起動の重複・IME側の起動の重なり)なら、何も言わずに終了する。
+                // 版が違うとき(更新での入れ替え)は、前のエンジンが終わるのを待つ。
+                if running_version().as_deref() == Some(env!("CARGO_PKG_VERSION")) {
+                    std::process::exit(0);
+                }
+                if !PORT_BUSY_LOGGED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                    eprintln!("port busy ({e}); waiting for the previous engine to exit");
+                }
                 std::thread::sleep(Duration::from_millis(400));
             }
             Err(e) => {

@@ -1,16 +1,25 @@
 name: build
-# Windows 版と同じコア・常駐エンジンを、macOS / Linux / Android 向けにも自動でビルドして成果物にする。
-# 共通のフロントエンドは、エンジンが配る Web UI(/ui)。OS 専用の薄いクライアントはこの上に載せる。
+# Windows 版と同じコア・常駐エンジンを Windows / macOS / Linux でビルド・試験し、macOS / Linux 用のインストーラー(tar.gz)と
+# Android アプリ(APK)を作る。v* タグでは、それらを GitHub Releases に添付する。
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 jobs:
   engine:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            name: windows-x86_64
+          - os: macos-latest
+            name: macos-arm64
+          - os: macos-13
+            name: macos-x86_64
+          - os: ubuntu-latest
+            name: linux-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -18,21 +27,35 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --release -p aruaru-ime-core
       - run: cargo build --release -p aruaru-ime-daemon -p aruaru-ime-cli
-      - run: cargo run --release -p aruaru-ime-cli -- frontends dist/frontends
+      - name: Smoke test (engine end to end)
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then D=target/release/aruaru-ime-daemon.exe; else D=target/release/aruaru-ime-daemon; fi
+          sh tools/e2e-smoke.sh "$PWD/$D"
+      - name: Generate the shared front end for every OS
+        run: cargo run --release -p aruaru-ime-cli -- frontends dist/frontends
+      - name: Package (macOS / Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -e
+          P=aruaru-ime-${{ matrix.name }}
+          mkdir -p "dist/$P"
+          cp target/release/aruaru-ime-daemon target/release/aruaru-ime "dist/$P/"
+          cp installer/unix/install.sh installer/unix/uninstall.sh "dist/$P/"
+          cp -r dist/frontends "dist/$P/frontends"
+          tar -C dist -czf "dist/$P.tar.gz" "$P"
+      - uses: actions/upload-artifact@v4
+        if: runner.os != 'Windows'
+        with:
+          name: pkg-${{ matrix.name }}
+          path: dist/aruaru-ime-${{ matrix.name }}.tar.gz
       - uses: actions/upload-artifact@v4
         if: matrix.os == 'ubuntu-latest'
         with:
           name: aruaru-ime-frontends
           path: dist/frontends
-      - uses: actions/upload-artifact@v4
-        with:
-          name: aruaru-ime-engine-${{ matrix.os }}
-          path: |
-            target/release/aruaru-ime-daemon*
-            target/release/aruaru-ime*
-            !target/release/*.d
-            !target/release/*.pdb
-  android:
+  android-core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,3 +65,40 @@ jobs:
           targets: aarch64-linux-android
       - run: cargo install cargo-ndk --locked
       - run: cargo ndk -t arm64-v8a build --release -p aruaru-ime-core
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build the APK
+        working-directory: android
+        run: gradle --no-daemon assembleDebug
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk aruaru-ime-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-android
+          path: aruaru-ime-android.apk
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [engine, android-apk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pkg-*
+          merge-multiple: true
+          path: out
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la out
+          gh release upload "${{ github.ref_name }}" out/* --clobber --repo "${{ github.repository }}"
