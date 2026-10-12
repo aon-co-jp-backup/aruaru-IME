@@ -310,6 +310,8 @@ fn spawn_restore_ime() {
             if let Ok(mgr) = CoCreateInstance::<_, ITfInputProcessorProfileMgr>(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER) {
                 let r = mgr.ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, langid, &clsid, &g, HKL::default(), TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
                 eprintln!("restore ime: {:?}", r);
+                let _ = std::fs::write(aruaru_ime_core::components::data_dir().join("restore-ime.log"), format!("ActivateProfile: {:?}
+", r));
             }
         }
         // 既定の入力方式(次回のサインイン以降)
