@@ -27,7 +27,7 @@ export XDG_DATA_DIRS="$T/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 export IBUS_COMPONENT_PATH="$T/share/ibus/component${IBUS_ROOT:+:$IBUS_ROOT/usr/share/ibus/component}"
 export ARUARU_IME_PORT=4660 ARUARU_IME_IBUS_DEBUG="$T/engine.log"
 exec dbus-run-session -- bash -c '
-  ( G_MESSAGES_DEBUG=all ibus-daemon --replace --address "unix:path='"$T"'/ibus.sock" --panel disable --config disable --emoji-extension disable --cache none --verbose >"'"$T"'/ibus.log" 2>&1 & )
+  G_MESSAGES_DEBUG=all ibus-daemon --daemonize --replace --address "unix:path='"$T"'/ibus.sock" --panel disable --config disable --emoji-extension disable --cache none --verbose >"'"$T"'/ibus.log" 2>&1
   for i in $(seq 1 30); do [ -S "'"$T"'/ibus.sock" ] && break; sleep 0.5; done
   export IBUS_ADDRESS="unix:path='"$T"'/ibus.sock"
   echo "ibus address: $IBUS_ADDRESS"
