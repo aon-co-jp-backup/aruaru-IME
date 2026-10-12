@@ -25,7 +25,12 @@ use std::time::{Duration, Instant};
 const CAPTURE_INTERVAL: Duration = Duration::from_secs(3);
 /// フォーカス通知がこれより古ければ「もう入力していない」とみなして撮らない。
 const FOCUS_TTL: Duration = Duration::from_secs(15);
-pub const PORT: u16 = 4660;
+pub const DEFAULT_PORT: u16 = 4660;
+
+/// 待受ポート。試験のため、環境変数 ARUARU_IME_PORT で変えられる(IME 本体は既定の 4660 を使う)。
+fn port() -> u16 {
+    std::env::var("ARUARU_IME_PORT").ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_PORT)
+}
 
 #[derive(Default)]
 struct State {
@@ -276,7 +281,7 @@ static PORT_BUSY_LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 /// いま待ち受けているエンジンの版(`/health` の `v=`)。応答が無ければ None。
 fn running_version() -> Option<String> {
     use std::io::{Read, Write};
-    let mut st = std::net::TcpStream::connect_timeout(&format!("127.0.0.1:{PORT}").parse().ok()?, Duration::from_millis(500)).ok()?;
+    let mut st = std::net::TcpStream::connect_timeout(&format!("127.0.0.1:{}", port()).parse().ok()?, Duration::from_millis(500)).ok()?;
     st.set_read_timeout(Some(Duration::from_millis(800))).ok()?;
     st.write_all(b"GET /health HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n").ok()?;
     // 応答が閉じられなくても、必要な部分が読めた時点で判断する
@@ -299,7 +304,7 @@ fn running_version() -> Option<String> {
 fn bind_with_retry() -> tiny_http::Server {
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
-        match tiny_http::Server::http(format!("127.0.0.1:{PORT}")) {
+        match tiny_http::Server::http(format!("127.0.0.1:{}", port())) {
             Ok(s) => return s,
             Err(e) if Instant::now() < deadline => {
                 // 同じ版のエンジンがすでに動いている(自動起動の重複・IME側の起動の重なり)なら、何も言わずに終了する。
@@ -314,7 +319,7 @@ fn bind_with_retry() -> tiny_http::Server {
             }
             Err(e) => {
                 // ポートを取れないなら、プロセスごと終了する(アイコンだけ残って応答しない状態を作らない。IME側が起動し直す)
-                eprintln!("bind 127.0.0.1:{PORT} failed: {e}");
+                eprintln!("bind 127.0.0.1:{} failed: {e}", port());
                 std::process::exit(1);
             }
         }
@@ -432,13 +437,23 @@ fn install_default_packs() {
     let mut s = aruaru_ime_core::settings::Settings::load();
     let mut user = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
     let mut changed = false;
+    // 版(PACKS_REV)が上がったときは、入れたままのパックだけ入れ直す(外したものは、そのまま)。新しいパックは入れる。
+    const PACKS_REV: &str = "r3";
     for p in aruaru_ime_core::packs::PACKS {
-        if s.packs_seen.iter().any(|x| x == p.id) {
+        let seen = s.packs_seen.iter().any(|x| x == p.id);
+        let stamped = s.packs_seen.iter().any(|x| *x == format!("{}@{}", p.id, PACKS_REV));
+        if seen && (stamped || !aruaru_ime_core::packs::is_installed(&root, p)) {
             continue;
+        }
+        if !s.packs_seen.iter().any(|x| *x == format!("{}@{}", p.id, PACKS_REV)) {
+            s.packs_seen.push(format!("{}@{}", p.id, PACKS_REV));
+            changed = true;
         }
         if let Ok(n) = aruaru_ime_core::packs::install(&root, &mut user, p) {
             eprintln!("pack {}: {n} entries", p.id);
-            s.packs_seen.push(p.id.to_string());
+            if !s.packs_seen.iter().any(|x| x == p.id) {
+                s.packs_seen.push(p.id.to_string());
+            }
             changed = true;
         }
     }
@@ -454,7 +469,7 @@ fn spawn_zh() {
         if !path.is_file() {
             eprintln!("zh: {:?}", aruaru_ime_core::zh::ensure(&root, true));
         }
-        if let Some(d) = aruaru_ime_core::zh::ZhDict::load(&path) {
+        if let Some(d) = aruaru_ime_core::zh::ZhDict::load_with_extras(&path, &root.join("zh-extra")) {
             eprintln!("zh loaded: {} keys", d.len());
             aruaru_ime_core::zh::set_global(d);
         }
@@ -625,10 +640,10 @@ fn main() {
     // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));
-    spawn_zh();
     if !server_mode() {
         install_default_packs();
     }
+    spawn_zh();
     if !server_mode() {
         spawn_online_ui();
         ensure_autostart();
@@ -659,7 +674,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
     if !server_mode() {
         spawn_updater();
     }
-    println!("aruaru-ime-daemon listening on 127.0.0.1:{PORT} (dict: {} entries)", dict.as_ref().as_ref().map_or(0, |d| d.len()));
+    println!("aruaru-ime-daemon listening on 127.0.0.1:{} (dict: {} entries)", port(), dict.as_ref().as_ref().map_or(0, |d| d.len()));
     for mut req in server.incoming_requests() {
         let mut body = String::new();
         let _ = std::io::Read::read_to_string(req.as_reader(), &mut body);

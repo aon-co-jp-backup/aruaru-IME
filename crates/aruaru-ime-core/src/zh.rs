@@ -201,6 +201,22 @@ impl ZhDict {
         std::fs::read_to_string(path).ok().map(|t| Self::parse(&t))
     }
 
+    /// 辞書本体に、`extras_dir` の `*.tsv`(用語辞書パックの中国語の版。`ピンイン<TAB>簡体<TAB>繁体<TAB>頻度`)を合流して読み込む。
+    pub fn load_with_extras(path: &Path, extras_dir: &Path) -> Option<Self> {
+        let mut t = std::fs::read_to_string(path).ok()?;
+        if let Ok(rd) = std::fs::read_dir(extras_dir) {
+            let mut files: Vec<_> = rd.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "tsv")).collect();
+            files.sort();
+            for f in files {
+                if let Ok(x) = std::fs::read_to_string(f) {
+                    t.push('\n');
+                    t.push_str(&x);
+                }
+            }
+        }
+        Some(Self::parse(&t))
+    }
+
     pub fn len(&self) -> usize {
         self.map.len()
     }

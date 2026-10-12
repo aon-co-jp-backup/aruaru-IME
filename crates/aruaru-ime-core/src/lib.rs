@@ -23,6 +23,7 @@ pub mod knowledge;
 pub mod indic;
 pub mod languages;
 pub mod packs;
+pub mod packs_i18n;
 pub mod prefer;
 pub mod lastime;
 pub mod seasonal;

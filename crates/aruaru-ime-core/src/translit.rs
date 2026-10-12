@@ -572,11 +572,25 @@ pub fn word_list(lang: Lang) -> Vec<(String, String)> {
         .lines()
         .filter_map(|l| l.split_once(' ').map(|(k, w)| (k.to_string(), w.to_string())))
         .collect();
-    let p = crate::components::data_dir().join("words").join(format!("{}.tsv", lang.code()));
-    if let Ok(t) = std::fs::read_to_string(p) {
-        for l in t.lines() {
-            if let Some((k, w)) = l.split_once('\t') {
-                v.insert(0, (k.trim().to_lowercase(), w.trim().to_string()));
+    // 利用者の語(`<言語>.tsv`)と、用語辞書パックの語(`<言語>.<パック>.tsv`)
+    let dir = crate::components::data_dir().join("words");
+    let mut files: Vec<std::path::PathBuf> = vec![dir.join(format!("{}.tsv", lang.code()))];
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        let prefix = format!("{}.", lang.code());
+        let mut extra: Vec<std::path::PathBuf> = rd
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with(&prefix) && n.ends_with(".tsv")))
+            .collect();
+        extra.sort();
+        files.extend(extra);
+    }
+    for p in files {
+        if let Ok(t) = std::fs::read_to_string(p) {
+            for l in t.lines() {
+                if let Some((k, w)) = l.split_once('\t') {
+                    v.insert(0, (k.trim().to_lowercase(), w.trim().to_string()));
+                }
             }
         }
     }
@@ -750,3 +764,24 @@ mod tests {
     }
 }
 
+
+
+/// ハングルを、2ボル式キーボードで打つキー(英字)に直す。スペースなどハングル以外は読み飛ばす。
+pub fn hangul_to_keys(s: &str) -> String {
+    const L: [&str; 19] = ["r", "R", "s", "e", "E", "f", "a", "q", "Q", "t", "T", "d", "w", "W", "c", "z", "x", "v", "g"];
+    const V: [&str; 21] = ["k", "o", "i", "O", "j", "p", "u", "P", "h", "hk", "ho", "hl", "y", "n", "nj", "np", "nl", "b", "m", "ml", "l"];
+    const T: [&str; 28] = ["", "r", "R", "rt", "s", "sw", "sg", "e", "f", "fr", "fa", "fq", "ft", "fx", "fv", "fg", "a", "q", "qt", "t", "T", "d", "w", "c", "z", "x", "v", "g"];
+    let mut out = String::new();
+    for c in s.chars() {
+        let u = c as u32;
+        if (0xAC00..=0xD7A3).contains(&u) {
+            let i = (u - 0xAC00) as usize;
+            out.push_str(L[i / 588]);
+            out.push_str(V[(i % 588) / 28]);
+            out.push_str(T[i % 28]);
+        } else if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+        }
+    }
+    out
+}

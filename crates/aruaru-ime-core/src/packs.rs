@@ -144,6 +144,14 @@ jeeg\tJeeg\nhiroshi\tHiroshi\nmiwa\tMiwa\nsteel\tSteel\nkotetsujeeg\tKotetsuJeeg
 gon\tGon\nkillua\tKillua\nkurapika\tKurapika\nleorio\tLeorio\nhisoka\tHisoka\nchrollo\tChrollo\nnetero\tNetero\nmeruem\tMeruem\nnen\tNen\n",
     },
     Pack {
+        id: "sazaneyes",
+        title: "3X3 EYES",
+        category: Category::Manga,
+        entries: "\
+さざんあいず\t3×3 EYES\nさざんあいず\t3X3 EYES\nさざんあいず\tサザンアイズ\nさんじやん\t三只眼\nさんじやんうんから\t三只眼吽迦羅\nうんから\t吽迦羅\nふじいやくも\t藤井八雲\n\
+やくも\t八雲\nぱい\tパイ\nたかだゆうぞう\t高田裕三\nきがん\t鬼眼\nきがんおう\t鬼眼王\nうー\t無\n3x3eyes\t3X3EYES\nsazaneyes\tSazanEyes\n",
+    },
+    Pack {
         id: "hannya",
         title: "般若心経",
         category: Category::Other,
@@ -189,6 +197,8 @@ pub fn install(root: &Path, user: &mut UserDict, p: &Pack) -> Result<usize, Stri
     }
     let _ = wish::add(root, p.title, p.category);
     wish::set_status(root, p.title, p.category, Status::Done, n, None);
+    // 中国語(簡体・繁体)・韓国語・ヨーロッパ言語の版
+    crate::packs_i18n::install(root, p.id);
     Ok(n)
 }
 
@@ -196,6 +206,7 @@ pub fn install(root: &Path, user: &mut UserDict, p: &Pack) -> Result<usize, Stri
 pub fn uninstall(root: &Path, user: &mut UserDict, p: &Pack) -> Result<usize, String> {
     let n = user.remove_source(&source(p)).map_err(|e| e.to_string())?;
     let _ = wish::remove(root, p.title, p.category);
+    crate::packs_i18n::uninstall(root, p.id);
     Ok(n)
 }
 
@@ -227,7 +238,7 @@ mod tests {
             assert!(lines.len() >= 6, "{}: {}", p.id, lines.len());
             for l in lines {
                 let (r, s) = l.split_once('\t').unwrap_or_else(|| panic!("{}: {l}", p.id));
-                assert!(!r.is_empty() && !s.is_empty() && r.chars().all(|c| matches!(c, 'ぁ'..='ゖ' | 'ー')) || (r.chars().all(|c| c.is_ascii_lowercase() || c == '-') && r == s.to_lowercase().replace(' ', "")) || r.chars().all(|c| c.is_ascii_lowercase()), "{}: {l}", p.id);
+                assert!(!r.is_empty() && !s.is_empty() && r.chars().all(|c| matches!(c, 'ぁ'..='ゖ' | 'ー')) || (r.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') && r == s.to_lowercase().replace(' ', "")) || r.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()), "{}: {l}", p.id);
             }
         }
     }
