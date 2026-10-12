@@ -163,3 +163,7 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - `indic.rs`: インド系9文字(ヒンディー・マラーティー・ネパール=デーヴァナーガリー、ベンガル、アッサム、パンジャブ、グジャラート、オリヤー、タミル、テルグ、カンナダ、マラヤーラム)のITRANS風ローマ字入力(Unicodeの配置が共通なので1つの変換器)と、ギリシャ・ジョージア・アルメニアの表。`translit.rs` の `Lang` に15言語を追加(TSFのプロファイルも各言語に登録される)。準備中は th lo km my si am ti bo dz dv の10言語。
 - 再起動後の再インストール試験: `tools/schedule-install-after-reboot.ps1` で「ログオン時に installer-e2e.ps1 -Step install を実行」するタスク `aruaru-ime-e2e` を登録済み。再起動後、`dist/installer-e2e.log` に結果が出る(exit=0 なら成功、8なら再起動待ちが残っている)。
 - 未了: 知識ベースの候補窓表示、macOS/Linux の OS 全体の IME、th lo km my si am ti bo dz dv の入力エンジン。
+
+## 再起動をまたぐ再インストール試験 (2026-10-13)
+- アンインストール → **再起動**(シャットダウンではなく。高速スタートアップでは保留中のDLL削除が消えず `exit=8` のまま) → インストール、で **exit=0**、`C:\Program Files\aruaru-IME` に導入・HKLM Runキー・エンジン起動(v0.2.3)を確認。`tools/installer-e2e.ps1 -Step install|uninstall|status` と `tools/schedule-install-after-reboot.ps1`。
+- 用語辞書パックに 般若心経・ハンターハンター を追加(既定インストール)。グレンダイザー・マジンガー・ガイキング・ジーグに欧州版の呼び名(Goldorak/Goldrake/Mazinga/Jeeg Robot など)を追加。**主要な語であり網羅ではない**(利用者は `prefer.tsv`・用語辞書の追加で足せる)。

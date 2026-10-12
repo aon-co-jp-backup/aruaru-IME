@@ -95,11 +95,11 @@ ufo\tUFO\n",
         title: "マジンガーZ",
         category: Category::Anime,
         entries: "\
-まじんがーぜっと\tマジンガーZ\nかぶとこうじ\t兜甲児\nゆみさやか\t弓さやか\nぼす\tボス\nあしゅらだんしゃく\tあしゅら男爵\nどくたーへる\tドクターヘル\n\
+まじんがーぜっと\tマジンガーZ\nまじんがー\tマジンガー\nまじんが\tマジンガ(イタリア語版 Mazinga)\nかぶとこうじ\t兜甲児\nゆみさやか\t弓さやか\nぼす\tボス\nあしゅらだんしゃく\tあしゅら男爵\nどくたーへる\tドクターヘル\n\
 こうしりょくけんきゅうじょ\t光子力研究所\nこうしりょく\t光子力\nぱいるだー\tパイルダー\nろけっとぱんち\tロケットパンチ\nぶれすとふぁいやー\tブレストファイヤー\n\
 こうしりょくびーむ\t光子力ビーム\nあふろだいえー\tアフロダイA\nだぶらすえむつー\tダブラスM2\nみけーね\tミケーネ\nぐれーとまじんがー\tグレートマジンガー\n\
 てつやつるぎ\t剣鉄也\nぐれんだいざー\tグレンダイザー\nながいごう\t永井豪\n\
-mazinger\tMazinger\nmazinga\tMazinga\nkoji\tKoji\nsayaka\tSayaka\nboss\tBoss\ntetsuya\tTetsuya\nafrodite\tAfrodite\n",
+mazinger\tMazinger\nmazinga\tMazinga\nmazingerz\tMazingerZ\nmazingaz\tMazingaZ\nkoji\tKoji\nsayaka\tSayaka\nboss\tBoss\ntetsuya\tTetsuya\nafrodite\tAfrodite\n",
     },
     Pack {
         id: "greatmazinger",
@@ -125,7 +125,7 @@ gaiking\tGaiking\ndarius\tDarius\n",
         category: Category::Anime,
         entries: "\
 こうてつじーぐ\t鋼鉄ジーグ\nじーぐ\tジーグ\nしばひろし\t司馬宙\nひみこ\t卑弥呼\nやまたいこく\t邪馬台国\nぴっぐしゅーたー\tビッグシューター\nまぐねっとぱわー\tマグネットパワー\nながいごう\t永井豪\n\
-jeeg\tJeeg\nhiroshi\tHiroshi\nmiwa\tMiwa\nsteel\tSteel\n",
+jeeg\tJeeg\nhiroshi\tHiroshi\nmiwa\tMiwa\nsteel\tSteel\nkotetsujeeg\tKotetsuJeeg\njeegrobot\tJeegRobot\nsteeljeeg\tSteelJeeg\n",
     },
     Pack {
         id: "hunterxhunter",
