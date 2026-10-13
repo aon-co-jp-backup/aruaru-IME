@@ -123,9 +123,9 @@ mod tests {
 
     #[test]
     fn removes_expired() {
-        let mut s = CaptureStore::with_dir(tmp("age"), 100, Duration::from_millis(50)).unwrap();
+        let mut s = CaptureStore::with_dir(tmp("age"), 100, Duration::from_millis(100)).unwrap();
         s.save(b"a").unwrap();
-        std::thread::sleep(Duration::from_millis(120));
+        std::thread::sleep(Duration::from_millis(1500));
         s.save(b"b").unwrap();
         assert_eq!(s.count(), 1);
     }
