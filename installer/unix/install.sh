@@ -14,6 +14,17 @@ mkdir -p "$BIN"
 cp "$HERE/aruaru-ime-daemon" "$HERE/aruaru-ime" "$BIN/"
 chmod +x "$BIN/aruaru-ime-daemon" "$BIN/aruaru-ime"
 # Linux: IBus engine (system-wide IME for GTK/Qt/browsers). Needs IBus; skipped if the binary is not in the package.
+# Linux: Fcitx5 addon (needs a root copy of the .so into the system fcitx5 addon folder; the config files go to the user folder).
+if [ "$OS" = "Linux" ] && [ -f "$HERE/fcitx5/aruaru-ime.so" ]; then
+  FD="${XDG_DATA_HOME:-$HOME/.local/share}/fcitx5"
+  mkdir -p "$FD/addon" "$FD/inputmethod"
+  cp "$HERE/fcitx5/aruaru-ime-addon.conf" "$FD/addon/aruaru-ime.conf"; cp "$HERE/fcitx5/aruaru-ime-im.conf" "$FD/inputmethod/aruaru-ime.conf"
+  FL="$(ls -d /usr/lib/x86_64-linux-gnu/fcitx5 /usr/lib64/fcitx5 /usr/lib/fcitx5 2>/dev/null | head -1)"
+  if [ -n "$FL" ] && command -v fcitx5 >/dev/null 2>&1; then
+    if [ -w "$FL" ]; then cp "$HERE/fcitx5/aruaru-ime.so" "$FL/"; elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo cp "$HERE/fcitx5/aruaru-ime.so" "$FL/"; else echo "Fcitx5: run once:  sudo cp \"$HERE/fcitx5/aruaru-ime.so\" \"$FL/\""; fi
+    echo "Fcitx5: add aruaru-IME in fcitx5-configtool, then restart fcitx5 (fcitx5 -r)."
+  fi
+fi
 if [ "$OS" = "Linux" ] && [ -f "$HERE/aruaru-ime-ibus" ]; then
   cp "$HERE/aruaru-ime-ibus" "$BIN/"; chmod +x "$BIN/aruaru-ime-ibus"
   CD="${XDG_DATA_HOME:-$HOME/.local/share}/ibus/component"

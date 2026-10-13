@@ -30,6 +30,11 @@ jobs:
       - name: Build the IBus engine (Linux)
         if: runner.os == 'Linux'
         run: cargo build --release -p aruaru-ime-ibus
+      - name: Build the Fcitx5 addon (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y fcitx5 libfcitx5core-dev fcitx5-modules-dev extra-cmake-modules cmake g++
+          cmake -S fcitx5 -B fcitx5/build -DCMAKE_INSTALL_PREFIX=/usr && cmake --build fcitx5/build
       - name: Smoke test (engine end to end)
         shell: bash
         run: |
@@ -50,6 +55,7 @@ jobs:
           cp target/release/aruaru-ime-daemon target/release/aruaru-ime "dist/$P/"
           cp installer/unix/install.sh installer/unix/uninstall.sh "dist/$P/"
           [ -f target/release/aruaru-ime-ibus ] && cp target/release/aruaru-ime-ibus "dist/$P/" || true
+          if [ -f fcitx5/build/aruaru-ime.so ]; then mkdir -p "dist/$P/fcitx5"; cp fcitx5/build/aruaru-ime.so fcitx5/aruaru-ime-addon.conf fcitx5/aruaru-ime-im.conf "dist/$P/fcitx5/"; fi
           [ -d dist/macos-ime/aruaru-IME.app ] && cp -R dist/macos-ime/aruaru-IME.app "dist/$P/" || true
           cp -r dist/frontends "dist/$P/frontends"
           tar -C dist -czf "dist/$P.tar.gz" "$P"
@@ -77,6 +83,21 @@ jobs:
         run: mkdir -p ~/.local/share/aruaru && curl -fL -o ~/.local/share/aruaru/dict.bin https://easy-web.tokyo/ime/download/dict.bin
       - name: IBus end-to-end
         run: bash tools/ibus-test.sh "$PWD/target/release"
+  fcitx5-test:
+    # Linux の Fcitx5 アドオン: fcitx5 を起動して、DBus の入力コンテキストからキーを送り、変換結果を確かめる
+    needs: engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git clone --depth 1 https://github.com/aon-co-jp/RPoem ../RPoem
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y fcitx5 libfcitx5core-dev fcitx5-modules-dev extra-cmake-modules cmake g++ python3-dbus python3-gi dbus curl
+      - run: cargo build --release -p aruaru-ime-daemon
+      - run: cmake -S fcitx5 -B fcitx5/build -DCMAKE_INSTALL_PREFIX=/usr && cmake --build fcitx5/build
+      - name: Download the dictionary
+        run: mkdir -p ~/.local/share/aruaru && curl -fL -o ~/.local/share/aruaru/dict.bin https://easy-web.tokyo/ime/download/dict.bin
+      - name: Fcitx5 end-to-end
+        run: bash tools/fcitx5-test.sh "$PWD/fcitx5/build" "$PWD/target/release"
   android-core:
     runs-on: ubuntu-latest
     steps:
