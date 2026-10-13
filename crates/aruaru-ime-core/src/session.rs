@@ -465,7 +465,7 @@ impl Session {
     fn refresh(&mut self) {
         let mut r = self.conv.convert(&self.buf, &self.before, self.field_kind.as_deref());
         // 郵便番号(`-` の有無どちらでも): 国名つきの住所を、打った数字そのままの次に入れる(IPの国 → 選択中の言語の国 → その他)
-        if self.is_digit_buf() {
+        if self.is_digit_buf() || crate::geo::looks_like_alnum_postal(&self.buf) {
             let root = crate::components::data_dir();
             let mut at = r.candidates.len().min(1);
             for t in crate::geo::candidates(&root, &self.buf, self.lang.code()) {

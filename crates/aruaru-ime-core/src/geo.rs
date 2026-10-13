@@ -169,31 +169,61 @@ pub fn order(root: &Path, lang: &str) -> Vec<String> {
     v
 }
 
-/// 郵便番号に合う「国名 住所」の候補(国の優先順)。数字で始まる入力だけを対象にする。
+/// 英字で始まる郵便番号の形か(英国 SW1A 1AA、カナダ K1A 0B1、アイルランド D02 AF30 など)。`-`・空白は有っても無くても同じ。
+pub fn looks_like_alnum_postal(input: &str) -> bool {
+    if !input.chars().all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '-') {
+        return false;
+    }
+    let n = normalize(input);
+    (5..=8).contains(&n.len()) && n.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) && n.chars().any(|c| c.is_ascii_digit())
+}
+
+/// GeoNames が「地区」までしか持たない国(英国=外側コード、カナダ・アイルランド=先頭3文字)の、完全な郵便番号からの絞り込み。
+fn area_key(cc: &str, n: &str) -> Option<String> {
+    match cc {
+        "GB" if n.len() >= 5 => Some(n[..n.len() - 3].to_string()),
+        "CA" | "IE" if n.len() >= 3 => Some(n[..3].to_string()),
+        _ => None,
+    }
+}
+
+/// 候補の総数の上限(国名つきの住所)。同じ番号が多くの国にあっても、候補窓があふれないようにする。
+const MAX_CANDIDATES: usize = 8;
+
+/// 郵便番号に合う「国名 住所」の候補(国の優先順)。数字で始まる入力、または英字で始まる郵便番号の形の入力が対象。
+/// IPの国・選択中の言語の国は最大3件ずつ、それ以外の国は1件ずつ(全体で8件まで)。
 pub fn candidates(root: &Path, input: &str, lang: &str) -> Vec<String> {
     let n = normalize(input);
-    if n.len() < 3 || !input.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+    let digit_start = input.chars().next().is_some_and(|c| c.is_ascii_digit());
+    if n.len() < 3 || !(digit_start || looks_like_alnum_postal(input)) {
         return vec![];
     }
-    let mut out = vec![];
+    let mut priority: Vec<String> = lang_countries(lang).iter().map(|c| c.to_string()).collect();
+    if let Some(c) = ip_country(root) {
+        priority.push(c);
+    }
+    let mut out: Vec<String> = vec![];
     for cc in order(root, lang) {
+        if out.len() >= MAX_CANDIDATES {
+            break;
+        }
+        let take = if priority.contains(&cc) { 3 } else { 1 };
+        let name = country_name(&cc, lang);
         // 日本は、日本郵便の漢字の住所データ(右クリックで取得済みなら)を優先する。無ければ GeoNames(ローマ字)
         if cc == "JP" && n.len() == 7 {
             let jp = crate::postal::lookup(&n);
             if !jp.is_empty() {
-                let name = country_name("JP", lang);
-                out.extend(jp.iter().take(5).map(|a| format!("{name} {a}")));
+                out.extend(jp.iter().take(take).map(|a| format!("{name} {a}")));
                 continue;
             }
         }
         let Some(t) = table(root, &cc) else { continue };
-        if let Some(addrs) = t.get(&n) {
-            let name = country_name(&cc, lang);
-            for a in addrs.iter().take(5) {
-                out.push(format!("{name} {a}"));
-            }
+        let hit = t.get(&n).or_else(|| area_key(&cc, &n).and_then(|k| t.get(&k)));
+        if let Some(addrs) = hit {
+            out.extend(addrs.iter().take(take).map(|a| format!("{name} {a}")));
         }
     }
+    out.truncate(MAX_CANDIDATES);
     out
 }
 
@@ -322,6 +352,56 @@ mod tests {
         // 数字で始まらない・短すぎる入力は対象外
         assert!(candidates(&root, "SW1A1AA", "en").is_empty());
         assert!(candidates(&root, "12", "en").is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn alnum_postal_codes_for_uk_canada_ireland_with_and_without_separators() {
+        let root = tmp("alnum");
+        for (cc, t) in [
+            ("GB", "GB\tSW1A\tWestminster\tEngland\tENG\tGreater London\tGLA\t\t\t51.5\t-0.13\t4\n"),
+            ("CA", "CA\tK1A\tOttawa\tOntario\tON\t\t\t\t\t45.4\t-75.7\t4\n"),
+            ("IE", "IE\tD02\tDublin 2\tLeinster\tL\tDublin\tD\t\t\t53.3\t-6.2\t4\n"),
+        ] {
+            let m = parse_geonames(t);
+            let s: String = m.iter().map(|(z, a)| format!("{z}\t{}\n", a.join("|"))).collect();
+            std::fs::write(tsv_path(&root, cc), s).unwrap();
+        }
+        for input in ["SW1A 1AA", "SW1A1AA", "sw1a-1aa"] {
+            let c = candidates(&root, input, "en");
+            assert!(c.iter().any(|x| x.starts_with("United Kingdom ") && x.contains("Westminster")), "{input}: {c:?}");
+        }
+        for input in ["K1A 0B1", "K1A0B1", "k1a-0b1"] {
+            let c = candidates(&root, input, "en");
+            assert!(c.iter().any(|x| x.starts_with("Canada ") && x.contains("Ottawa")), "{input}: {c:?}");
+        }
+        assert!(candidates(&root, "D02 AF30", "en").iter().any(|x| x.starts_with("Ireland ")));
+        // 郵便番号の形ではない(短い・英字だけ・記号入り)入力は対象外
+        for input in ["hello", "abc", "a1", "SW1A!1AA", "okinawa"] {
+            assert!(candidates(&root, input, "en").is_empty(), "{input}");
+        }
+        assert!(looks_like_alnum_postal("SW1A 1AA") && looks_like_alnum_postal("K1A-0B1") && !looks_like_alnum_postal("100-0001"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn candidates_are_capped_and_priority_countries_get_more() {
+        let root = tmp("cap");
+        // 同じ番号が多くの国にあり、各国に住所が5件ある
+        for cc in ["US", "DE", "FR", "ES", "IT", "NL", "BE", "AT", "CH", "PL", "CZ"] {
+            let t: String = (1..=5).map(|i| format!("{cc}\t12345\tPlace{i}\tState\tS\t\t\t\t\t0\t0\t4\n")).collect();
+            let m = parse_geonames(&t);
+            let s: String = m.iter().map(|(z, a)| format!("{z}\t{}\n", a.join("|"))).collect();
+            std::fs::write(tsv_path(&root, cc), s).unwrap();
+        }
+        let c = candidates(&root, "12345", "en");
+        assert!(c.len() <= 8, "{} 件: {c:?}", c.len());
+        // 言語の国(en → US)は3件、IPの国(DE)も3件まで、他の国は1件ずつ
+        assert_eq!(c.iter().filter(|x| x.starts_with("United States ")).count(), 3, "{c:?}");
+        std::fs::write(country_file(&root), "DE\n").unwrap();
+        let c = candidates(&root, "12345", "en");
+        assert_eq!(c.iter().filter(|x| x.starts_with("Germany ")).count(), 3, "{c:?}");
+        assert!(c.len() <= 8);
         let _ = std::fs::remove_dir_all(&root);
     }
 

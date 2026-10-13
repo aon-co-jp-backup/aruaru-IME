@@ -153,46 +153,33 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     let id = m.push(Action::AddVocab);
     add(dev, MF_STRING, id, "言語・フレームワークを追加… / Add a language or framework (auto-support)");
     add_sub(root, dev, "開発 / Development (languages & frameworks)");
-    // 辞書・登録
+    // 辞書・登録: 用途ごとに3つに区切る(登録する / 一覧・削除 / 辞書・データを入れる)
     let dict = CreatePopupMenu().unwrap();
-    let id = m.push(Action::WishAdd);
-    add(dict, MF_STRING, id, "用語辞書を作る… / Build a term dictionary (漫画・アニメ・ゲーム・ドラマ・映画…)");
-    let id = m.push(Action::WishList);
-    let wishes = wish::load(&aruaru_ime_core::components::data_dir());
-    add(dict, MF_STRING, id, &format!("用語辞書の一覧… / Term dictionaries ({})", wishes.len()));
+    let root_dir = aruaru_ime_core::components::data_dir();
+    let user_dict = UserDict::load(&UserDict::default_path());
+    let count = user_dict.entries().len();
+    let sources = user_dict.sources();
+    let wishes = wish::load(&root_dir);
+    let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&root_dir)).len();
 
-    // 単語・熟語
+    add(dict, MF_STRING | MF_GRAYED, 1, "― 登録する / Register ―");
     let id = m.push(Action::RegisterWord);
     add(dict, MF_STRING, id, "単語・熟語を登録… / Register a word or phrase");
-    // 用語辞書(組み込み): 選ぶと入る / もう一度選ぶと外れる
-    let pack_menu = CreatePopupMenu().unwrap();
-    let root_dir = aruaru_ime_core::components::data_dir();
-    for p in aruaru_ime_core::packs::all() {
-        let id = m.push(Action::TogglePack(p.id.to_string()));
-        add(pack_menu, check(aruaru_ime_core::packs::is_installed(&root_dir, p)), id, p.title);
-    }
-    add_sub(dict, pack_menu, "用語辞書を選んで入れる / Term dictionary catalog (install / remove)");
-    let id = m.push(Action::PostalInstall);
-    let have = aruaru_ime_core::postal::is_installed(&aruaru_ime_core::components::data_dir());
-    add(dict, MF_STRING, id, &format!("郵便番号の住所辞書を取得(日本郵便の公開データ){} / Get postal-code address data", if have { "  ✓取得済み" } else { "" }));
-    let id = m.push(Action::GeoInstall);
-    let have_geo = aruaru_ime_core::geo::is_installed(&aruaru_ime_core::components::data_dir());
-    add(dict, MF_STRING, id, &format!("世界の郵便番号データを取得(GeoNames・現在地の国も判定){} / Get world postal-code data", if have_geo { "  ✓取得済み" } else { "" }));
-    let id = m.push(Action::StationsInstall);
-    add(dict, MF_STRING, id, "全国の駅名を取り込む(OpenStreetMap の公開データ) / Import all station names");
-    let id = m.push(Action::AddKnowledge);
-    add(dict, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
-    let kn = aruaru_ime_core::knowledge::load(&aruaru_ime_core::knowledge::path(&aruaru_ime_core::components::data_dir())).len();
-    let id = m.push(Action::ListKnowledge);
-    add(dict, MF_STRING, id, &format!("知識ベースの一覧… / Knowledge base ({kn})"));
     let id = m.push(Action::RegisterName);
     add(dict, MF_STRING, id, "人名を登録… / Register a person's name (family + given)");
-    let id = m.push(Action::ListWords);
-    let count = UserDict::load(&UserDict::default_path()).entries().len();
-    add(dict, MF_STRING, id, &format!("登録した単語・熟語の一覧… / Registered words & phrases ({count})"));
     let id = m.push(Action::ImportFile);
     add(dict, MF_STRING, id, "ファイルから登録… / Register from a file (txt / xlsx / docx / pptx / pdf)");
-    let sources = UserDict::load(&UserDict::default_path()).sources();
+    let id = m.push(Action::AddKnowledge);
+    add(dict, MF_STRING, id, "知識ベースに追加… / Add to the knowledge base");
+
+    let _ = AppendMenuW(dict, MF_SEPARATOR, 0, PCWSTR::null());
+    add(dict, MF_STRING | MF_GRAYED, 1, "― 一覧・削除 / List & remove ―");
+    let id = m.push(Action::ListWords);
+    add(dict, MF_STRING, id, &format!("登録した単語・熟語の一覧… / Registered words & phrases ({count})"));
+    let id = m.push(Action::ListKnowledge);
+    add(dict, MF_STRING, id, &format!("知識ベースの一覧… / Knowledge base ({kn})"));
+    let id = m.push(Action::WishList);
+    add(dict, MF_STRING, id, &format!("用語辞書の一覧… / Term dictionaries ({})", wishes.len()));
     if !sources.is_empty() {
         let sub = CreatePopupMenu().unwrap();
         for (name, n) in sources {
@@ -201,6 +188,26 @@ unsafe fn build_menu() -> (HMENU, Menu) {
         }
         add_sub(dict, sub, "ファイル単位で登録を削除 / Remove registrations by file");
     }
+
+    let _ = AppendMenuW(dict, MF_SEPARATOR, 0, PCWSTR::null());
+    add(dict, MF_STRING | MF_GRAYED, 1, "― 辞書・データを入れる / Get dictionaries & data ―");
+    // 用語辞書(組み込み): 選ぶと入る / もう一度選ぶと外れる
+    let pack_menu = CreatePopupMenu().unwrap();
+    for p in aruaru_ime_core::packs::all() {
+        let id = m.push(Action::TogglePack(p.id.to_string()));
+        add(pack_menu, check(aruaru_ime_core::packs::is_installed(&root_dir, p)), id, p.title);
+    }
+    add_sub(dict, pack_menu, "用語辞書を選んで入れる / Term dictionary catalog (install / remove)");
+    let id = m.push(Action::WishAdd);
+    add(dict, MF_STRING, id, "用語辞書を作る… / Build a term dictionary (漫画・アニメ・ゲーム・ドラマ・映画…)");
+    let id = m.push(Action::PostalInstall);
+    let have = aruaru_ime_core::postal::is_installed(&root_dir);
+    add(dict, MF_STRING, id, &format!("郵便番号の住所辞書を取得(日本郵便の公開データ){} / Get postal-code address data", if have { "  ✓取得済み" } else { "" }));
+    let id = m.push(Action::GeoInstall);
+    let have_geo = aruaru_ime_core::geo::is_installed(&root_dir);
+    add(dict, MF_STRING, id, &format!("世界の郵便番号データを取得(GeoNames・現在地の国も判定){} / Get world postal-code data", if have_geo { "  ✓取得済み" } else { "" }));
+    let id = m.push(Action::StationsInstall);
+    add(dict, MF_STRING, id, "全国の駅名を取り込む(OpenStreetMap の公開データ) / Import all station names");
 
     add_sub(root, dict, "辞書・登録 / Dictionaries & registration");
     let _ = AppendMenuW(root, MF_SEPARATOR, 0, PCWSTR::null());
