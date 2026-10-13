@@ -28,7 +28,7 @@ R="$(post /key '{"sid":"s","key":{"Char":"-"},"before":""}')"
 echo "$R" | grep -q '－' || fail "hyphen candidates"
 post /session '{"sid":"s","op":"cancel"}' >/dev/null
 R="$(post /key '{"sid":"s","key":{"Char":"/"},"before":""}')"
-echo "$R" | grep -q '・' || fail "slash -> nakaten"
+echo "$R" | grep -q '"eaten":false' || fail "slash passes through as a half-width /"
 post /session '{"sid":"s","op":"cancel"}' >/dev/null
 R="$(post /key '{"sid":"s","key":{"Char":"+"},"before":""}')"
 echo "$R" | grep -q 'プラス' || fail "plus candidates"
