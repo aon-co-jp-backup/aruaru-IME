@@ -29,6 +29,7 @@ export ARUARU_IME_PORT=4660
 export PATH="$BIN:$PATH"
 exec dbus-run-session -- bash -c '
   "'"$BIN"'/aruaru-ime-daemon" >"'"$T"'/daemon.log" 2>&1 &
+  DPID=$!
   for i in $(seq 1 30); do curl -s http://127.0.0.1:4660/health >/dev/null && break; sleep 0.5; done
   fcitx5 --disable=wayland,waylandim,xcb,xim,classicui,kimpanel,notificationitem,notifications,virtualkeyboard,fcitx4frontend --verbose "*=5" >"'"$T"'/fcitx.log" 2>&1 &
   for i in $(seq 1 30); do dbus-send --session --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.NameHasOwner string:org.fcitx.Fcitx5 2>/dev/null | grep -q true && break; sleep 0.5; done
@@ -71,6 +72,6 @@ sys.exit(0 if (ok_pre and ok_commit) else 1)
 PY
   rc=$?
   echo "--- fcitx.log"; grep -iE "aruaru|error|fail" "'"$T"'/fcitx.log" | tail -20
-  pkill -x fcitx5; pkill -f aruaru-ime-daemon
+  pkill -x fcitx5; kill $DPID 2>/dev/null
   exit $rc
 '
