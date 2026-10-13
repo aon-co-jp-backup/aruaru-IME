@@ -8,6 +8,7 @@ pub mod components;
 pub mod convert;
 pub mod docimport;
 pub mod geo;
+pub mod dataupdate;
 pub mod gloss;
 pub mod kanji;
 pub mod kyujitai;

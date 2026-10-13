@@ -438,7 +438,7 @@ fn install_default_packs() {
     let mut user = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
     let mut changed = false;
     // 版(PACKS_REV)が上がったときは、入れたままのパックだけ入れ直す(外したものは、そのまま)。新しいパックは入れる。
-    const PACKS_REV: &str = "r5";
+    const PACKS_REV: &str = "r6";
     for p in aruaru_ime_core::packs::all() {
         let seen = s.packs_seen.iter().any(|x| x == p.id);
         let stamped = s.packs_seen.iter().any(|x| *x == format!("{}@{}", p.id, PACKS_REV));
@@ -657,6 +657,7 @@ fn main() {
         ensure_autostart();
         spawn_restore_ime();
         spawn_autobackup();
+        spawn_data_update();
         resume_wishes(client.clone());
     }
     let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));
@@ -853,4 +854,22 @@ mod cors_tests {
             assert!(!origin_allowed(bad), "{bad}");
         }
     }
+}
+
+/// 毎朝の自動更新(端末のローカル時刻の朝6〜8時台、端末ごとにずらす。起動が遅れても、その日のうちに1回)。
+/// 取得済みの郵便番号データだけを更新し、国名・主要都市名を利用者辞書へ入れ直す。設定 `data_update` で止められる。
+fn spawn_data_update() {
+    std::thread::spawn(|| {
+        // 起動直後は、辞書の読み込み等を優先する
+        std::thread::sleep(std::time::Duration::from_secs(120));
+        loop {
+            let root = aruaru_ime_core::components::data_dir();
+            if aruaru_ime_core::settings::Settings::load().data_update && aruaru_ime_core::dataupdate::due_now(&root) {
+                let mut user = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
+                let r = aruaru_ime_core::dataupdate::run(&root, &mut user);
+                eprintln!("data update: {r:?}");
+            }
+            std::thread::sleep(std::time::Duration::from_secs(30 * 60));
+        }
+    });
 }

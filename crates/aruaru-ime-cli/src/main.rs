@@ -107,6 +107,39 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("people-pinyin") {
+        // aruaru-ime people-pinyin <people.tsv>: 人名辞書の表で、簡体の表記があって拼音が空の行に、中国語辞書(zh.tsv)の逆引きでピンインを埋める(辞書の再生成後に使う)
+        let Some(path) = args.get(1) else { eprintln!("使い方: aruaru-ime people-pinyin <people.tsv>"); return };
+        let root = aruaru_ime_core::components::data_dir();
+        let Some(d) = aruaru_ime_core::zh::ZhDict::load(&aruaru_ime_core::zh::zh_path(&root)) else { eprintln!("中国語辞書(zh.tsv)がありません"); return };
+        let rev = aruaru_ime_core::zh::PinyinRev::from_dict(&d);
+        let text = std::fs::read_to_string(path).expect("読めません");
+        const TAB: char = '\t';
+        let (mut filled, mut skipped) = (0, 0);
+        let mut out = String::new();
+        for l in text.lines() {
+            let mut c: Vec<String> = l.split(TAB).map(String::from).collect();
+            if c.len() >= 6 && !c[3].is_empty() && c[5].is_empty() {
+                match rev.pinyin(&c[3]) {
+                    Some(p) => { c[5] = p; filled += 1 }
+                    None => skipped += 1,
+                }
+            }
+            out.push_str(&c.join("\t"));
+            out.push('\n');
+        }
+        std::fs::write(path, out).expect("書けません");
+        println!("ピンインを付けた行: {filled}  付けられなかった行: {skipped}");
+        return;
+    }
+    if args.first().map(String::as_str) == Some("data-update") {
+        // aruaru-ime data-update: 毎朝の自動更新と同じ処理を、いま1回実行する(取得済みの郵便番号の更新 + 国名・都市名)
+        let root = aruaru_ime_core::components::data_dir();
+        let mut user = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
+        let r = aruaru_ime_core::dataupdate::run(&root, &mut user);
+        println!("{r:#?}");
+        return;
+    }
     if args.first().map(String::as_str) == Some("geo-install") {
         // aruaru-ime geo-install: 世界の郵便番号データ(GeoNames, CC BY 4.0)を取得し、現在地の国も調べる
         match aruaru_ime_core::geo::install(&aruaru_ime_core::components::data_dir()) {

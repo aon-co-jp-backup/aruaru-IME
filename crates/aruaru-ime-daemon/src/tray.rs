@@ -47,6 +47,7 @@ enum Action {
     UpdateNow,
     ToggleAutoBackup,
     ToggleWebSuggest,
+    ToggleDataUpdate,
     AddVocab,
     RegisterWord,
     AddKnowledge,
@@ -232,6 +233,8 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add_sub(set_menu, size, "候補窓の大きさ / Candidate window size");
     let id = m.push(Action::ToggleWebSuggest);
     add(set_menu, check(s.web_suggest), id, "固有名詞をWebのサジェストで補う / Web suggestions for names (sends your typing to Google)");
+    let id = m.push(Action::ToggleDataUpdate);
+    add(set_menu, check(s.data_update), id, "データを毎朝自動で更新(郵便番号・国名・主要都市名) / Update data every morning (postal codes, countries, cities)");
     let id = m.push(Action::ToggleOnlineUi);
     add(set_menu, check(s.open_online_ui), id, "起動時にオンライン画面を最小化で開く / Open online screen at startup (minimized)");
     let id = m.push(Action::ToggleAutoUpdate);
@@ -551,6 +554,7 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
         Action::Scale(v) => with_settings(|s| s.candidate_scale = v),
         Action::ToggleAutoBackup => with_settings(|s| s.auto_backup = !s.auto_backup),
         Action::ToggleWebSuggest => with_settings(|s| s.web_suggest = !s.web_suggest),
+        Action::ToggleDataUpdate => with_settings(|s| s.data_update = !s.data_update),
         Action::WishAdd => {
             if let Some((cat, term)) = wish_dialog() {
                 let root = aruaru_ime_core::components::data_dir();

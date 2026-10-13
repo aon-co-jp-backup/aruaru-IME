@@ -318,6 +318,73 @@ impl ZhDict {
 
 // ---------------------------------------------------------------- 自動取得
 
+/// 漢字(簡体・繁体どちらでも)→ ピンイン(声調なし)の逆引き。辞書の中で頻度が最も高い読みを使う。
+/// 人名辞書の中国語の表記(簡体・繁体)に、入力用のピンインを付けるために使う。
+pub struct PinyinRev {
+    map: HashMap<String, (String, u64)>,
+    max_chars: usize,
+}
+
+impl PinyinRev {
+    pub fn from_dict(d: &ZhDict) -> Self {
+        let mut map: HashMap<String, (String, u64)> = HashMap::with_capacity(d.map.len() * 2);
+        let mut max_chars = 1;
+        for (py, v) in &d.map {
+            for (s, t, f) in v {
+                for w in [s, t] {
+                    max_chars = max_chars.max(w.chars().count());
+                    let better = map.get(w).map_or(true, |(_, bf)| f > bf);
+                    if better {
+                        map.insert(w.clone(), (py.clone(), *f));
+                    }
+                }
+            }
+        }
+        Self { map, max_chars: max_chars.min(8) }
+    }
+
+    /// 漢字列のピンイン(連結)。中黒・空白は読み飛ばす。最長一致で区切り、全体を覆えなければ None(誤った読みを付けない)。
+    pub fn pinyin(&self, hanzi: &str) -> Option<String> {
+        let cs: Vec<char> = hanzi.chars().filter(|c| !matches!(c, '·' | '・' | '･' | '•' | ' ' | '　')).collect();
+        if cs.is_empty() {
+            return None;
+        }
+        let mut out = String::new();
+        let mut i = 0;
+        while i < cs.len() {
+            let mut hit = None;
+            for len in (1..=self.max_chars.min(cs.len() - i)).rev() {
+                let w: String = cs[i..i + len].iter().collect();
+                if let Some((py, _)) = self.map.get(&w) {
+                    hit = Some((py.as_str(), len));
+                    break;
+                }
+            }
+            let (py, len) = hit?;
+            out.push_str(py);
+            i += len;
+        }
+        Some(out)
+    }
+}
+
+#[cfg(test)]
+mod pinyin_rev_tests {
+    use super::*;
+
+    #[test]
+    fn reverse_lookup_longest_match_and_gaps() {
+        let d = ZhDict::parse("ai\t爱\t愛\t900\nyin\t因\t因\t800\nsi\t斯\t斯\t700\ntan\t坦\t坦\t600\naiyinsitan\t爱因斯坦\t愛因斯坦\t50\nle\t乐\t樂\t900\nyue\t乐\t樂\t100\n");
+        let r = PinyinRev::from_dict(&d);
+        assert_eq!(r.pinyin("爱因斯坦").as_deref(), Some("aiyinsitan"));
+        assert_eq!(r.pinyin("愛因斯坦").as_deref(), Some("aiyinsitan"), "繁体も引ける");
+        assert_eq!(r.pinyin("爱·斯坦").as_deref(), Some("aisitan"), "中黒は読み飛ばす");
+        assert_eq!(r.pinyin("乐").as_deref(), Some("le"), "頻度の高い読み");
+        assert_eq!(r.pinyin("爱龘"), None, "辞書に無い字を含むなら読みを付けない");
+        assert_eq!(r.pinyin(""), None);
+    }
+}
+
 pub fn zh_path(root: &Path) -> PathBuf {
     root.join("zh.tsv")
 }

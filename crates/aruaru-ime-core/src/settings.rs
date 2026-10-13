@@ -53,6 +53,9 @@ pub struct Settings {
     /// 自動バックアップ(起動後と、内容が変わったとき)。既定オン。保存先は Google ドライブの同期フォルダ(見つからなければ「ドキュメント」)。
     #[serde(default = "default_true")]
     pub auto_backup: bool,
+    /// 毎朝、取得済みの郵便番号データを更新し、国名・主要都市名を入れ直す(端末のローカル時刻の朝6〜8時台)。選んでいないデータは取得しない。既定オン。
+    #[serde(default = "default_true")]
+    pub data_update: bool,
     /// バックアップの保存先を指定する(空なら自動)。
     #[serde(default)]
     pub backup_dir: Option<String>,
@@ -83,7 +86,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, update_channel: default_channel(), packs_seen: vec![], dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, backup_dir: None }
+        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, update_channel: default_channel(), packs_seen: vec![], dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, data_update: true, backup_dir: None }
     }
 }
 

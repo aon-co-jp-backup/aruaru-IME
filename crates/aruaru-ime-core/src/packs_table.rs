@@ -155,6 +155,9 @@ mod tests {
         assert!(!pe.entries.lines().any(|l| l.starts_with('=') || l.split('\t').next().is_some_and(|k| k.chars().any(|c| c.is_ascii_alphabetic()))), "ローマ字のまま残った読みが無い");
         let pi = i18n.iter().find(|x| x.id == "people").unwrap();
         assert!(pi.eu.contains("en\tisaacnewton\tIsaac Newton"));
+        // 中国語の人名: 簡体・繁体に、辞書の逆引きで付けたピンインで打てる
+        assert!(pi.zh.contains("aisakeniudun\t艾萨克·牛顿\t艾薩克·牛頓"), "中国語の人名(簡体・繁体+ピンイン)");
+        assert!(pi.zh.contains("kongzi\t孔子\t孔子"));
         // 長音は、母音に直した読みでも打てる(nyuuton / nyu-ton どちらでも)
         assert!(pe.entries.contains("あいざっくにゅうとん\tアイザック・ニュートン\n"), "長音を母音にした読み");
         assert_eq!(long_vowel_variant("にゅーとん").as_deref(), Some("にゅうとん"));

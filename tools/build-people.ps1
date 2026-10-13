@@ -59,7 +59,7 @@ foreach ($q in $occ) {
   $lim = if ($q -eq "ANY") { 3000 } else { $PerOccupation }
   $opt = ($langs | ForEach-Object { "OPTIONAL { ?p rdfs:label ?$_ . FILTER(LANG(?$_)=`"$_`") }" }) -join "`n"
   $query = @"
-SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp WHERE {
+SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp ?zhs ?zht WHERE {
   ?p wdt:P31 wd:Q5; $occLine wikibase:sitelinks ?sl. FILTER(?sl >= $MinSitelinks)
   ?p rdfs:label ?ja. FILTER(LANG(?ja)="ja")
   OPTIONAL { ?p rdfs:label ?en1 . FILTER(LANG(?en1)="en") }
@@ -69,6 +69,14 @@ SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp WHERE {
   $jpFilter
   BIND(EXISTS { ?p wdt:P27 wd:Q17 } AS ?jp)
   $opt
+  OPTIONAL { ?p rdfs:label ?zs1 . FILTER(LANG(?zs1)="zh-hans") }
+  OPTIONAL { ?p rdfs:label ?zs2 . FILTER(LANG(?zs2)="zh-cn") }
+  OPTIONAL { ?p rdfs:label ?zs3 . FILTER(LANG(?zs3)="zh") }
+  BIND(COALESCE(?zs1, ?zs2, ?zs3) AS ?zhs)
+  OPTIONAL { ?p rdfs:label ?zt1 . FILTER(LANG(?zt1)="zh-hant") }
+  OPTIONAL { ?p rdfs:label ?zt2 . FILTER(LANG(?zt2)="zh-tw") }
+  OPTIONAL { ?p rdfs:label ?zt3 . FILTER(LANG(?zt3)="zh-hk") }
+  BIND(COALESCE(?zt1, ?zt2, ?zt3, ?zhs) AS ?zht)
 } ORDER BY DESC(?sl) LIMIT $lim
 "@
   $tmp = [IO.Path]::GetTempFileName()
@@ -89,7 +97,7 @@ SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp WHERE {
   $n = 0
   foreach ($l in ($lines | Select-Object -Skip 1)) {
     $c = $l -split "`t"
-    if ($c.Count -lt 12) { continue }
+    if ($c.Count -lt 14) { continue }
     $id = $c[0]
     if ($seen.ContainsKey($id)) { continue }
     if ($seenJa.ContainsKey((Get-Lit $c[1]))) { continue }
@@ -106,7 +114,8 @@ SELECT ?p ?ja ?en ?kana ?ko ?fr ?es ?de ?it ?pt ?sl ?jp WHERE {
     if (-not $r) { continue }
     $seen[$id] = 1
     $ko = Get-Lit $c[4]; $fr = Get-Lit $c[5]; $es = Get-Lit $c[6]; $de = Get-Lit $c[7]; $it = Get-Lit $c[8]; $pt = Get-Lit $c[9]
-    $rows.Add(($r, $ja, $en, "", "", "", $ko, $fr, $es, $de, $it, $pt) -join "`t")
+    $zhs = Get-Lit $c[12]; $zht = Get-Lit $c[13]
+    $rows.Add(($r, $ja, $en, $zhs, $zht, "", $ko, $fr, $es, $de, $it, $pt) -join "`t")
     $n++
   }
   Write-Host "$q : +$n (計 $($rows.Count))"

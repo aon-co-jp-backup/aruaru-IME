@@ -88,6 +88,12 @@ pub fn install(root: &Path) -> Result<usize, String> {
     let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(120)).user_agent("aruaru-ime").build();
     let mut zip_bytes = Vec::new();
     agent.get(SOURCE_URL).call().map_err(|e| format!("取得できません: {e}"))?.into_reader().take(30 * 1024 * 1024).read_to_end(&mut zip_bytes).map_err(|e| e.to_string())?;
+    store_zip(root, zip_bytes)
+}
+
+/// 取得した `utf_ken_all.zip` から `postal.tsv` を作って保存する。作った郵便番号の数を返す。
+pub fn store_zip(root: &Path, zip_bytes: Vec<u8>) -> Result<usize, String> {
+    use std::io::Read;
     let mut ar = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).map_err(|e| e.to_string())?;
     let mut csv = String::new();
     {

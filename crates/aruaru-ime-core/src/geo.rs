@@ -309,6 +309,28 @@ pub fn install(root: &Path) -> Result<(usize, Option<String>), String> {
     Ok((ok, country))
 }
 
+/// 国ごとの郵便番号データの取得先(GeoNames)。
+pub fn zip_url(cc: &str) -> String {
+    format!("https://download.geonames.org/export/zip/{cc}.zip")
+}
+
+/// 取得した `<CC>.zip` から、その国の郵便番号の表を作って保存する。作った郵便番号の数を返す。
+pub fn store_country_zip(root: &Path, cc: &str, zip_bytes: Vec<u8>) -> Result<usize, String> {
+    use std::io::Read;
+    let mut ar = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).map_err(|e| e.to_string())?;
+    let mut f = ar.by_name(&format!("{cc}.txt")).map_err(|e| e.to_string())?;
+    let mut raw = Vec::new();
+    f.read_to_end(&mut raw).map_err(|e| e.to_string())?;
+    let m = parse_geonames(&String::from_utf8_lossy(&raw));
+    if m.is_empty() {
+        return Err(format!("{cc}: 空のデータ"));
+    }
+    std::fs::create_dir_all(dir(root)).map_err(|e| e.to_string())?;
+    let tsv: String = m.iter().map(|(z, a)| format!("{z}\t{}\n", a.join("|"))).collect();
+    std::fs::write(tsv_path(root, cc), tsv).map_err(|e| e.to_string())?;
+    Ok(m.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

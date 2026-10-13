@@ -1,5 +1,61 @@
 # aruaru-IME PORTING / 移植・再開メモ  (Porting & resume notes)
 
+## 引っ越し手順 / Moving to another machine (2026-10-13)
+
+このリポジトリだけで開発を続けられます(`F:\runo` 側の索引リポジトリは、一覧への入口にすぎません)。
+*This repository is self-sufficient. The `runo` index repository only links to it.*
+
+### 1. 必要なもの / What you need
+
+| 用途 / For | 内容 / What |
+|---|---|
+| Rust | stable(`cargo`)。Windows は `%USERPROFILE%\.cargo\bin` を PATH の先頭に / put `~/.cargo/bin` first on PATH |
+| Windows 版のビルド | MSVC のビルドツール。インストーラーは Inno Setup 6(`tools\build-installer.ps1`) / MSVC build tools, Inno Setup 6 for the installer |
+| Linux 版 | Windows からは WSL(Ubuntu)で。`gcc`・`libdbus-1-dev`・`pkg-config` |
+| macOS 版 | Mac または GitHub の macOS ランナー。Windows からの確認は、zig を C コンパイラにした `cargo check --target aarch64-apple-darwin` まで(リンクは Apple SDK が要り、ライセンス上、Apple 製ハードウェア向け) |
+| 辞書のもと | Mozc OSS(`data/mozc-src`)、JMdict、中国語ピンインの辞書は、初回に利用者の許可を得て自動取得 / downloaded on first use with consent |
+
+### 2. 取得・ビルド・テスト / Get, build, test
+
+```
+git clone https://github.com/aon-co-jp/aruaru-IME.git && cd aruaru-IME
+cargo test -p aruaru-ime-core      # コアのテスト(約180件)
+cargo build -p aruaru-ime-cli -p aruaru-ime-daemon
+```
+
+- 辞書(`dict.bin`)は **git に入れていない**。`cargo run --release -p aruaru-ime-cli -- build-dict data/mozc-src data/dict.bin` で作る(README の「開発」参照)。
+- 安全な実機確認: 別のデータ領域と別ポートで常駐エンジンを動かし、`POST /key` で打鍵する。本物の IME(ポート 4660)とデータには触れない。
+  *Safe check: run the daemon with a separate data dir and port, and drive it with `POST /key`; it never touches your real IME (port 4660) or data.*
+
+```
+$env:ARUARU_DATA_DIR = "<空のフォルダに、%LOCALAPPDATA%\aruaru をコピー>"
+$env:ARUARU_IME_PORT = "4699"
+target\debug\aruaru-ime-daemon.exe
+```
+
+### 3. データの場所 / Where data lives
+
+- ユーザーのデータ(利用者辞書・学習履歴・設定・取得済みの郵便番号・辞書): データ領域 `%LOCALAPPDATA%\aruaru`(環境変数 `ARUARU_DATA_DIR` で変更可)。**git には入らない**。
+- 引っ越し先へ持っていく: 右クリック「バックアップと復元」(Google ドライブ)、またはデータ領域のフォルダのコピー。
+- 人名辞書の表(`crates/aruaru-ime-core/pack_tables/people.tsv`)は git に入っている。再生成は `tools/build-people.ps1`(世界版) と `tools/build-people.ps1 -Japan`(日本の人物の追加)、続けて `aruaru-ime people-pinyin <people.tsv>`(中国語の拼音付け)。
+
+### 4. 環境固有の落とし穴 / Environment pitfalls
+
+- PowerShell 5.1 は BOM の無い UTF-8 を読み間違える。日本語を含む `.ps1` は **BOM 付き UTF-8**。`Get-Content`/`Set-Content` は ANSI 既定なので `-Encoding utf8` を付ける。
+- `perl -e` に日本語を直接書くと失敗する(黙って何もしないことがある)。編集は Edit/Write ツールで。Bash のヒアドキュメントで `\u` や `\t` を書くと、環境によって実際の文字に変換される。
+- `Remove-Item` が `F:\aruaru-IME` 配下でブロックされることがある(絶対パスで、`$env:TEMP` 配下を消す)。
+- ureq は HTTP 304 をエラーにせず、本文の無い成功応答として返す(`dataupdate.rs` で対処済み)。
+- Wikidata は英語ラベルを `mul` に移しつつある。クエリは英語を任意にして `mul` へ代替する。
+- リポジトリ作成や検索を短時間に連打すると、GitHub・検索元の二次レート制限(403)で止まる。
+
+### 5. 未了 / Open items (priority order)
+
+1. 右クリックメニュー(辞書・登録を3区分に整理)と2列候補窓の実機の目視確認、インストーラーの実機の通し試験。
+2. 多言語の切替入力(IME 本体への組み込み)・世界130言語。中国語の人名の拼音は逆引きで付与(多音字は誤る可能性があるため、利用者が気づいたら登録で補う)。
+3. 台湾・ギリシャの郵便番号(GeoNames に無い)。ブラジルは市の代表コードのみ。オランダ(`1011AB` のように数字+英字)は未対応。
+4. 用語辞書の検索→辞書化の実通し試験(検索元の休止明け)。
+5. macOS / Linux / Android の実機確認(Android の WebView シェルは `open-backup` 側で別途)。
+
 ## アーキテクチャ / Architecture
 
 ```
@@ -231,3 +287,28 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - **macOS** (`macos/main.swift` + `Info.plist` + `build.sh`、InputMethodKit): `IMKInputController` がキーをエンジンへ送り、`insertText` / `setMarkedText` / `IMKCandidates` で反映。**CI(macos-latest / macos-15-intel)でビルドは成功、実機での入力試験は未実施**(`install.sh` が `~/Library/Input Methods` へ入れる。ログアウト・ログイン後に入力ソースへ追加)。落とし穴: `IMKInputController.server()` と名前が衝突するのでグローバルは `imkServer`。署名は ad-hoc(Gatekeeper の警告が出ることがある)。
 - **メニュー整理**: 通知領域の右クリックを 開発 / 辞書・登録 / 設定 / バックアップ にまとめた。初回起動(設定ファイルが無い)で使い方を案内。**目視確認は未了**(この PC のエンジンが管理者権限で動いており入れ替えられないため)。
 - CI の `android-test`(エミュレーター)は起動が不安定なため `continue-on-error`(失敗してもリリースは止めない)。直近2回は成果物なしで失敗しており、原因は未調査。
+
+## 毎朝の自動データ更新 / Automatic morning data refresh (2026-10-13)
+
+- `aruaru-ime-core/src/dataupdate.rs`、常駐エンジンの `spawn_data_update`。設定 `data_update`(既定オン。右クリック「設定」でオフ可)。手動実行は `aruaru-ime data-update`。
+  *`dataupdate.rs` + `spawn_data_update` in the daemon; setting `data_update` (on by default; toggle under tray → Settings); run once by hand with `aruaru-ime data-update`.*
+- **時刻 / When**: 端末のローカル時刻の朝6時から、データの置き場所とユーザー名から決まる 0〜120 分のずれを足した時刻以降。その日にまだ実行していなければ、起動が遅れてもその日のうちに1回。30分ごとに確認。世界中の端末が同じ瞬間にサーバーへ集中しないための工夫。
+  *From 06:00 local time plus a per-machine 0–120 min offset, once per local day (a late start still runs it that day); checked every 30 min. The offset keeps clients from hitting the servers at the same moment.*
+- **何を更新するか / What**: (1) **取得済みの**世界の郵便番号(GeoNames)と日本郵便のデータだけ。`ETag` / `Last-Modified` の条件付き取得で、変更が無ければダウンロードしない(実測: 2回目以降は44か国すべて「変更なし」)。(2) 現在地の国(世界の郵便番号を取得済みの人だけ。移動に追従)。(3) 国名(約170)・人口100万以上の都市名(約200)を Wikidata から取り、利用者辞書へ出所つき(`自動更新:国名`、`自動更新:都市名`)で入れ直す(読みが分かる=カタカナ・ひらがな表記のものだけ。結果が少なすぎるときは更新しない)。
+  *(1) Only the postal data you already downloaded (GeoNames, Japan Post), by conditional GET — nothing is re-downloaded if unchanged (measured: all 44 countries "not modified" on later runs). (2) Your current country (only if you fetched world postal data). (3) ~170 country names and ~200 cities with 1M+ people from Wikidata, stored in your user dictionary with a source tag; only labels with a known reading (kana) are added, and the update is skipped if the result is suspiciously small.*
+- **自動で追加しないもの / Never added automatically**: 選んでいない郵便番号の国・辞書。(国名・都市名だけが、ユーザー指示により自動で入る。)
+- エラーがあれば、その日の分を完了としない(次の30分後に再試行)。取得に失敗しても、既存のデータは壊さない(解析に成功してから書く)。
+- 試験: 単体 3 件(更新時刻・読みの作り方・SPARQL の読み取り)+実データ(1回目 165秒で全更新、2回目以降は条件付き取得)。
+
+## 中国語の人名のピンイン / Pinyin for Chinese person names (2026-10-13)
+
+- 人名辞書の表(`people.tsv`)に、Wikidata の簡体・繁体の表記を入れ、**ピンインは中国語辞書(`zh.tsv`)の逆引きで付ける**: `zh::PinyinRev`(漢字 → 頻度が最も高いピンイン、最長一致、中黒は読み飛ばし、辞書に無い字を含むと付けない)。`aruaru-ime people-pinyin <people.tsv>`。
+  3291人のうち 3230人に付いた(例: 爱因斯坦 → `aiyinsitan`、艾萨克·牛顿 → `aisakeniudun`、孔子 → `kongzi`)。
+  *Simplified/Traditional labels come from Wikidata; pinyin is added by a reverse lookup over the Chinese dictionary (most frequent reading, longest match, middle dots skipped, no pinyin if a character is unknown). 3,230 of 3,291 people got pinyin.*
+- 制限 / Limits: 多音字は、頻度の高い読みになる(誤る場合がある)。人名辞書の再生成の順番: `build-people.ps1` → `build-people.ps1 -Japan` → `aruaru-ime people-pinyin`。パックの版(`PACKS_REV`)は r6。
+
+## 英字を含む郵便番号と候補の件数 / Alphanumeric postal codes & candidate limits (2026-10-13)
+
+- 英国(`SW1A 1AA` → 外側コード `SW1A`)・カナダ(`K1A 0B1` → 先頭3文字 `K1A`)・アイルランド(`D02 AF30` → `D02`)は、GeoNames が地区までしか持たないので、地区で引く。`-`・空白は有っても無くても同じ。実機のエンジン(HTTP)で確認: `SW1A1AA` → イギリス England Greater London Westminster Abbey、`K1A0B1` → カナダ Ontario Ottawa。
+- 候補は、IPの国・選択中の言語の国が3件まで、その他の国は1件ずつ、全体で8件まで(候補窓があふれない)。オランダ(`1011AB`)のように数字で始まって英字を含むものは未対応。
+- 右クリックの「辞書・登録」は、「登録する」「一覧・削除」「辞書・データを入れる」の3区分に整理した(実機の目視確認は未了)。

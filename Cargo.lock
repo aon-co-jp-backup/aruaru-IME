@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-cli"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "aruaru-ime-core",
  "open-runo-crossui",
@@ -36,9 +36,10 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-core"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "base64",
+ "chrono",
  "encoding_rs",
  "flate2",
  "lopdf",
@@ -53,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-daemon"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "aruaru-ime-core",
  "image",
@@ -66,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-ibus"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "async-io",
  "futures-lite",
@@ -77,7 +78,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-tsf"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "aruaru-ime-core",
  "serde_json",

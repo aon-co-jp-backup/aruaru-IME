@@ -25,6 +25,10 @@ An AI-assisted IME that predicts what you are typing from the screen and the sur
 | **バックアップと復元**: 辞書・学習履歴・設定・用語辞書を、Google ドライブ(デスクトップ版の同期フォルダ。例 `G:\マイドライブ`)へ自動バックアップ。復元は「足す」「置き換え」 | 実機でバックアップを確認(Google ドライブへ保存) |
 | **自動アップデート**(起動時の1回)/ 右クリックの「今すぐ更新」(**アプリの再起動不要**: 変換の状態管理はエンジン側にあるため) | 実装・単体テスト済み(公開リリースからの実取得は未検証) |
 | **コンポーネント管理**: aruaru-llm / open-easy-web / Qwen を、重複させず、無ければ導入・有れば再利用 | 実機で確認 |
+| **郵便番号 → 国名つきの住所(世界44か国)** / World postal codes → "country + address": `100-0001` でも `1000001` でも(`-` や空白は有っても無くても同じ)。英国 `SW1A 1AA`・カナダ `K1A 0B1`・アイルランドも(地区まで)。候補は IPアドレスから推定した国 → 選択中の言語の国 → その他の順(最大8件、優先国は3件ずつ)。国名は言語に合わせて表示。データは右クリックで取得(GeoNames, CC BY 4.0) | 実機のエンジン(HTTP)で確認 |
+| **人名・有名人・重要人物名の辞書(約3300人、既定で搭載)** / People-name dictionary (~3,300, installed by default): Wikidata(CC0)から生成。日本人は読み(かな表記/ヘボン式)、外国人はカタカナの読みと英語名(`isaacnewton` → Isaac Newton)・한글・fr/es/de/it/pt の表記 | 実機のエンジンで確認 |
+| **毎朝の自動データ更新** / Automatic data refresh every morning: 端末のローカル時刻の朝6〜8時台(端末ごとにずらす)に、**取得済みの**郵便番号データを条件付き取得(ETag/Last-Modified、変更が無ければダウンロードしない)で更新し、国名・主要都市名(人口100万以上)を Wikidata から利用者辞書へ入れ直す。右クリック「設定」でオフ可 | 実データで確認(2回目以降は「変更なし」で省略) |
+| **長音の読み** / Long-vowel readings: 辞書の `にゅーとん` を `nyuuton` でも `nyu-ton` でも打てる(ニュートン・ニュージーランド) | 実機のエンジンで確認 |
 | **画面キャプチャ**(入力欄にフォーカスがある間、数秒ごと): 一時フォルダに保存し、**60秒より古い/30枚を超えた分から自動削除**。パスワード欄では撮らない | 実機で確認 |
 
 ## インストール / Install (Windows)
@@ -80,3 +84,21 @@ It uses the Mozc OSS dictionary (BSD-3-Clause) with a Viterbi lattice (~2 ms per
 
 **Alpha, Windows only.** Not yet done: end-to-end tests of the installer and of the on-screen menus, in-IME language switching for Russian/Arabic/Persian/Hebrew/Korean/European languages (engines exist and are unit-tested), Chinese, 130 languages, GitHub backup, taskbar-indicator right-click, macOS/Linux/Android.
 Install with `aruaru-ime-windows-x86_64-setup.exe` (admin); right-click the tray icon for the menu. **Restart already-running apps once after installing or updating** (they keep the old thin DLL loaded); later updates only swap the engine.
+
+**New since v0.2 (2026-10-13)**: world postal codes → "country + address" (44 countries, with or without `-`/space; UK/Canada/Ireland down to the postcode area; ordered by your IP's country → the selected language's country → others, max 8), a built-in people-name dictionary (~3,300 people from Wikidata, CC0), long-vowel readings (`nyuuton` → ニュートン), a much faster first start (the dictionary packs are saved once instead of per entry: 246 s → 8 s), and **an automatic morning refresh** of the data you already downloaded (conditional requests, so nothing is re-downloaded if unchanged) plus country / major-city names from Wikidata. The refresh runs at 06:00–08:00 local time (a per-machine offset spreads the load) and can be turned off in the tray menu → Settings. **Nothing is downloaded that you did not choose**; the only automatic additions are country/city names.
+
+---
+
+## 引っ越し / Moving to another machine
+
+`aruaru-IME` は、このリポジトリだけで開発を続けられます。別の PC・別の作業環境へ移るときは [`PORTING.md`](PORTING.md) の「引っ越し手順 / Moving to another machine」(必要なツール・ビルド・テスト・データの置き場所・環境固有の落とし穴・未了の一覧)と、[`CLAUDE.md`](CLAUDE.md) の HANDOFF を読んでください。
+`aruaru-IME` can be developed from this repository alone. To continue on another machine, read "Moving to another machine" in [`PORTING.md`](PORTING.md) (tools, build, tests, data locations, environment pitfalls, open items) and the HANDOFF in [`CLAUDE.md`](CLAUDE.md).
+
+```
+git clone https://github.com/aon-co-jp/aruaru-IME.git
+cd aruaru-IME
+cargo test            # 動作確認(コアのテスト約180件) / sanity check (~180 core tests)
+```
+
+ユーザーのデータ(辞書・学習履歴・設定・取得済みの郵便番号)は、リポジトリではなく **データ領域**(Windows: `%LOCALAPPDATA%\aruaru`)にあります。引っ越し先へ持っていくなら、右クリックの「バックアップと復元」(Google ドライブ)か、このフォルダのコピーを使います。
+Your data (dictionaries, learning history, settings, downloaded postal data) lives in the **data directory** (Windows: `%LOCALAPPDATA%\aruaru`), not in the repository. Use the tray menu "Backup & restore" (Google Drive) or copy that folder to bring it along.

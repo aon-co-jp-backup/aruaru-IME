@@ -37,6 +37,15 @@
 
 ## HANDOFF
 
+- **2026-10-13 以降は、aruaru-IME のこのリポジトリの中だけで開発を進める**(ユーザー指示)。別の PC・環境へ移るときは、`PORTING.md` の「引っ越し手順 / Moving to another machine」を先に読む。
+  *From 2026-10-13 development continues inside this repository only (user instruction). Read "Moving to another machine" in PORTING.md first when you move to another machine.*
+- **2026-10-13 到達点 / State**: 郵便番号 → 国名つき住所(世界44か国。`-` 有無どちらも。英国・カナダ・アイルランドは地区まで。IPの国 → 言語の国 → その他、最大8件)、人名・有名人・重要人物名の辞書(約3300人、既定搭載、Wikidata CC0)、
+  辞書の長音の別読み(nyuuton)、パックの一括保存で初回起動を 246秒 → 8秒、辞書メニューを3区分に整理、**毎朝の自動データ更新**(取得済みの郵便番号を条件付き取得で更新+国名・都市名を Wikidata から。朝6〜8時台、端末ごとにずらす。設定 `data_update` で停止)。
+  コアのテスト約180件が通る。Linux は WSL でビルド・テスト成功、macOS は `cargo check`(zig cc)まで。
+  *World postal codes → "country + address" (44 countries; with/without `-`; UK/CA/IE to the area; IP country → language country → others, max 8), a built-in people-name dictionary (~3,300, Wikidata CC0), long-vowel alternate readings, 246 s → 8 s first start, a regrouped dictionary menu, and an **automatic morning data refresh** (conditional refresh of already-downloaded postal data + country/city names from Wikidata; 06:00–08:00 local with a per-machine offset; stop with the `data_update` setting). ~180 core tests pass. Linux builds and tests in WSL; macOS is checked with `cargo check` (zig cc) only.*
+- **ユーザーの方針(2026-10-13) / User policies**: ダウンロードは利用者が選んだものだけ(自動で追加しない)。例外は、国名・主要都市名(毎朝)と、すでに取得済みのデータの更新。GitHub は非公開、アカウントは作らない(利用者のトークン)。画面・入力・個人データを外へ出さない(Web のサジェストだけは設定でオフ可)。
+- **未了(2026-10-13) / Open**: `PORTING.md` 「未了」の一覧を参照(右クリックメニューと2列候補窓の実機の目視確認、インストーラーの実機の通し試験、多言語の切替入力、台湾・ギリシャ・オランダの郵便番号、macOS/Android の実機確認ほか)。
+
 - **2026-10-10〜11 新設・開発1〜2日目**: 中核エンジン(コア単体テスト 127 件+TSF 1 件)、辞書変換(Mozc OSS、1225528 エントリ)、ライブ変換、予測変換、誤モード対策、利用者辞書+ファイル取り込み、
   用語辞書(希望用語)、プログラミング語彙(自動学習)、JMdict の英語訳(自動取得)・日英の相互翻訳、2列の候補窓、バックアップ/復元(Google ドライブ)、自動アップデート、
   常駐エンジン(セッション API)+薄い TSF DLL、通知領域の右クリックメニュー、Inno Setup のインストーラーまで実装。**実機のメモ帳・VS Code・Claude アプリでの入力と、`G:\マイドライブ` へのバックアップを確認**。
