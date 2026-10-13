@@ -2,7 +2,7 @@
 ; Build: powershell -File tools\build-installer.ps1
 #define MyAppName "aruaru-IME"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.2.10"
+  #define MyAppVersion "0.2.11"
 #endif
 #define BuildDir "..\target-dev\release"
 
