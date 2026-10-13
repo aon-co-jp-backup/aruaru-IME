@@ -312,3 +312,17 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 - 英国(`SW1A 1AA` → 外側コード `SW1A`)・カナダ(`K1A 0B1` → 先頭3文字 `K1A`)・アイルランド(`D02 AF30` → `D02`)は、GeoNames が地区までしか持たないので、地区で引く。`-`・空白は有っても無くても同じ。実機のエンジン(HTTP)で確認: `SW1A1AA` → イギリス England Greater London Westminster Abbey、`K1A0B1` → カナダ Ontario Ottawa。
 - 候補は、IPの国・選択中の言語の国が3件まで、その他の国は1件ずつ、全体で8件まで(候補窓があふれない)。オランダ(`1011AB`)のように数字で始まって英字を含むものは未対応。
 - 右クリックの「辞書・登録」は、「登録する」「一覧・削除」「辞書・データを入れる」の3区分に整理した(実機の目視確認は未了)。
+
+## 2026-10-13 の作業一覧 / Work log of 2026-10-13
+
+| コミット / Commit | 内容 / What |
+|---|---|
+| `479d5e8` | 世界の郵便番号 → 国名つき住所(GeoNames 44か国、`-` 有無どちらも、IPの国 → 言語の国、日本は漢字データ優先) / world postal codes → "country + address" |
+| `aff2f39` | 人名・有名人・重要人物名の辞書(約3300人、Wikidata CC0、既定で搭載)と生成スクリプト `tools/build-people.ps1` / people-name dictionary |
+| `f9a9771` | パックの追加を1回の保存にまとめ、初回起動を 246秒 → 8秒に / first start 246 s → 8 s |
+| `df5ac9f` | 辞書の長音を母音に直した読みでも打てる(`nyuuton` → ニュートン)、パック版 r5 / long-vowel alternate readings |
+| `24394ae` | 候補の件数制限(優先国3件・他1件・計8件)、英字を含む郵便番号(英国・カナダ・アイルランド)、辞書メニューを3区分に整理 / candidate caps, UK/CA/IE postcodes, regrouped menu |
+| `5fb4b0c` | 毎朝の自動データ更新、中国語の人名のピンイン(`aruaru-ime people-pinyin`)、パック版 r6、README/CLAUDE/PORTING の日英更新(引っ越し手順) / morning refresh, pinyin for Chinese names, docs |
+
+- 確認したこと / Verified: コアのテスト 177 件(Windows・WSL Ubuntu)、HTTP の `POST /key` での打鍵(郵便番号・織田信長・ニュートン・英国/カナダの郵便番号)、実データでの `data-update`(1回目は全更新、2回目以降は条件付きで「変更なし」)。
+- 確認していないこと / Not verified: 右クリックメニューと2列候補窓の実機の目視、インストーラーの実機の通し試験、毎朝の更新の長期運用、macOS の実行。

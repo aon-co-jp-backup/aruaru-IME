@@ -27,6 +27,14 @@
 - 検索(aruaru-search)は、短時間に続けると Bing/Brave に拒否されて約14〜20分休む。検索語の間に3秒空け、使えないときは「未了」にして20分ごとに再試行。
 
 ## 注意(環境固有)
+- **2026-10-13 に足した CLI コマンド / CLI commands added**: `aruaru-ime geo-install`(世界の郵便番号44か国+現在地の国)、`aruaru-ime geo <郵便番号> [言語]`(候補の確認)、`aruaru-ime data-update`(毎朝の更新をいま1回)、`aruaru-ime people-pinyin <people.tsv>`(人名辞書の拼音付け)。
+  *`geo-install` (44 countries + your country), `geo <zip> [lang]` (inspect candidates), `data-update` (run the morning refresh once), `people-pinyin <people.tsv>` (add pinyin to the people table).*
+- **データ領域を分けた安全な確認 / Safe checks with a separate data dir**: `ARUARU_DATA_DIR`(データ領域)と `ARUARU_IME_PORT`(ポート。本物は 4660)を別にして常駐エンジンを動かし、`POST /key` で打鍵する。**本物の IME のデーモン(4660)を止めない**: 止めるのは自分が起動した別ポートのプロセスだけ。
+  *Run the daemon with a separate `ARUARU_DATA_DIR` and `ARUARU_IME_PORT` (the real one is 4660) and drive it with `POST /key`. Never stop the real IME daemon (4660): only stop the process you started on the other port.*
+- **ダウンロードの原則 / Download rule**: 利用者が選んだデータだけを取得する。自動で入るのは、国名・主要都市名と、**すでに取得済み**のデータの更新だけ(`dataupdate.rs`)。新しいデータを足すときもこの原則を守る。
+  *Download only what the user chose. The only automatic additions are country/city names and refreshes of data already downloaded (`dataupdate.rs`); keep to this rule for any new data.*
+- **データ生成の順番 / Generating the people table**: `tools/build-people.ps1` → `tools/build-people.ps1 -Japan` → `aruaru-ime people-pinyin crates/aruaru-ime-core/pack_tables/people.tsv`。`.ps1` は BOM 付き UTF-8。生成後はパックの版(`PACKS_REV`、いま r6)を上げて、既存の利用者にも反映する。
+- Linux の確認は WSL の Ubuntu(`CARGO_TARGET_DIR=$HOME/aime-target cargo test -p aruaru-ime-core`)、macOS は zig を C コンパイラにした `cargo check --target aarch64-apple-darwin` まで。
 
 - `cargo` は PATH に無い。`%USERPROFILE%\.cargo\bin` を前置きする。開発ビルドは `CARGO_TARGET_DIR=F:\aruaru-IME\target-dev`。
 - 開発機では `tools\deploy-dev.ps1 [-Dll]` で、ビルドして `target\release`(登録済みの場所)へ入れ替える。DLL は起動中のアプリが握っているので、**DLL を更新したらアプリを一度起動し直す**。

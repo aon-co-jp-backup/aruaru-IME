@@ -26,7 +26,7 @@ An AI-assisted IME that predicts what you are typing from the screen and the sur
 | **自動アップデート**(起動時の1回)/ 右クリックの「今すぐ更新」(**アプリの再起動不要**: 変換の状態管理はエンジン側にあるため) | 実装・単体テスト済み(公開リリースからの実取得は未検証) |
 | **コンポーネント管理**: aruaru-llm / open-easy-web / Qwen を、重複させず、無ければ導入・有れば再利用 | 実機で確認 |
 | **郵便番号 → 国名つきの住所(世界44か国)** / World postal codes → "country + address": `100-0001` でも `1000001` でも(`-` や空白は有っても無くても同じ)。英国 `SW1A 1AA`・カナダ `K1A 0B1`・アイルランドも(地区まで)。候補は IPアドレスから推定した国 → 選択中の言語の国 → その他の順(最大8件、優先国は3件ずつ)。国名は言語に合わせて表示。データは右クリックで取得(GeoNames, CC BY 4.0) | 実機のエンジン(HTTP)で確認 |
-| **人名・有名人・重要人物名の辞書(約3300人、既定で搭載)** / People-name dictionary (~3,300, installed by default): Wikidata(CC0)から生成。日本人は読み(かな表記/ヘボン式)、外国人はカタカナの読みと英語名(`isaacnewton` → Isaac Newton)・한글・fr/es/de/it/pt の表記 | 実機のエンジンで確認 |
+| **人名・有名人・重要人物名の辞書(約3300人、既定で搭載)** / People-name dictionary (~3,300, installed by default): Wikidata(CC0)から生成。日本人は読み(かな表記/ヘボン式)、外国人はカタカナの読みと英語名(`isaacnewton` → Isaac Newton)・한글・fr/es/de/it/pt の表記。中国語は簡体・繁体で、ピンインは中国語辞書の逆引きで付与(3291人中3230人。例: `aisakeniudun` → 艾萨克·牛顿) | 実機のエンジンで確認 |
 | **毎朝の自動データ更新** / Automatic data refresh every morning: 端末のローカル時刻の朝6〜8時台(端末ごとにずらす)に、**取得済みの**郵便番号データを条件付き取得(ETag/Last-Modified、変更が無ければダウンロードしない)で更新し、国名・主要都市名(人口100万以上)を Wikidata から利用者辞書へ入れ直す。右クリック「設定」でオフ可 | 実データで確認(2回目以降は「変更なし」で省略) |
 | **長音の読み** / Long-vowel readings: 辞書の `にゅーとん` を `nyuuton` でも `nyu-ton` でも打てる(ニュートン・ニュージーランド) | 実機のエンジンで確認 |
 | **画面キャプチャ**(入力欄にフォーカスがある間、数秒ごと): 一時フォルダに保存し、**60秒より古い/30枚を超えた分から自動削除**。パスワード欄では撮らない | 実機で確認 |
@@ -43,7 +43,7 @@ An AI-assisted IME that predicts what you are typing from the screen and the sur
 - `crates/aruaru-ime-core` — エンジン(OS非依存): ローマ字・モード予測・辞書変換・セッション・利用者辞書・用語辞書・バックアップ・更新・多言語
 - `crates/aruaru-ime-daemon` — 常駐エンジン(127.0.0.1:4660): 変換・セッション API、画面キャプチャ+OCR、通知領域のアイコンと右クリックメニュー
 - `crates/aruaru-ime-tsf` — Windows の IME 本体(TSF DLL。キーを送って結果を表示するだけの薄い層)
-- `crates/aruaru-ime-cli` — `aruaru-ime` コマンド(`convert` `dict` `wish` `backup` `update` `build-dict` `ensure-components`)
+- `crates/aruaru-ime-cli` — `aruaru-ime` コマンド / commands: `convert` `dict` `wish` `backup` `update` `build-dict` `ensure-components` `postal-install`(日本郵便) `geo-install`(世界の郵便番号+現在地の国) `geo <郵便番号> [言語]`(候補の確認) `data-update`(毎朝の更新をいま1回) `people-pinyin <people.tsv>`(人名辞書の拼音付け)
 - `installer/` — Inno Setup のインストーラー、`tools/` — 開発用のスクリプト
 
 ## 開発 / Build
@@ -66,6 +66,8 @@ powershell -File tools\deploy-dev.ps1 -Dll     # 開発機で、動いている�
 
 ## 正直な開示(現時点の限界)
 
+- **郵便番号・人名・毎朝の更新(2026-10-13)の限界 / Limits**: 台湾・ギリシャの郵便番号は GeoNames に無く、ブラジルは市の代表コードのみ、オランダ(`1011AB`)のように数字+英字は未対応。英国・カナダ・アイルランドは地区までで、番地まではわかりません。中国語の人名のピンインは、多音字で誤ることがあります。毎朝の更新は、実機の長期運用(数日)では未確認で、1回の実行と条件付き取得の動作を確認した段階です。右クリックメニュー(辞書・登録を3区分に整理)の見た目は、実機の目視確認が未了です。
+  *Taiwan and Greece have no GeoNames postal data, Brazil only city-level codes, and codes such as Dutch `1011AB` (digits + letters) are not supported yet. UK/Canada/Ireland resolve only to the postcode area. Pinyin for Chinese names can be wrong for polyphonic characters. The morning refresh has been verified for a single run and for conditional requests, not yet over days of real use. The regrouped right-click menu has not been checked visually on a real screen.*
 - インストーラーは、ビルドできたことまでの確認で、**実機のインストール/アンインストールの通し試験は未了**です。
 - 候補窓の2列表示・右クリックメニューの各画面は、コードとエンジン側の確認までで、**実機の画面での目視確認は未了**です。
 - Qwen(0.5B)は、この PC では 1 回約 50 秒かかり、候補も不正解だったため、変換の主経路は辞書+Viterbi です。Qwen は補助で、同期の変換経路には置いていません。
