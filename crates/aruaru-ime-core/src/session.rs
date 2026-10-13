@@ -877,10 +877,15 @@ impl Session {
                 self.state(true, None)
             }
             Key::Space | Key::Down | Key::Tab if self.composing() => {
+                let before_n = self.cands.len();
+                let was_auto = self.auto;
                 self.fetch_extras();
                 let n = self.cands.len();
                 self.auto = false;
-                if n > 0 {
+                if n > before_n && was_auto && self.cands.first().is_some_and(|c| c != &self.unconverted) {
+                    // 追加候補(様です など)が先頭に入ったときは、それを最初に見せる(読みのままの候補を飛ばさない)
+                    self.sel = Some(0);
+                } else if n > 0 {
                     self.sel = Some(match self.sel { None => 0, Some(i) => (i + 1) % n });
                 }
                 self.state(true, None)
