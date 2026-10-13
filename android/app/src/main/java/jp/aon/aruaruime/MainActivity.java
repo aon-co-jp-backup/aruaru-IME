@@ -27,6 +27,10 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         web = new WebView(this);
         setContentView(web);
+        // エミュレーター(GPU が仮想)では、WebView が真っ黒になることがあるので、ソフトウェア描画にする(実機はそのまま)
+        if (android.os.Build.FINGERPRINT.startsWith("generic") || android.os.Build.FINGERPRINT.contains("emulator") || android.os.Build.MODEL.contains("Emulator") || android.os.Build.MODEL.startsWith("sdk")) {
+            web.setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null);
+        }
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
