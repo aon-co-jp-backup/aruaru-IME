@@ -36,7 +36,8 @@ target\debug\aruaru-ime-daemon.exe
 ### 3. データの場所 / Where data lives
 
 - ユーザーのデータ(利用者辞書・学習履歴・設定・取得済みの郵便番号・辞書): データ領域 `%LOCALAPPDATA%\aruaru`(環境変数 `ARUARU_DATA_DIR` で変更可)。**git には入らない**。
-- 引っ越し先へ持っていく: 右クリック「バックアップと復元」(Google ドライブ)、またはデータ領域のフォルダのコピー。
+- 引っ越し先へ持っていく(2026-10-14、v0.2.14 予定): **`aruaru-ime move export [フォルダ]`** で 1 ファイル(`aruaru-ime-move-<日時>.json`)を書き出し、新しい PC で **`aruaru-ime move import <ファイル> [--replace]`** で取り込む(利用者辞書・学習履歴・設定・用語辞書・語彙・取得済みの郵便番号を含む。`--replace` なしは、いまの内容に足す統合。反映は常駐エンジンの再起動か再ログイン後)。辞書本体(`dict.bin`)・用語の検索辞書・中国語の辞書は大きく、移った先で自動取得されるので入れない。実データで書き出し→取り込みし、利用者辞書と郵便番号がバイト単位で一致することを確認(約7.6MB)。従来どおり、右クリック「バックアップと復元」(Google ドライブ)や、データ領域のフォルダのコピーでも移せる。
+  *English*: `aruaru-ime move export [dir]` writes one file (`aruaru-ime-move-<time>.json`: user dictionary, learning history, settings, term dictionaries, vocab, downloaded postal data); on the new PC run `aruaru-ime move import <file> [--replace]` (merge by default; restart the engine afterwards). The big downloadable dictionaries are not included. Verified with real data (≈7.6 MB, byte-identical). The tray "Backup & restore" and copying the data folder still work.
 - 人名辞書の表(`crates/aruaru-ime-core/pack_tables/people.tsv`)は git に入っている。再生成は `tools/build-people.ps1`(世界版) と `tools/build-people.ps1 -Japan`(日本の人物の追加)、続けて `aruaru-ime people-pinyin <people.tsv>`(中国語の拼音付け)。
 
 ### 4. 環境固有の落とし穴 / Environment pitfalls

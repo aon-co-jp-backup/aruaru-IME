@@ -72,6 +72,30 @@ pub fn create(root: &Path) -> Bundle {
     Bundle { format: 1, created: stamp(SystemTime::now()), app_version: env!("CARGO_PKG_VERSION").to_string(), files }
 }
 
+/// 引っ越し用: 普段のバックアップの内容に、取得済みの郵便番号(`postal.tsv`)も加える。
+/// 辞書(`dict.bin`)・用語の検索辞書・中国語の辞書は大きく、移った先で自動取得できるので入れない。
+pub fn create_move(root: &Path) -> Bundle {
+    let mut b = create(root);
+    for f in ["postal.tsv"] {
+        if let Ok(t) = std::fs::read_to_string(root.join(f)) {
+            b.files.insert(f.to_string(), t);
+        }
+    }
+    b
+}
+
+/// 引っ越し用の 1 ファイルを書き出す(`aruaru-ime-move-<日時>.json`)。入れる物が無ければ None。
+pub fn write_move(root: &Path, dir: &Path) -> std::io::Result<Option<PathBuf>> {
+    let b = create_move(root);
+    if b.files.is_empty() {
+        return Ok(None);
+    }
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join(format!("aruaru-ime-move-{}.json", b.created));
+    std::fs::write(&path, serde_json::to_string(&b).unwrap_or_default())?;
+    Ok(Some(path))
+}
+
 /// 内容の指紋(変更があったかの判定用)。作成時刻は含めない。
 pub fn fingerprint(b: &Bundle) -> String {
     use sha2::{Digest, Sha256};
@@ -294,6 +318,24 @@ mod tests {
         std::fs::create_dir_all(root.join("vocab")).unwrap();
         std::fs::write(root.join("vocab").join("svelte.json"), r#"{"name":"Svelte","signals":["svelte"],"words":["onMount","writable"]}"#).unwrap();
         std::fs::write(root.join("settings.json"), r#"{"theme":"light"}"#).unwrap();
+    }
+
+    #[test]
+    fn move_file_carries_everything_to_a_fresh_machine() {
+        let (from, to, out) = (tmp("mv-from"), tmp("mv-to"), tmp("mv-out"));
+        seed(&from);
+        std::fs::write(from.join("postal.tsv"), "1000001	東京都千代田区千代田
+").unwrap();
+        let f = write_move(&from, &out).unwrap().unwrap();
+        // 新しい PC(空のデータ領域)に取り込む
+        let b = read_backup(&f).unwrap();
+        let rep = restore(&b, &to, true).unwrap();
+        assert!(rep.files >= 3, "{rep:?}");
+        assert!(std::fs::read_to_string(to.join("user_dict.json")).unwrap().contains("三只眼吽迦羅"));
+        assert!(std::fs::read_to_string(to.join("vocab").join("svelte.json")).unwrap().contains("onMount"));
+        assert!(std::fs::read_to_string(to.join("postal.tsv")).unwrap().contains("千代田"));
+        // 空のデータ領域では、何も書き出さない
+        assert!(write_move(&tmp("mv-empty"), &out).unwrap().is_none());
     }
 
     #[test]

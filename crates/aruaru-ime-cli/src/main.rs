@@ -178,6 +178,36 @@ fn main() {
         }
         return;
     }
+    // aruaru-ime move export [<フォルダ>] | import <ファイル> [--replace]   (別の PC への引っ越し)
+    if args.first().map(String::as_str) == Some("move") {
+        use aruaru_ime_core::backup;
+        let root = aruaru_ime_core::components::data_dir();
+        match args.get(1).map(String::as_str) {
+            Some("export") => {
+                let dir = args.get(2).map(std::path::PathBuf::from).unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+                match backup::write_move(&root, &dir) {
+                    Ok(Some(p)) => {
+                        println!("引っ越し用のファイルを書き出しました: {}", p.display());
+                        println!("このファイルを新しい PC へ持って行き、`aruaru-ime move import <ファイル>` で取り込んでください。(辞書本体などは、新しい PC で自動取得されます) / Copy this file to the new PC and run `aruaru-ime move import <file>`.");
+                    }
+                    Ok(None) => println!("書き出す内容がありません"),
+                    Err(e) => println!("書き出せませんでした: {e}"),
+                }
+            }
+            Some("import") => {
+                let Some(file) = args.get(2) else { eprintln!("usage: aruaru-ime move import <ファイル> [--replace]"); std::process::exit(2) };
+                match backup::read_backup(std::path::Path::new(file)) {
+                    Some(b) => match backup::restore(&b, &root, args.iter().any(|a| a == "--replace")) {
+                        Ok(r) => println!("取り込みました: {} ファイル(統合した登録語 {} 件)。常駐エンジンを再起動(または再ログイン)すると反映されます。 / Imported; restart the engine.", r.files, r.merged_entries),
+                        Err(e) => println!("取り込めませんでした: {e}"),
+                    },
+                    None => println!("引っ越し用のファイルを読めません"),
+                }
+            }
+            _ => eprintln!("usage: aruaru-ime move export [<フォルダ>] | import <ファイル> [--replace]"),
+        }
+        return;
+    }
     if args.first().map(String::as_str) == Some("backup") {
         // aruaru-ime backup [--dir <フォルダ>] | list | restore <ファイル> [--replace]
         use aruaru_ime_core::backup;
