@@ -44,6 +44,8 @@
 - ユーザーのメモ帳には既存の未保存文書が開いていることがある。試験は専用の `tools/testhost/TestHost.exe` で行う。
 
 ## HANDOFF
+- **2026-10-14 v0.2.11〜v0.2.13 公開**: Linux の Fcitx5 アドオン(`fcitx5/`、`tools/fcitx5-test.sh`)、ひらがなモードで `, . / \ [ ] @ ^` を半角のまま(ユーザー指示、以前の `,`→`、` は取りやめ)・`{` 2回で `「`・`< > ?` の候補順・JIS109(オンライン画面)、オンライン画面の Space 不具合の修正(RPoem `open-runo-crossui` の keydown を同期的に止める)、ウェブサービス名の辞書(ようつべ→youtube)とサーバーモードの共通辞書(`shared_user_dict.json`、読み取り専用)。macOS は実機が無く CI のビルド確認のみ。詳細・リリース手順の教訓は `PORTING.md` の「v0.2.11〜v0.2.13」節。
+  *English*: v0.2.11–0.2.13 shipped: Fcitx5 addon, half-width `, . / \ [ ] @ ^`, `{` twice → `「`, candidate orders, JIS 109 on the online screen, the Space fix (RPoem `open-runo-crossui`), the web-service dictionary and the read-only shared dictionary for server mode. macOS is CI-build-only (no Mac). See PORTING.md for details and release lessons.
 
 - **2026-10-13 以降は、aruaru-IME のこのリポジトリの中だけで開発を進める**(ユーザー指示)。別の PC・環境へ移るときは、`PORTING.md` の「引っ越し手順 / Moving to another machine」を先に読む。
   *From 2026-10-13 development continues inside this repository only (user instruction). Read "Moving to another machine" in PORTING.md first when you move to another machine.*

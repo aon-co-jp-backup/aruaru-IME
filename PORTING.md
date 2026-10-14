@@ -326,3 +326,23 @@ OS 別の層が行うこと(他OSへ移植するときのチェックリスト):
 
 - 確認したこと / Verified: コアのテスト 177 件(Windows・WSL Ubuntu)、HTTP の `POST /key` での打鍵(郵便番号・織田信長・ニュートン・英国/カナダの郵便番号)、実データでの `data-update`(1回目は全更新、2回目以降は条件付きで「変更なし」)。
 - 確認していないこと / Not verified: 右クリックメニューと2列候補窓の実機の目視、インストーラーの実機の通し試験、毎朝の更新の長期運用、macOS の実行。
+
+## v0.2.11〜v0.2.13 (2026-10-14): Fcitx5・キー入力・ウェブサービス名辞書・サーバーの共通辞書 / Fcitx5, key input, web-service names, shared server dictionary
+
+**Fcitx5(Linux)**: `fcitx5/` に C++ のアドオン(`InputMethodEngineV2`)。キーを常駐エンジン(`127.0.0.1:4660`)の `/key` へ送り、`commit` / `preedit` / `cands` を Fcitx5 に反映する(IBus エンジンと同じ橋渡し。最小の JSON 解析と素の POSIX ソケットだけで依存を増やさない)。C++20 が必要(Fcitx5 のヘッダーが `std::span` などを使う)。
+試験: `tools/fcitx5-test.sh`(DBus の `org.fcitx.Fcitx.InputContext1` から「konnichiha」→「今日は」→ Enter で確定を確認)。**落とし穴**: ヘッドレスでは `unset DISPLAY WAYLAND_DISPLAY` と専用の `XDG_RUNTIME_DIR` を設定し、`--disable=` で wayland / xcb / classicui などを止める(WSLg の Wayland に繋ぎに行って落ちる)。後始末で `pkill -f` を使うと自分自身を殺す(PID で kill する)。
+`install.sh` は設定ファイルをユーザー側に置き、`.so` はシステムの fcitx5 フォルダへ(sudo が要る。無ければ実行すべきコマンドを表示)。
+English: a C++ Fcitx5 addon bridges keys to the resident engine like the IBus engine does; needs C++20; tested headless via DBus (`tools/fcitx5-test.sh`). Install puts the config in the user folder and the `.so` in the system fcitx5 folder (sudo).
+
+**キー入力の変更(ひらがなモード)**: `, . / \ [ ] @ ^` は半角のまま入力(エンジンは食わない。以前の `,`→`、` は取りやめ。`; :` は元のまま)。`{` は候補が `{ 「 ｛ 『 【`(2回続けて打つと `「`)、`<` は `< ＜ 、 …`、`>` は `> ＞ 。 …`、`?` は `? ？ ・ ･ …`。オンライン画面(RPoem の `open-runo-crossui`)は、keydown の既定動作を同期的に止め(`await` の後では間に合わず、生の文字が入って Space が効かなかった)、キーを順番に処理、IME 有効時の物理キー判定に日本語109(JIS)配列(IntlYen/IntlRo を見たら切替)を追加。最初の Space で、追加候補(「様です」など)を先頭から見せる。
+English: `, . / \ [ ] @ ^` now pass through as half-width (the engine does not eat them; the earlier `,`→`、` was withdrawn); `{` double-press gives `「`; candidate orders for `< > ?`. The online screen stops the default action synchronously (it was too late after `await`, which let raw characters in and broke Space), serializes keys, and understands the JIS 109 layout. The first Space shows added candidates (e.g. 様です) first.
+
+**ウェブサービス名の辞書(v0.2.13)**: `pack_tables/web_services.tsv`(ようつべ→youtube、ゆーちゅーぶ→YouTube、やふー→yahoo、Twitter・Google・Amazon・Facebook・Instagram・GitHub・LINE・ニコニコ動画)。既定でインストール。
+**サーバーモードの共通辞書**: オンライン画面(`ARUARU_IME_SERVER=1`)は、利用者辞書を持たないため、辞書パックが効かなかった。`shared_user_dict.json`(データフォルダ)にパックだけを入れ、全セッションが**読み取り専用**で使う(利用者の入力は保存・学習しない。登録用の `/dict/*` は共通ファイルとは別の `user_dict.json` を触り、`/ime/api/` の中継には出していない)。
+English: new web-service dictionary pack (ようつべ → youtube, やふー → yahoo, …). The server mode now loads the default packs into a shared, read-only `shared_user_dict.json`; user input is still not stored or learned.
+
+**Android エミュレーターの黒画面**: エミュレーター(GPU が仮想)では WebView をソフトウェア描画にする(実機は変更なし)。pixel_6 / pixel_c の CI 試験は通る(スマホ側は時々不安定、失敗しても公開は止めない設定)。
+**CI**: macOS Intel の `capture_store` の期限切れ試験は、待ち時間が短くて不安定だったので長くした。スモーク試験(`tools/e2e-smoke.sh`)は `/` が半角のまま通ることに合わせた。`uninstall.sh` は末尾に `exit 0`(Fcitx5 の後始末が `set -e` で失敗扱いになっていた)。
+
+**リリース手順の教訓**(v0.2.11 で一度つまずいた): (1) `dist/` は `.gitignore` なので `git add dist/...` が失敗し、後ろの `git tag` が古い HEAD に付く → **コミットが入ったことを確認してからタグ**。(2) Windows インストーラーは、別の作業の未コミット変更が混ざらないよう `git worktree add ../aruaru-ime-rel HEAD` + `data/` をコピーして ISCC でビルド。(3) `gh release create` に Windows のインストーラーと `.sha256` を付けると、CI の release ジョブが残りを `--clobber` で追加する。(4) VPS は `/var/lib/aruaru-ime/downloads/` にインストーラーと `VERSION`、エンジンは `/opt/aruaru-ime/aruaru-ime-daemon`(`cargo build --release` 後に差し替えて `systemctl restart aruaru-ime-server`)。`Cargo.lock` の差分で `git pull` が止まったら `git checkout Cargo.lock`。
+Release lessons: verify the commit landed before tagging (`dist/` is git-ignored); build the Windows installer from a clean `git worktree`; the CI release job uploads the other assets; VPS = installer + `VERSION` + engine binary swap + `systemctl restart`.

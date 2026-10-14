@@ -89,6 +89,9 @@ Install with `aruaru-ime-windows-x86_64-setup.exe` (admin); right-click the tray
 
 **New since v0.2 (2026-10-13)**: world postal codes → "country + address" (44 countries, with or without `-`/space; UK/Canada/Ireland down to the postcode area; ordered by your IP's country → the selected language's country → others, max 8), a built-in people-name dictionary (~3,300 people from Wikidata, CC0), long-vowel readings (`nyuuton` → ニュートン), a much faster first start (the dictionary packs are saved once instead of per entry: 246 s → 8 s), and **an automatic morning refresh** of the data you already downloaded (conditional requests, so nothing is re-downloaded if unchanged) plus country / major-city names from Wikidata. The refresh runs at 06:00–08:00 local time (a per-machine offset spreads the load) and can be turned off in the tray menu → Settings. **Nothing is downloaded that you did not choose**; the only automatic additions are country/city names.
 
+**v0.2.11–0.2.13 (2026-10-14)**: Fcitx5 support on Linux (alongside IBus); `, . / \ [ ] @ ^` are typed as half-width in hiragana mode (`{` twice gives `「`; candidate orders for `< > ?`; JIS 109 keyboards on the online screen); the online screen's Space key fix; a web-service name dictionary (ようつべ → youtube, やふー → yahoo); the server mode shares the default dictionaries read-only. macOS is only build-tested in CI (no Mac available).
+**v0.2.11〜0.2.13(2026-10-14)**: Linux の Fcitx5 に対応(IBus と併用)。ひらがなモードでも `, . / \ [ ] @ ^` は半角のまま(`{` を2回で `「`、`< > ?` の候補順、オンライン画面で日本語109キーボード)。オンライン画面の Space が効かない不具合を修正。ウェブサービス名の辞書(ようつべ → youtube、やふー → yahoo)。サーバーモードでも共通の用語辞書を読み取り専用で使用。macOS は実機が無く、CI のビルド確認のみ。
+
 ---
 
 ## 引っ越し / Moving to another machine
