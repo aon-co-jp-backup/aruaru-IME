@@ -20,6 +20,7 @@ const TABLES: &[Table] = &[
     Table { id: "countries", title: "国名", src: include_str!("../pack_tables/countries.tsv"), station: false },
     Table { id: "cities", title: "主要な都市名", src: include_str!("../pack_tables/cities.tsv"), station: false },
     Table { id: "stations", title: "日本の駅名", src: include_str!("../pack_tables/stations.tsv"), station: true },
+    Table { id: "web", title: "ウェブサービス名(ようつべ→youtube など)", src: include_str!("../pack_tables/web_services.tsv"), station: false },
     Table { id: "people", title: "人名・有名人・重要人物名", src: include_str!("../pack_tables/people.tsv"), station: false },
 ];
 
@@ -138,7 +139,7 @@ mod tests {
     #[test]
     fn tables_build_into_packs_with_every_language() {
         let (packs, i18n) = build();
-        assert_eq!(packs.len(), 5);
+        assert_eq!(packs.len(), 6);
         let c = packs.iter().find(|p| p.id == "countries").unwrap();
         assert!(c.entries.contains("にほん\t日本\n"));
         let s = packs.iter().find(|p| p.id == "stations").unwrap();
