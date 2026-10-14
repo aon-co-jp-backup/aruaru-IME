@@ -155,6 +155,8 @@ fn with_session<T>(sid: &str, conv: impl FnOnce() -> EngineConv, f: impl FnOnce(
         let mut s = Session::new(Box::new(conv()));
         let root = aruaru_ime_core::components::data_dir();
         if server_mode() {
+            // 共通の用語辞書(読み取りだけ。利用者の入力は保存・学習しない)
+            s.enable_user_dict(&root.join("shared_user_dict.json"));
             s.apply_settings(&aruaru_ime_core::settings::Settings::default());
         } else {
             s.enable_learning(root.join("learned.json"));
@@ -435,7 +437,9 @@ fn spawn_online_ui() {
 fn install_default_packs() {
     let root = aruaru_ime_core::components::data_dir();
     let mut s = aruaru_ime_core::settings::Settings::load();
-    let mut user = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
+    // サーバーモードでは、利用者ごとの辞書は持たず、共通の用語辞書(パック)だけを専用のファイルに入れる
+    let dict_path = if server_mode() { root.join("shared_user_dict.json") } else { aruaru_ime_core::userdict::UserDict::default_path() };
+    let mut user = aruaru_ime_core::userdict::UserDict::load(&dict_path);
     let mut changed = false;
     // 版(PACKS_REV)が上がったときは、入れたままのパックだけ入れ直す(外したものは、そのまま)。新しいパックは入れる。
     const PACKS_REV: &str = "r6";
@@ -648,9 +652,7 @@ fn main() {
     // 変換 API(HTTP)は別スレッド、メインスレッドは Windows では通知領域アイコン(右クリックメニュー)を担当する
     let gloss: Arc<std::sync::RwLock<Option<aruaru_ime_core::gloss::Glossary>>> = Arc::new(std::sync::RwLock::new(None));
     spawn_glossary(Arc::clone(&gloss));
-    if !server_mode() {
-        install_default_packs();
-    }
+    install_default_packs();
     spawn_zh();
     if !server_mode() {
         spawn_online_ui();
