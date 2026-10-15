@@ -116,7 +116,7 @@ pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang:
     }
     match key {
         // 最初の - は、ハイフンの種類を候補に並べるためIMEが受ける(直前が英数字のときはIME側でそのまま確定する)
-        Key::Char(c) => c.is_ascii_alphabetic() || composing || c.is_ascii_digit() || matches!(c, ',' | '.') || (crate::prefer::lead_symbol(*c).is_some() && !matches!(c, '@' | '^' | '\\')),
+        Key::Char(c) => c.is_ascii_alphabetic() || composing || c.is_ascii_digit() || matches!(c, ',' | '.') || (crate::prefer::lead_symbol(*c).is_some() && !matches!(c, '@' | '^' | ';' | ':' | '\\')),
         Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
@@ -775,7 +775,7 @@ impl Session {
                 self.note_commit(&out.to_string());
                 self.state(true, Some(out.to_string()))
             }
-            Key::Char(sym) if !self.composing() && !matches!(sym, '@' | '^' | '\\') && crate::prefer::lead_symbol(sym).is_some() => {
+            Key::Char(sym) if !self.composing() && !matches!(sym, '@' | '^' | ';' | ':' | '\\') && crate::prefer::lead_symbol(sym).is_some() => {
                 if self.before.chars().last().is_some_and(|ch| ch.is_ascii_alphanumeric()) {
                     self.note_commit(&sym.to_string());
                     return self.state(true, Some(sym.to_string()));
@@ -1124,6 +1124,42 @@ mod tests {
             let st = m.key(Key::Char(c));
             assert!(!st.eaten && st.commit.is_none(), "{c}");
         }
+    }
+
+    /// 日本語109キーの記号を、1つずつ打って(Enterで確定して)出力を確かめる。
+    fn typed(c: char) -> String {
+        let mut m = s();
+        let st = m.key(Key::Char(c));
+        let mut out = st.commit.clone().unwrap_or_default();
+        if m.composing() {
+            out.push_str(&m.key(Key::Enter).commit.unwrap_or_default());
+        }
+        out
+    }
+
+    #[test]
+    fn jis109_symbol_keys_after_japanese() {
+        let want = [
+            (',', "、"), ('.', "。"), ('/', "・"), ('[', "「"), (']', "」"), ('-', "ー"),
+            ('!', "！"), ('?', "？"), ('(', "（"), (')', "）"),
+        ];
+        for (k, w) in want {
+            assert_eq!(typed(k), w, "{k}");
+        }
+        // 半角のまま(エンジンは食わない)
+        for k in ['@', '^', '\\', ';', ':'] {
+            assert!(!s().would_eat(&Key::Char(k)), "{k}");
+        }
+    }
+
+    #[test]
+    fn jis109_symbols_in_the_middle_of_a_word() {
+        let mut m = s();
+        for c in "ka".chars() {
+            m.key(Key::Char(c));
+        }
+        let st = m.key(Key::Char(','));
+        assert!(st.commit.as_deref().is_some_and(|t| t.ends_with('、')), "{st:?}");
     }
 
     #[test]
