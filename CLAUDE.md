@@ -46,6 +46,7 @@
 ## HANDOFF
 - **2026-10-14 お引越し機能**: `aruaru-ime move export|import`(`backup.rs` の `create_move`/`write_move`、CLI)。利用者の指示「お引越し出来るようにして」。次のリリース(v0.2.14)に含める。詳細は `PORTING.md`「データの場所」。
   *English*: added `aruaru-ime move export|import` for moving user data to another PC (next release).
+- **2026-10-16 109キーの記号をMS-IME準拠に戻した(ユーザー指摘「通常の日本語109キーボードとして打てない」)**: ひらがなモードで `,`→、 `.`→。 `/`→・ `[ ]`→「 」 `-`→ー `!`→！ `?`→？ `( )`→（ ）。直前が英数字(1,000 / 3.14 / well-known)は半角のまま。`@ ^ \` のみ半角(エンジンは食わない)。下の v0.2.11 の「半角のまま」方針は本項で置き換え。実機のインストーラー版での目視確認と新バージョンの公開は未了。
 - **2026-10-14 v0.2.11〜v0.2.13 公開**: Linux の Fcitx5 アドオン(`fcitx5/`、`tools/fcitx5-test.sh`)、ひらがなモードで `, . / \ [ ] @ ^` を半角のまま(ユーザー指示、以前の `,`→`、` は取りやめ)・`{` 2回で `「`・`< > ?` の候補順・JIS109(オンライン画面)、オンライン画面の Space 不具合の修正(RPoem `open-runo-crossui` の keydown を同期的に止める)、ウェブサービス名の辞書(ようつべ→youtube)とサーバーモードの共通辞書(`shared_user_dict.json`、読み取り専用)。macOS は実機が無く CI のビルド確認のみ。詳細・リリース手順の教訓は `PORTING.md` の「v0.2.11〜v0.2.13」節。
   *English*: v0.2.11–0.2.13 shipped: Fcitx5 addon, half-width `, . / \ [ ] @ ^`, `{` twice → `「`, candidate orders, JIS 109 on the online screen, the Space fix (RPoem `open-runo-crossui`), the web-service dictionary and the read-only shared dictionary for server mode. macOS is CI-build-only (no Mac). See PORTING.md for details and release lessons.
 

@@ -116,7 +116,7 @@ pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang:
     }
     match key {
         // 最初の - は、ハイフンの種類を候補に並べるためIMEが受ける(直前が英数字のときはIME側でそのまま確定する)
-        Key::Char(c) => c.is_ascii_alphabetic() || composing || c.is_ascii_digit() || (crate::prefer::lead_symbol(*c).is_some() && !matches!(c, '/' | '[' | ']' | '@' | '^' | '\\')),
+        Key::Char(c) => c.is_ascii_alphabetic() || composing || c.is_ascii_digit() || matches!(c, ',' | '.') || (crate::prefer::lead_symbol(*c).is_some() && !matches!(c, '@' | '^' | '\\')),
         Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
@@ -769,7 +769,13 @@ impl Session {
             }
             // 入力の最初の - : 半角 - ・全角 － ・ダッシュ・長音・カタカナのハイフンなどを候補に並べる。
             // 直前が英数字(090-1234 / well-known)のときは、候補を出さずそのまま - にする。
-            Key::Char(sym) if !self.composing() && !matches!(sym, '/' | '[' | ']' | '@' | '^' | '\\') && crate::prefer::lead_symbol(sym).is_some() => {
+            // , . : 109キーのとおり 、 。 を直接入力する(直前が英数字=1,000 や 3.14 は半角のまま)
+            Key::Char(p @ (',' | '.')) if !self.composing() => {
+                let out = if self.before.chars().last().is_some_and(|ch| ch.is_ascii_alphanumeric()) { p } else if p == ',' { '、' } else { '。' };
+                self.note_commit(&out.to_string());
+                self.state(true, Some(out.to_string()))
+            }
+            Key::Char(sym) if !self.composing() && !matches!(sym, '@' | '^' | '\\') && crate::prefer::lead_symbol(sym).is_some() => {
                 if self.before.chars().last().is_some_and(|ch| ch.is_ascii_alphanumeric()) {
                     self.note_commit(&sym.to_string());
                     return self.state(true, Some(sym.to_string()));
@@ -818,7 +824,7 @@ impl Session {
                 if self.composing() {
                     // 区切り文字: 確定してから文字を渡す
                     let mut s = self.commit_current();
-                    s.push(c);
+                    s.push(match c { ',' => '、', '.' => '。', _ => c });
                     self.note_commit("");
                     return self.state(true, Some(s));
                 }
@@ -1107,8 +1113,14 @@ mod tests {
     #[test]
     fn comma_and_period_become_japanese_punctuation_except_after_ascii() {
         let mut m = s();
-        // , . / \ [ ] @ ^ は半角のまま(エンジンは食わず、そのまま入力される)
-        for c in [',', '.', '/', '[', ']', '@', '^', '\\'] {
+        // 日本語109キー: , . → 、 。 / 直前が英数字なら半角のまま
+        assert_eq!(m.key(Key::Char(',')).commit.as_deref(), Some("、"));
+        assert_eq!(m.key(Key::Char('.')).commit.as_deref(), Some("。"));
+        m.set_before("1");
+        assert_eq!(m.key(Key::Char(',')).commit.as_deref(), Some(","));
+        // @ ^ \ は半角のまま(エンジンは食わない)
+        let mut m = s();
+        for c in ['@', '^', '\\'] {
             let st = m.key(Key::Char(c));
             assert!(!st.eaten && st.commit.is_none(), "{c}");
         }
@@ -1364,9 +1376,9 @@ mod tests {
         }
         let st = s.key(Key::Space);
         assert!(st.cands.iter().any(|c| c == "100-0001" || c == "〒100-0001"), "{:?}", st.cands);
-        // カンマは半角のまま
+        // カンマは(直前が数字でない限り)、になる
         let mut s = self::tests::s();
-        assert!(!s.key(Key::Char(',')).eaten);
+        assert!(s.key(Key::Char(',')).eaten);
     }
 
     #[test]
