@@ -102,7 +102,7 @@ pub fn pull(root: &Path, repo: &str, replace: bool) -> Result<backup::Report, St
         .map_err(|e| e.to_string())?;
     let raw = v["content"].as_str().ok_or("内容がありません")?.replace('\n', "");
     let bytes = base64::engine::general_purpose::STANDARD.decode(raw).map_err(|e| e.to_string())?;
-    let b: Bundle = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    let b: Bundle = sonic_rs::from_slice(&bytes).map_err(|e| e.to_string())?;
     backup::restore(&b, root, replace).map_err(|e| e.to_string())
 }
 

@@ -142,8 +142,8 @@ pub fn restore(b: &Bundle, root: &Path, replace: bool) -> std::io::Result<Report
 fn merge_file(name: &str, cur: &str, inc: &str, count: &mut usize) -> Option<String> {
     match name {
         "user_dict.json" => {
-            let mut a: Vec<UEntry> = serde_json::from_str(cur).unwrap_or_default();
-            let b: Vec<UEntry> = serde_json::from_str(inc).ok()?;
+            let mut a: Vec<UEntry> = sonic_rs::from_str(cur).unwrap_or_default();
+            let b: Vec<UEntry> = sonic_rs::from_str(inc).ok()?;
             for e in b {
                 if !a.iter().any(|x| x.reading == e.reading && x.surface == e.surface) {
                     a.push(e);
@@ -153,8 +153,8 @@ fn merge_file(name: &str, cur: &str, inc: &str, count: &mut usize) -> Option<Str
             serde_json::to_string_pretty(&a).ok()
         }
         "learned.json" => {
-            let mut a: crate::session::Learned = serde_json::from_str(cur).unwrap_or_default();
-            let b: crate::session::Learned = serde_json::from_str(inc).ok()?;
+            let mut a: crate::session::Learned = sonic_rs::from_str(cur).unwrap_or_default();
+            let b: crate::session::Learned = sonic_rs::from_str(inc).ok()?;
             for (r, v) in b.map {
                 for (s, n) in v {
                     let slot = a.map.entry(r.clone()).or_default();
@@ -173,8 +173,8 @@ fn merge_file(name: &str, cur: &str, inc: &str, count: &mut usize) -> Option<Str
             serde_json::to_string(&a).ok()
         }
         "wishlist.json" => {
-            let mut a: Vec<crate::wish::Wish> = serde_json::from_str(cur).unwrap_or_default();
-            let b: Vec<crate::wish::Wish> = serde_json::from_str(inc).ok()?;
+            let mut a: Vec<crate::wish::Wish> = sonic_rs::from_str(cur).unwrap_or_default();
+            let b: Vec<crate::wish::Wish> = sonic_rs::from_str(inc).ok()?;
             for w in b {
                 if !a.iter().any(|x| x.term == w.term && x.category == w.category) {
                     a.push(w);
@@ -184,8 +184,8 @@ fn merge_file(name: &str, cur: &str, inc: &str, count: &mut usize) -> Option<Str
             serde_json::to_string_pretty(&a).ok()
         }
         n if n.starts_with("vocab/") => {
-            let mut a: crate::code::UserFile = serde_json::from_str(cur).ok()?;
-            let b: crate::code::UserFile = serde_json::from_str(inc).ok()?;
+            let mut a: crate::code::UserFile = sonic_rs::from_str(cur).ok()?;
+            let b: crate::code::UserFile = sonic_rs::from_str(inc).ok()?;
             for w in b.words {
                 if !a.words.contains(&w) {
                     a.words.push(w);
@@ -299,7 +299,7 @@ pub fn write_backup(root: &Path, dir: &Path, force: bool) -> std::io::Result<Opt
 }
 
 pub fn read_backup(path: &Path) -> Option<Bundle> {
-    serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
+    sonic_rs::from_str(&std::fs::read_to_string(path).ok()?).ok()
 }
 
 #[cfg(test)]

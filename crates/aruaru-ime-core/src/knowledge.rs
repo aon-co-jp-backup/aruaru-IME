@@ -21,7 +21,7 @@ pub fn path(root: &Path) -> PathBuf {
 }
 
 pub fn load(p: &Path) -> Vec<Item> {
-    std::fs::read_to_string(p).ok().and_then(|t| serde_json::from_str(t.trim_start_matches('\u{feff}')).ok()).unwrap_or_default()
+    std::fs::read_to_string(p).ok().and_then(|t| sonic_rs::from_str(t.trim_start_matches('\u{feff}')).ok()).unwrap_or_default()
 }
 
 fn save(p: &Path, v: &[Item]) -> std::io::Result<()> {

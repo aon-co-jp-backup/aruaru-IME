@@ -206,7 +206,7 @@ pub fn plausible_pair(reading: &str, surface: &str) -> bool {
 
 impl Learned {
     pub fn load(path: &std::path::Path) -> Self {
-        let mut l: Self = std::fs::read_to_string(path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+        let mut l: Self = std::fs::read_to_string(path).ok().and_then(|s| sonic_rs::from_str(&s).ok()).unwrap_or_default();
         l.sanitize();
         l
     }
@@ -1402,12 +1402,12 @@ mod tests {
         let mut s = s();
         let st = type_str(&mut s, "sakura");
         let json = serde_json::to_string(&st).unwrap();
-        let back: Step = serde_json::from_str(&json).unwrap();
+        let back: Step = sonic_rs::from_str(&json).unwrap();
         assert_eq!(st, back);
         assert!(back.on && back.composing);
         for k in [Key::Char('a'), Key::Char('5'), Key::Char(','), Key::Space, Key::Enter, Key::Esc, Key::Backspace, Key::Fn(6), Key::Other] {
             let j = serde_json::to_string(&k).unwrap();
-            assert_eq!(serde_json::from_str::<Key>(&j).unwrap(), k, "{j}");
+            assert_eq!(sonic_rs::from_str::<Key>(&j).unwrap(), k, "{j}");
             // 持ち帰った状態だけで判定しても、通信なしのその場判定と一致する
             assert_eq!(would_eat_with(&k, back.on, back.composing, back.last_ja), s.would_eat(&k), "{k:?}");
         }

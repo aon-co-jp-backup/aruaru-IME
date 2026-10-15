@@ -104,7 +104,7 @@ pub fn path(root: &Path) -> PathBuf {
 }
 
 pub fn load(root: &Path) -> Vec<Wish> {
-    std::fs::read_to_string(path(root)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    std::fs::read_to_string(path(root)).ok().and_then(|s| sonic_rs::from_str(&s).ok()).unwrap_or_default()
 }
 
 pub fn save(root: &Path, v: &[Wish]) -> std::io::Result<()> {

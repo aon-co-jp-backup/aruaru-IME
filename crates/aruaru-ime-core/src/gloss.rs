@@ -73,7 +73,7 @@ fn glosses_for(w: &Word, kanji: Option<&str>, kana: &str) -> Vec<String> {
 
 /// JMdict(jmdict-simplified の JSON)から `表記\t読み\t訳語|訳語…` の行を作る。よく使われる語を先に並べる。
 pub fn build_tsv(json: &[u8]) -> Result<String, String> {
-    let root: Root = serde_json::from_slice(json).map_err(|e| format!("JMdict を読めません: {e}"))?;
+    let root: Root = sonic_rs::from_slice(json).map_err(|e| format!("JMdict を読めません: {e}"))?;
     let mut common_lines: Vec<String> = vec![];
     let mut other_lines: Vec<String> = vec![];
     for w in &root.words {

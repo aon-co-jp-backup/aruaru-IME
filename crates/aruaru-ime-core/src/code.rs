@@ -85,7 +85,7 @@ fn load_all(dir: &std::path::Path) -> Vec<Entry> {
         let mut files: Vec<_> = rd.flatten().filter(|e| e.path().extension().is_some_and(|x| x == "json")).collect();
         files.sort_by_key(|e| e.file_name());
         for e in files {
-            if let Some(f) = std::fs::read_to_string(e.path()).ok().and_then(|t| serde_json::from_str::<UserFile>(&t).ok()) {
+            if let Some(f) = std::fs::read_to_string(e.path()).ok().and_then(|t| sonic_rs::from_str::<UserFile>(&t).ok()) {
                 v.push(Entry::new(&f.name, f.signals, f.words, true));
             }
         }
