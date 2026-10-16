@@ -92,6 +92,9 @@ Install with `aruaru-ime-windows-x86_64-setup.exe` (admin); right-click the tray
 **v0.2.11–0.2.13 (2026-10-14)**: Fcitx5 support on Linux (alongside IBus); `, . / \ [ ] @ ^` are typed as half-width in hiragana mode (`{` twice gives `「`; candidate orders for `< > ?`; JIS 109 keyboards on the online screen); the online screen's Space key fix; a web-service name dictionary (ようつべ → youtube, やふー → yahoo); the server mode shares the default dictionaries read-only. macOS is only build-tested in CI (no Mac available).
 **v0.2.11〜0.2.13(2026-10-14)**: Linux の Fcitx5 に対応(IBus と併用)。ひらがなモードでも `, . / \ [ ] @ ^` は半角のまま(`{` を2回で `「`、`< > ?` の候補順、オンライン画面で日本語109キーボード)。オンライン画面の Space が効かない不具合を修正。ウェブサービス名の辞書(ようつべ → youtube、やふー → yahoo)。サーバーモードでも共通の用語辞書を読み取り専用で使用。macOS は実機が無く、CI のビルド確認のみ。
 
+**v0.2.15 (2026-10-16)**: Ctrl+Shift+L switches the input language inside the IME (Windows, IBus, Fcitx5, online screen); hiragana mode follows MS-IME for `, . / [ ]` (as Japanese 109 keyboards do).
+**v0.2.15(2026-10-16)**: Ctrl+Shift+L で、IME の中で入力言語を切り替え(Windows・IBus・Fcitx5・オンライン画面)。ひらがなモードの `, . / [ ]` は、日本語109キーボードのとおり MS-IME 準拠。
+
 ---
 
 ## 引っ越し / Moving to another machine

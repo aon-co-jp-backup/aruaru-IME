@@ -131,7 +131,7 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     }
     add_sub(langs, all_menu, &format!("すべての言語 / All languages ({})", aruaru_ime_core::languages::LANGUAGES.len()));
     let _ = AppendMenuW(langs, MF_SEPARATOR, 0, PCWSTR::null());
-    add(langs, MF_STRING | MF_GRAYED, 3, "切替 / Switch: Win+Space");
+    add(langs, MF_STRING | MF_GRAYED, 3, "切替 / Switch: Win+Space または Ctrl+Shift+L / or Ctrl+Shift+L");
     add_sub(root, langs, &format!("入力言語 / Input languages ({}/{})", chosen.len(), settings::MAX_LANGUAGES));
 
     // 開発(プログラミング言語・フレームワーク)

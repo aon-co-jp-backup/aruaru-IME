@@ -347,3 +347,12 @@ English: new web-service dictionary pack (ようつべ → youtube, やふー �
 
 **リリース手順の教訓**(v0.2.11 で一度つまずいた): (1) `dist/` は `.gitignore` なので `git add dist/...` が失敗し、後ろの `git tag` が古い HEAD に付く → **コミットが入ったことを確認してからタグ**。(2) Windows インストーラーは、別の作業の未コミット変更が混ざらないよう `git worktree add ../aruaru-ime-rel HEAD` + `data/` をコピーして ISCC でビルド。(3) `gh release create` に Windows のインストーラーと `.sha256` を付けると、CI の release ジョブが残りを `--clobber` で追加する。(4) VPS は `/var/lib/aruaru-ime/downloads/` にインストーラーと `VERSION`、エンジンは `/opt/aruaru-ime/aruaru-ime-daemon`(`cargo build --release` 後に差し替えて `systemctl restart aruaru-ime-server`)。`Cargo.lock` の差分で `git pull` が止まったら `git checkout Cargo.lock`。
 Release lessons: verify the commit landed before tagging (`dist/` is git-ignored); build the Windows installer from a clean `git worktree`; the CI release job uploads the other assets; VPS = installer + `VERSION` + engine binary swap + `systemctl restart`.
+
+## 入力言語の切り替えを IME 本体に(2026-10-16, v0.2.15) / In-IME language switching
+**Ctrl+Shift+L** で、設定で選んである入力言語(最大 7、右クリック「入力言語」)を順に巡る(`Key::NextLang`、`Session::next_lang`)。OS の入力方式(Win+Space)を切り替えなくても、IME の中で切り替えられる。入力中は、いまの入力を確定してから切り替える。選んである言語が 1 つ以下なら、日本語⇄英語。
+配線: コア(`session.rs`、`would_eat_lang` も対応)、Windows の TSF(`map_key` で Ctrl+Shift+L、切り替え後に言語名を表示)、IBus・Fcitx5(Ctrl+Shift+L)、オンライン画面(RPoem の `open-runo-crossui`)、通知領域メニューの案内文。試験: コアの単体試験(日→英→露→日と巡る・入力中は確定してから・`would_eat`)。
+**未確認**: Windows の実機での目視(言語名の表示)、macOS の入力メソッド(未対応)。
+English: **Ctrl+Shift+L** cycles through the chosen input languages (up to 7) inside the IME (`Key::NextLang`); pending input is committed first; with fewer than two chosen languages it toggles Japanese and English. Wired into the core, Windows TSF, IBus, Fcitx5, the online screen and the tray hint. Tested in the core; not yet visually verified on a real Windows machine; macOS not supported yet.
+
+## v0.2.15 のリリース内容
+10/16 に別の作業が入れた変更(109 キー記号を MS-IME 準拠に: `,`→、 `.`→。 `/`→・ `[ ]`→「 」 …、直前が英数字は半角。JSON の型付き読み込みを `sonic-rs` に)に、上の言語切り替えを加えて公開。

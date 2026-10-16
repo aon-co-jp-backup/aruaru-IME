@@ -165,6 +165,8 @@ std::string http(const std::string &method, const std::string &path, const std::
 
 std::string keyJson(const fcitx::Key &key) {
     auto st = key.states();
+    uint32_t s0 = static_cast<uint32_t>(key.sym());
+    if (st.test(fcitx::KeyState::Ctrl) && st.test(fcitx::KeyState::Shift) && !st.test(fcitx::KeyState::Alt) && (s0 == 0x4c || s0 == 0x6c)) return "\"NextLang\"";
     if (st.test(fcitx::KeyState::Ctrl) || st.test(fcitx::KeyState::Alt) || st.test(fcitx::KeyState::Super)) return "";
     uint32_t sym = static_cast<uint32_t>(key.sym());
     switch (sym) {

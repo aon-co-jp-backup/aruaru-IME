@@ -243,6 +243,10 @@ fn map_key(vk: u32) -> Option<Key> {
         0x19 | 0xF3 | 0xF4 => return Some(Key::Toggle), // 半角/全角
         _ => {}
     }
+    // Ctrl+Shift+L: 入力言語を、選んである言語の次へ(OS の入力方式を切り替えなくても、IME の中で切り替える)
+    if vk == 0x4C && down(VK_CONTROL) && down(VK_SHIFT) && !down(VK_MENU) {
+        return Some(Key::NextLang);
+    }
     if down(VK_CONTROL) || down(VK_MENU) || down(VK_LWIN) || down(VK_RWIN) {
         return None;
     }
@@ -372,6 +376,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         let step = self.inner.borrow_mut().session.key(key.clone());
         crate::log(&format!("KeyDown -> {:?}", step));
         let eaten = step.eaten;
+        let last_lang = step.lang.clone();
         if step.commit.is_some() || !step.preedit.is_empty() || self.inner.borrow().comp.is_some() {
             self.apply(ctx, step);
         }
@@ -381,6 +386,11 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         if is_mode {
             let on = self.inner.borrow().session.is_on();
             self.flash_mode(ctx, if on { "あ" } else { "A" });
+        }
+        if key == Key::NextLang {
+            if let Some(l) = aruaru_ime_core::translit::Lang::from_code(&last_lang) {
+                self.flash_mode(ctx, l.native_name());
+            }
         }
         Ok(BOOL(eaten as i32))
     }

@@ -44,6 +44,8 @@
 - ユーザーのメモ帳には既存の未保存文書が開いていることがある。試験は専用の `tools/testhost/TestHost.exe` で行う。
 
 ## HANDOFF
+- **2026-10-16 v0.2.15**: 入力言語の切り替えを IME 本体に組み込んだ(**Ctrl+Shift+L**、`Key::NextLang`。TSF・IBus・Fcitx5・オンライン画面・コア)。10/16 の 109 キー記号(MS-IME 準拠)・sonic-rs 化と合わせて公開。**未了**: Windows 実機での言語名表示の目視、通知領域メニューの目視確認、macOS 対応。
+  *English*: v0.2.15 adds in-IME language switching (**Ctrl+Shift+L**) and ships the 10/16 changes (MS-IME style 109-key symbols, sonic-rs). Not yet visually verified on a real Windows machine.
 - **2026-10-14 お引越し機能**: `aruaru-ime move export|import`(`backup.rs` の `create_move`/`write_move`、CLI)。利用者の指示「お引越し出来るようにして」。次のリリース(v0.2.14)に含める。詳細は `PORTING.md`「データの場所」。
   *English*: added `aruaru-ime move export|import` for moving user data to another PC (next release).
 - **2026-10-16 109キーの記号をMS-IME準拠に戻した(ユーザー指摘「通常の日本語109キーボードとして打てない」)**: ひらがなモードで `,`→、 `.`→。 `/`→・ `[ ]`→「 」 `-`→ー `!`→！ `?`→？ `( )`→（ ）。直前が英数字(1,000 / 3.14 / well-known)は半角のまま。`@ ^ \` のみ半角(エンジンは食わない)。下の v0.2.11 の「半角のまま」方針は本項で置き換え。実機のインストーラー版での目視確認と新バージョンの公開は未了。

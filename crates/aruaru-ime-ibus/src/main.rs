@@ -51,6 +51,10 @@ mod linux {
 
     /// キーシム → エンジンへ送る Key の JSON(`{"Char":"a"}` / `"Space"` など)。処理しないキーは None。
     pub fn key_json(keyval: u32, state: u32) -> Option<String> {
+        // Ctrl+Shift+L: 入力言語を次へ
+        if state & CONTROL_MASK != 0 && state & SHIFT_MASK != 0 && state & (MOD1_MASK | SUPER_MASK | RELEASE_MASK) == 0 && (keyval == 0x4c || keyval == 0x6c) {
+            return Some("\"NextLang\"".to_string());
+        }
         if state & (CONTROL_MASK | MOD1_MASK | SUPER_MASK | RELEASE_MASK) != 0 {
             return None;
         }

@@ -9,8 +9,8 @@ android {
         applicationId 'jp.aon.aruaruime'
         minSdk 24
         targetSdk 34
-        versionCode 14
-        versionName '0.2.14'
+        versionCode 15
+        versionName '0.2.15'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

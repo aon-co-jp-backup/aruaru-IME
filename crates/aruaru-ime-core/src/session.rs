@@ -52,6 +52,8 @@ pub enum Key {
     Convert,
     /// 無変換キー: 入力中は ひらがな→カタカナ→全角英数→半角英数 と切り替え、入力していないときは IME オフ。
     NonConvert,
+    /// 入力言語を、選んである言語の次へ切り替える(Ctrl+Shift+L)。OS の入力方式を切り替えなくても、IME の中で切り替えられる。
+    NextLang,
     Other,
 }
 
@@ -103,6 +105,9 @@ pub fn would_eat_with(key: &Key, on: bool, composing: bool, last_ja: bool) -> bo
 pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang: Lang) -> bool {
     if matches!(key, Key::Toggle | Key::On | Key::Off | Key::Convert | Key::NonConvert) {
         return true;
+    }
+    if matches!(key, Key::NextLang) {
+        return on;
     }
     if !on {
         return false;
@@ -282,6 +287,8 @@ pub struct Session {
     form: Option<Form>,
     form_cycle: u8,
     mode_label: String,
+    /// 切り替えで巡回する入力言語(設定で選んだ言語。空なら日本語と英語)。
+    langs: Vec<Lang>,
     extras_done: bool,
     /// 入力する言語(既定は日本語)。
     pub lang: Lang,
@@ -311,7 +318,7 @@ fn is_ja(c: char) -> bool {
 
 impl Session {
     pub fn new(conv: Box<dyn Converter>) -> Self {
-        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), extras_done: false, lang: Lang::Ja, en_cands: vec![], col: 0, en_sel: None, zh_used: vec![], jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
+        Self { conv, on: true, field_kind: None, before: String::new(), buf: String::new(), cands: vec![], sel: None, unconverted: String::new(), learned: Learned::default(), learn_path: None, form: None, form_cycle: 0, mode_label: String::new(), langs: vec![], extras_done: false, lang: Lang::Ja, en_cands: vec![], col: 0, en_sel: None, zh_used: vec![], jp_known: false, no_learn_once: false, user: None, live: true, autocorrect: true, old_forms: false, auto: false }
     }
 
     /// 設定ファイルの内容(ライブ変換・自動訂正・旧字体)を反映する。フォーカス移動のたびに呼ぶと、右クリックメニューでの変更がすぐ効く。
@@ -319,6 +326,17 @@ impl Session {
         self.live = s.live_conversion;
         self.autocorrect = s.autocorrect;
         self.old_forms = s.old_forms;
+        self.langs = s.selected_languages();
+    }
+
+    /// 選んである言語を順に巡る(Ctrl+Shift+L)。入力中なら、いまの入力を確定してから切り替える。
+    fn next_lang(&mut self) -> Step {
+        let pending = if self.composing() { Some(self.commit_current()) } else { None };
+        let list: Vec<Lang> = if self.langs.len() >= 2 { self.langs.clone() } else { vec![Lang::Ja, Lang::En] };
+        let i = list.iter().position(|l| *l == self.lang).map_or(0, |i| (i + 1) % list.len());
+        let next = list[i];
+        self.set_lang(next);
+        self.state(true, pending)
     }
 
     /// 学習履歴を保存先つきで有効にする(あれば読み込んで引き継ぐ)。
@@ -702,6 +720,9 @@ impl Session {
         }
         if !self.on {
             return Step::default();
+        }
+        if key == Key::NextLang {
+            return self.next_lang();
         }
         if self.lang != Lang::Ja {
             return self.key_lang(key);
@@ -1415,6 +1436,25 @@ mod tests {
         // カンマは(直前が数字でない限り)、になる
         let mut s = self::tests::s();
         assert!(s.key(Key::Char(',')).eaten);
+    }
+
+    #[test]
+    fn next_lang_cycles_through_the_chosen_languages() {
+        let mut m = tests::s();
+        let mut st = crate::settings::Settings::default();
+        st.languages = vec!["ja".into(), "en".into(), "ru".into()];
+        m.apply_settings(&st);
+        assert_eq!(m.key(Key::NextLang).lang, "en");
+        assert_eq!(m.key(Key::NextLang).lang, "ru");
+        assert_eq!(m.key(Key::NextLang).lang, "ja");
+        // 入力中は、確定してから切り替える
+        for c in "kyou".chars() {
+            m.key(Key::Char(c));
+        }
+        let st = m.key(Key::NextLang);
+        assert_eq!(st.lang, "en");
+        assert!(st.commit.is_some());
+        assert!(would_eat_lang(&Key::NextLang, true, false, false, Lang::Ja) && !would_eat_lang(&Key::NextLang, false, false, false, Lang::Ja));
     }
 
     #[test]
