@@ -19,8 +19,8 @@ cat > "$T/share/ibus/component/aruaru-ime.xml" <<XML
   <name>org.freedesktop.IBus.AruaruIME</name>
   <description>aruaru-IME</description>
   <exec>$BIN/aruaru-ime-ibus --ibus</exec>
-  <version>0.2</version><author>石塚正浩（MASAHIRO ISHIZUKA）</author><license>MIT</license><homepage>https://github.com/aon-co-jp/aruaru-IME</homepage><textdomain>aruaru-ime</textdomain>
-  <engines><engine><name>aruaru-ime</name><language>ja</language><license>MIT</license><author>石塚正浩（MASAHIRO ISHIZUKA）</author><icon></icon><layout>default</layout><longname>aruaru-IME</longname><description>AI IME</description><rank>80</rank></engine></engines>
+  <version>0.2</version><author>石 塚 正 浩（MASAHIRO ISHIZUKA）</author><license>MIT</license><homepage>https://github.com/aon-co-jp/aruaru-IME</homepage><textdomain>aruaru-ime</textdomain>
+  <engines><engine><name>aruaru-ime</name><language>ja</language><license>MIT</license><author>石 塚 正 浩（MASAHIRO ISHIZUKA）</author><icon></icon><layout>default</layout><longname>aruaru-IME</longname><description>AI IME</description><rank>80</rank></engine></engines>
 </component>
 XML
 export XDG_DATA_DIRS="$T/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
