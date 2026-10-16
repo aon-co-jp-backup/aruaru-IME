@@ -109,3 +109,7 @@ cargo test            # 動作確認(コアのテスト約180件) / sanity check
 Your data (dictionaries, learning history, settings, downloaded postal data) lives in the **data directory** (Windows: `%LOCALAPPDATA%\aruaru`), not in the repository. Use the tray menu "Backup & restore" (Google Drive) or copy that folder to bring it along.
 
 **お引越し / Moving your data**: `aruaru-ime move export [フォルダ]` で 1 ファイルに書き出し、新しい PC で `aruaru-ime move import <ファイル>` で取り込みます(辞書・学習履歴・設定・用語辞書・取得済みの郵便番号。大きい辞書本体は移った先で自動取得)。 / Export your data to one file with `aruaru-ime move export [dir]` and import it on the new PC with `aruaru-ime move import <file>` (big dictionaries are re-downloaded automatically).
+
+---
+
+作者 / Author: 石塚正浩（MASAHIRO ISHIZUKA） (https://github.com/aon-co-jp)
