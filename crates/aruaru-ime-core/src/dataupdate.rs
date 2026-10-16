@@ -36,7 +36,7 @@ fn meta_path(root: &Path) -> PathBuf {
 }
 
 fn load_meta(root: &Path) -> Meta {
-    std::fs::read_to_string(meta_path(root)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    std::fs::read_to_string(meta_path(root)).ok().and_then(|s| sonic_rs::from_str(&s).ok()).unwrap_or_default()
 }
 
 fn save_meta(root: &Path, m: &Meta) {

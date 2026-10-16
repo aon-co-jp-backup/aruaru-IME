@@ -706,7 +706,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                 let s = state.lock().unwrap();
                 (200, serde_json::json!({"captures": s.captures, "last_capture_ms": s.last_capture_ms, "screen_chars": s.screen_text.chars().count(), "editable": s.editable, "password": s.password}).to_string())
             }
-            ("POST", "/key") => match serde_json::from_str::<KeyReq>(&body) {
+            ("POST", "/key") => match sonic_rs::from_str::<KeyReq>(&body) {
                 Ok(r) => {
                     let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state), gloss: Arc::clone(&gloss) };
                     let step = with_session(&r.sid, mk, |s| {
@@ -722,7 +722,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                 }
                 Err(e) => (400, e.to_string()),
             },
-            ("POST", "/session") => match serde_json::from_str::<SessReq>(&body) {
+            ("POST", "/session") => match sonic_rs::from_str::<SessReq>(&body) {
                 Ok(r) => {
                     let mk = || EngineConv { dict: Arc::clone(&dict), client: client.clone(), state: Arc::clone(&state), gloss: Arc::clone(&gloss) };
                     if r.op == "drop" {
@@ -761,14 +761,14 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                 let v: Vec<serde_json::Value> = aruaru_ime_core::code::list().into_iter().map(|(n, c, u)| serde_json::json!({"name": n, "words": c, "user": u})).collect();
                 (200, serde_json::to_string(&v).unwrap_or_default())
             }
-            ("POST", "/vocab/learn") => match serde_json::from_str::<VocabReq>(&body) {
+            ("POST", "/vocab/learn") => match sonic_rs::from_str::<VocabReq>(&body) {
                 Ok(v) => {
                     learn_in_background(&client, v.name.clone());
                     (202, serde_json::json!({"accepted": v.name}).to_string())
                 }
                 Err(e) => (400, e.to_string()),
             },
-            ("POST", "/vocab/remove") => match serde_json::from_str::<VocabReq>(&body) {
+            ("POST", "/vocab/remove") => match sonic_rs::from_str::<VocabReq>(&body) {
                 Ok(v) => (200, serde_json::json!({"removed": aruaru_ime_core::uservocab::remove(&v.name).unwrap_or(false)}).to_string()),
                 Err(e) => (400, e.to_string()),
             },
@@ -776,7 +776,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                 let u = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
                 (200, serde_json::to_string(u.entries()).unwrap_or_default())
             }
-            ("POST", "/dict/add") => match serde_json::from_str::<DictReq>(&body) {
+            ("POST", "/dict/add") => match sonic_rs::from_str::<DictReq>(&body) {
                 Ok(d) => {
                     let mut u = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
                     match u.add(&d.reading, &d.surface) {
@@ -786,7 +786,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                 }
                 Err(e) => (400, e.to_string()),
             },
-            ("POST", "/dict/remove") => match serde_json::from_str::<DictReq>(&body) {
+            ("POST", "/dict/remove") => match sonic_rs::from_str::<DictReq>(&body) {
                 Ok(d) => {
                     let mut u = aruaru_ime_core::userdict::UserDict::load(&aruaru_ime_core::userdict::UserDict::default_path());
                     let n = u.remove(&d.reading, if d.surface.is_empty() { None } else { Some(&d.surface) }).unwrap_or(0);
@@ -794,7 +794,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                 }
                 Err(e) => (400, e.to_string()),
             },
-            ("POST", "/focus") => match serde_json::from_str::<FocusReq>(&body) {
+            ("POST", "/focus") => match sonic_rs::from_str::<FocusReq>(&body) {
                 Ok(f) => {
                     let mut s = state.lock().unwrap();
                     s.editable = f.editable;
@@ -807,7 +807,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                 }
                 Err(e) => (400, e.to_string()),
             },
-            ("POST", "/convert") => match serde_json::from_str::<ConvReq>(&body) {
+            ("POST", "/convert") => match sonic_rs::from_str::<ConvReq>(&body) {
                 Ok(r) => {
                     let (screen, pw) = {
                         let s = state.lock().unwrap();

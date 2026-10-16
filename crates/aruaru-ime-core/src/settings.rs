@@ -96,7 +96,7 @@ impl Settings {
     }
 
     pub fn load_from(p: &std::path::Path) -> Self {
-        std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+        std::fs::read_to_string(p).ok().and_then(|s| sonic_rs::from_str(&s).ok()).unwrap_or_default()
     }
 
     pub fn load() -> Self {

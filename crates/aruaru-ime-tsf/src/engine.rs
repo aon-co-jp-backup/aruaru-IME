@@ -135,7 +135,7 @@ impl Engine {
             })
             .to_string();
             if let Some(resp) = daemon::post("/key", &body, 1500) {
-                if let Ok(st) = serde_json::from_str::<Step>(&resp) {
+                if let Ok(st) = sonic_rs::from_str::<Step>(&resp) {
                     self.pending_before = None;
                     self.pending_raw = false;
                     self.down_since = None;

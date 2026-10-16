@@ -12,6 +12,7 @@ name = "aruaru-ime-daemon"
 path = "src/main.rs"
 
 [dependencies]
+sonic-rs = "0.3"
 aruaru-ime-core = { path = "../aruaru-ime-core" }
 open-runo-crossui = { path = "../../../RPoem/crates/open-runo-crossui" }
 serde = { version = "1", features = ["derive"] }

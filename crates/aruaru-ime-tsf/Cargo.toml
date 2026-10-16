@@ -1,4 +1,4 @@
-﻿[package]
+[package]
 name = "aruaru-ime-tsf"
 description = "aruaru-IME Windows text service (TSF) DLL."
 version.workspace = true
@@ -12,6 +12,7 @@ name = "aruaru_ime_tsf"
 crate-type = ["cdylib"]
 
 [dependencies]
+sonic-rs = "0.3"
 aruaru-ime-core = { path = "../aruaru-ime-core" }
 serde_json = "1"
 

@@ -88,7 +88,7 @@ impl Ledger {
         root.join("components.json")
     }
     pub fn load(root: &Path) -> Self {
-        fs::read_to_string(Self::path(root)).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+        fs::read_to_string(Self::path(root)).ok().and_then(|s| sonic_rs::from_str(&s).ok()).unwrap_or_default()
     }
     pub fn save(&self, root: &Path) -> std::io::Result<()> {
         fs::create_dir_all(root)?;
