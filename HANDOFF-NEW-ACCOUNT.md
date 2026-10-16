@@ -26,9 +26,9 @@
 - **落とし穴**: Bash のヒアドキュメントで日本語や `\` を書くと壊れる → Write/Edit ツールでファイルに書く。日本語を含む `.ps1` は BOM 付き UTF-8、`.cmd` は英語のみ(`.gitattributes` で CRLF)。Git Bash の WSL 呼び出しは `MSYS_NO_PATHCONV=1`。`sleep` の連鎖は禁止(待つなら `until ...; do sleep` をバックグラウンドで)。
 
 ## 3. aruaru-IME(`F:\aruaru-IME`、https://github.com/aon-co-jp/aruaru-IME)
-**現状**: v0.2.14 公開済み(Windows/macOS/Linux/Android、CI 全成功)。VPS のオンライン画面(https://easy-web.tokyo/ime)も 0.2.14。
+**現状**: v0.2.14 公開済み(その後の 10/16 の変更=109キー記号の MS-IME 準拠・JSON の sonic-rs 化は未リリース)(Windows/macOS/Linux/Android、CI 全成功)。VPS のオンライン画面(https://easy-web.tokyo/ime)も 0.2.14。
 - 構成: `aruaru-ime-core`(変換エンジン、Mozc 辞書+Viterbi、各言語、パック、郵便番号、駅名…)、`aruaru-ime-daemon`(常駐エンジン `127.0.0.1:4660`、サーバーモード `ARUARU_IME_SERVER=1`)、`aruaru-ime-cli`、`aruaru-ime-tsf`(Windows TSF DLL)、`aruaru-ime-ibus`(Linux IBus)、`fcitx5/`(Linux Fcitx5)、`macos/`(InputMethodKit)、`android/`(キーボード+WebView)。共有の画面は RPoem の `open-runo-crossui` が生成。
-- 入力の約束(ユーザー指示): 漢字に変換することが前提(ライブ変換)。ひらがなモードでも **`, . / \ [ ] @ ^` は半角のまま**、`{` は `{` の次に `「`(2回で `「`)、`<` は `< ＜ 、`、`>` は `> ＞ 。`、`?` は `? ？ ・ ･`、`;` `:` は元のまま。無変換キーはひらがな。「よう → 用 様 要」「ようつべ → youtube」「やふー → yahoo」。
+- 入力の約束(ユーザー指示。**最新は CLAUDE.md の HANDOFF が正**): 漢字に変換することが前提(ライブ変換)。ひらがなモードのキーは、**2026-10-16 に MS-IME 準拠へ戻した**(ユーザー指摘「通常の日本語109キーボードとして打てない」): `,`→、 `.`→。 `/`→・ `[ ]`→「 」 `-`→ー `!`→！ `?`→？ `( )`→（ ）、直前が英数字(1,000 / 3.14)は半角、`@ ^ \` のみ半角。10/14 に一度「半角のまま」にした経緯がある(ユーザーが方針を変えた)ので、**キー入力の要望は、直近の指示と CLAUDE.md を確認してから**。`{` の候補は `{ 「 ｛ …`(2回で `「`)、`<` は `< ＜ 、`、`>` は `> ＞ 。`、`?` は `? ？ ・ ･`。無変換キーはひらがな。「よう → 用 様 要」「ようつべ → youtube」「やふー → yahoo」。
 - **リリース手順**(2回つまずいた): (1) バージョンを `Cargo.toml`(6 行目)・`installer/aruaru-ime.iss`(5 行目)・`android/app/build.gradle`(versionCode/Name)で上げ、`dist/release-notes.md` に追記(`dist/` は git 管理外なので `git add dist` は失敗する)。(2) **コミットが入ったことを確認してから** `git tag vX && git push origin vX`(確認前にタグを打つと古い HEAD に付く)。(3) Windows インストーラーは `git worktree add ../aruaru-ime-rel HEAD` に `data/` をコピーして cargo build → ISCC(別作業の未コミット変更を混ぜない)。(4) `gh release create vX --target main --prerelease -F dist/release-notes.md <setup.exe> <sha256>`、CI の release ジョブが残りの成果物を足す。(5) VPS: `scp` で `/var/lib/aruaru-ime/downloads/` へ(exe・sha256・VERSION)、エンジンは `/root/repository/aruaru-IME` で `git checkout Cargo.lock; git pull; cargo build --release -p aruaru-ime-daemon` → `/opt/aruaru-ime/aruaru-ime-daemon` を差し替えて `systemctl restart aruaru-ime-server`。
 - データ(辞書など)は、利用者が選んだものだけ自動で取らない(例外: 国名・都市名と、取得済みデータの更新)。お引越しは `aruaru-ime move export|import`。
 - **未了**: インストーラーの実機の通し試験(最近の版)、右クリックメニュー/2列候補窓の目視確認、多言語の切替入力の IME 本体への組み込み、台湾・ギリシャ等の郵便番号、macOS/Linux の実機(Mac 無し)、Windows の通知領域メニューの目視確認。同じリポジトリを別の Claude セッションも触ることがある(`geo.rs`・`people.tsv`・`dataupdate.rs` など)。
@@ -39,6 +39,9 @@
 - Windows への導入: `installer\windows\install.ps1`(ユーザー単位。`dream-os status|raid|dx|fonts|linux|both`)。「Windows と dream-os の同時起動」は **WSL2 との並行実行**で実現(切り替え・単独起動は不可と、ユーザーに正直に説明済み)。
 - 試験: Windows(GT 730)と Ubuntu(WSL2・llvmpipe)で、dream-os・open-cuda・open-directx・open-cpu・aruaru-llm が成功。**未試験**: Ubuntu での `dream-os-raid-bridge`(`dxc` が要る。取得はユーザーの許可を取ってから)。
 - ビルドには `glslc`(Vulkan SDK。Ubuntu は `apt install glslc`)が要り、`open-cuda/examples/flash_attention_vulkan_real/shaders/flash_attention.spv` は git 管理外なので `glslc --target-env=vulkan1.1 flash_attention.comp -o flash_attention.spv` で作る。詳細は `dream-os/PORTING.md`。
+
+## 4.5 GitHub の履歴の書き直しに注意 / History was rewritten
+2026-10-14〜16 に、`aruaru-IME` を含む複数リポジトリの GitHub 履歴が書き直された(コミットのハッシュが変わり、作者が匿名化された。内容は同じ)。**強制 push しない**。ローカルや VPS の古い clone は `git pull` が「divergent branches」で止まる → 内容が同じこと(`git diff <旧> <新> --stat` が空)を確認してから `git fetch && git reset --hard origin/main`。タグも付け直されている(旧タグは `git fetch --tags --force`)。
 
 ## 5. 次にやるとよいこと / Suggested next steps
 1. `F:\runo\PORTING.md` の最優先の未完了(`open-web-server` の VPS 上の未 push 作業を GitHub へ push)を先に確認。
