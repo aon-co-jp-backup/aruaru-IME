@@ -34,9 +34,9 @@ if [ "$OS" = "Linux" ] && [ -f "$HERE/aruaru-ime-ibus" ]; then
   <name>org.freedesktop.IBus.AruaruIME</name>
   <description>aruaru-IME</description>
   <exec>$BIN/aruaru-ime-ibus --ibus</exec>
-  <version>0.2</version><author>aon-co-jp</author><license>MIT</license>
+  <version>0.2</version><author>石塚正浩（MASAHIRO ISHIZUKA）</author><license>MIT</license>
   <homepage>https://github.com/aon-co-jp/aruaru-IME</homepage><textdomain>aruaru-ime</textdomain>
-  <engines><engine><name>aruaru-ime</name><language>ja</language><license>MIT</license><author>aon-co-jp</author><icon></icon><layout>default</layout><longname>aruaru-IME</longname><description>AI IME</description><rank>80</rank></engine></engines>
+  <engines><engine><name>aruaru-ime</name><language>ja</language><license>MIT</license><author>石塚正浩（MASAHIRO ISHIZUKA）</author><icon></icon><layout>default</layout><longname>aruaru-IME</longname><description>AI IME</description><rank>80</rank></engine></engines>
 </component>
 XML
   if command -v ibus >/dev/null 2>&1; then ibus write-cache >/dev/null 2>&1 || true; ibus restart >/dev/null 2>&1 || true; fi

@@ -7,7 +7,7 @@ version = "0.2.14"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/aon-co-jp/aruaru-IME"
-authors = ["aon-co-jp"]
+authors = ["石塚正浩（MASAHIRO ISHIZUKA）"]
 
 [profile.release]
 opt-level = "s"
