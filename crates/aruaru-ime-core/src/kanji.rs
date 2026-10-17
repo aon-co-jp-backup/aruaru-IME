@@ -480,6 +480,33 @@ impl Dict {
         out
     }
 
+    /// 「語幹(送り仮名つき)+活用語尾」に分けて、語幹を漢字にした候補。つけて → 付けて・着けて・点けて…。
+    /// 語幹は2文字以上で、辞書の別表記が漢字を含み、語幹と同じ最後のかな(送り仮名)で終わるものだけ。
+    fn inflected_variants(&self, reading: &str) -> Vec<String> {
+        const ENDINGS: [&str; 17] = [
+            "ていました", "ています", "ていない", "ていた", "ている", "なかった", "ました", "ません", "たい", "ない", "ます", "たら", "たり", "て", "た", "ずに", "ず",
+        ];
+        let has_kanji = |t: &str| t.chars().any(|c| ('一'..='龥').contains(&c));
+        for end in ENDINGS {
+            let Some(stem) = reading.strip_suffix(end) else { continue };
+            let Some(last) = stem.chars().last() else { continue };
+            if stem.chars().count() < 2 {
+                continue;
+            }
+            let v: Vec<String> = self
+                .exact(stem, 12)
+                .into_iter()
+                .filter(|a| has_kanji(a) && a.chars().last() == Some(last) && a.chars().count() <= stem.chars().count())
+                .take(4)
+                .map(|a| format!("{a}{end}"))
+                .collect();
+            if !v.is_empty() {
+                return v;
+            }
+        }
+        vec![]
+    }
+
     /// `prefer_kanji` が真なら、漢字を含む言い換え(おはよう御座います)を先頭にし、標準の最有力はその次に出す。
     pub fn candidates_pref(&self, reading: &str, max: usize, prefer_kanji: bool) -> Vec<String> {
         let mut out: Vec<String> = vec![];
@@ -495,7 +522,14 @@ impl Dict {
             if t.chars().any(|c| c.is_ascii_digit()) && !reading.chars().any(|c| c.is_ascii_digit()) {
                 digit_best = Some(t); // 9足 のような数字入りの最有力は、ほかの漢字語の後ろへ
             } else if !out.contains(&t) {
+                let all_kana = t == reading;
                 out.push(t);
+                // 最有力が読みのままのかな(つけて)のとき、語幹+活用語尾に分けて語幹を漢字にした候補(付けて)を先頭に出す
+                if all_kana {
+                    for (i, v) in self.inflected_variants(reading).into_iter().enumerate() {
+                        out.insert(i, v);
+                    }
+                }
             }
         }
         for v in &variants {
@@ -547,6 +581,16 @@ mod tests {
     fn dict() -> Option<Dict> {
         let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
         Dict::load(&p).ok()
+    }
+
+    #[test]
+    fn real_dictionary_inflected_kanji_stem() {
+        let Some(d) = dict() else { return };
+        for (r, want) in [("つけて", "付けて"), ("つけた", "付けた"), ("つけます", "付けます"), ("つけない", "付けない")] {
+            let c = d.candidates(r, 10);
+            assert_eq!(c[0], want, "{r}: {c:?}");
+        }
+        assert!(d.candidates("つけて", 10).contains(&"着けて".to_string()));
     }
 
     #[test]
