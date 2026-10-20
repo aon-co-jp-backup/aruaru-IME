@@ -122,7 +122,9 @@ pub fn would_eat_lang(key: &Key, on: bool, composing: bool, last_ja: bool, lang:
     match key {
         // 最初の - は、ハイフンの種類を候補に並べるためIMEが受ける(直前が英数字のときはIME側でそのまま確定する)
         Key::Char(c) => c.is_ascii_alphabetic() || composing || c.is_ascii_digit() || matches!(c, ',' | '.') || (crate::prefer::lead_symbol(*c).is_some() && !matches!(c, '@' | '^' | ';' | ':' | '\\')),
-        Key::Space | Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
+        // 未入力の Space は、あ(日本語入力)なら全角スペースを入れるため食う。A(直接入力)は上の `!on` で食わず、アプリが半角スペースを入れる
+        Key::Space => true,
+        Key::Down | Key::Tab | Key::Up | Key::Enter | Key::Esc | Key::Backspace | Key::Fn(_) | Key::Left | Key::Right => composing,
         _ => false,
     }
 }
@@ -892,6 +894,14 @@ impl Session {
                 self.en_sel = None;
                 self.state(true, None)
             }
+            // 未入力の Space: 全角スペース(日本語109キーボードの あ モード)。パスワード・URL・メール欄は半角のまま(アプリに任せる)
+            Key::Space if !self.composing() => {
+                if matches!(self.field_kind.as_deref(), Some("password" | "url" | "email")) {
+                    return Step::default();
+                }
+                self.note_commit("\u{3000}");
+                self.state(true, Some("\u{3000}".to_string()))
+            }
             Key::Space | Key::Down | Key::Tab if self.composing() && self.col == 1 => {
                 let n = self.en_cands.len();
                 if n > 0 {
@@ -1632,6 +1642,28 @@ mod tests {
         assert!(!s.key(Key::Char('a')).eaten);
         s.key(Key::Toggle);
         assert!(s.key(Key::Char('a')).eaten);
+    }
+
+    #[test]
+    fn space_is_fullwidth_in_hiragana_and_halfwidth_in_direct_mode() {
+        let mut s = s();
+        // あ(日本語入力): 未入力の Space は全角スペースを確定する
+        let st = s.key(Key::Space);
+        assert!(st.eaten);
+        assert_eq!(st.commit.as_deref(), Some("\u{3000}"));
+        assert!(would_eat_with(&Key::Space, true, false, true));
+        // 入力中の Space は従来どおり変換
+        type_str(&mut s, "sakura");
+        assert!(s.key(Key::Space).commit.is_none());
+        s.key(Key::Esc);
+        // A(直接入力): Space は食わず、アプリが半角スペースを入れる
+        s.key(Key::Off);
+        assert!(!s.key(Key::Space).eaten);
+        assert!(!would_eat_with(&Key::Space, false, false, true));
+        // パスワード欄は半角のまま
+        s.key(Key::On);
+        s.field_kind = Some("password".into());
+        assert!(!s.key(Key::Space).eaten);
     }
 
     #[test]
