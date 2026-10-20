@@ -420,6 +420,13 @@ impl Session {
     }
 
     /// 組み立て中の入力が、数字(と郵便番号の -)だけか。
+    /// 数字キーが指す候補の番号(いま表示している10件のページ内)。範囲外なら None。
+    fn auto_number_index(&self, c: char) -> Option<usize> {
+        let page = self.sel.map_or(0, |i| i / PAGE) * PAGE;
+        let idx = page + if c == '0' { 9 } else { (c as usize).checked_sub('1' as usize)? };
+        (idx < self.cands.len() && self.col == 0).then_some(idx)
+    }
+
     fn is_digit_buf(&self) -> bool {
         !self.buf.is_empty() && self.buf.chars().next().is_some_and(|c| c.is_ascii_digit()) && self.buf.chars().all(|c| c.is_ascii_digit() || c == '-')
     }
@@ -739,6 +746,11 @@ impl Session {
                     return self.state(true, Some(s));
                 }
                 self.state(true, None)
+            }
+            // ライブ変換で自動表示している候補(番号つき)でも、文字を打った後の数字キーは候補の番号。範囲外の番号は入力の一部
+            Key::Char(c) if self.composing() && self.sel.is_some() && self.auto && c.is_ascii_digit() && self.buf.chars().any(|b| b.is_ascii_alphabetic()) && self.auto_number_index(c).is_some() => {
+                let idx = self.auto_number_index(c).unwrap_or(0);
+                self.choose(idx)
             }
             Key::Char(c) if self.composing() && self.sel.is_some() && !self.auto && c.is_ascii_digit() => {
                 // 候補を選んでいる最中は、数字キー(1〜9、0は10番目)で、いま表示している10件のページの候補を直接選んで確定する
@@ -1990,10 +2002,11 @@ nihao	你好	你好	4000
         s.key(Key::Space); // 明示的に候補を選び始める(以降、数字キーは候補番号)
         let st = s.key(Key::Char('1'));
         assert_eq!(st.commit.as_deref(), Some("漢字"), "1番の候補で確定");
-        // 打っている途中(自動選択)の数字は、従来どおり入力の一部
+        // 打った直後(自動選択)の数字も、表示している番号の候補を選ぶ
         let mut s2 = live();
-        let st = type_str(&mut s2, "kanji2");
-        assert!(st.commit.is_none() && st.preedit.contains('2') || st.cands.iter().any(|c| c.contains('2')));
+        type_str(&mut s2, "kanji");
+        let st = s2.key(Key::Char('1'));
+        assert_eq!(st.commit.as_deref(), Some("漢字"), "自動選択中でも1番で確定");
         let mut s3 = live();
         type_str(&mut s3, "kanji");
         s3.key(Key::Space);
