@@ -76,6 +76,16 @@ begin
   AccountPage.Add('メールアドレス / E-mail:', False);
 end;
 
+// 上書きインストールのとき、動いている常駐エンジンが exe を握っていると中断する(無人時は exit=5)ため、先に止める
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /T /IM aruaru-ime-daemon.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Sleep(800);
+  Result := '';
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Dir, Email: String;
