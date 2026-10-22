@@ -147,7 +147,7 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     // 最有力の語の次、残りの同音語の前に出す。最有力の語から派生しただけの語(対応付け)は対象にしない。
     if dict_cands.len() >= 3 && romaji::to_hiragana_partial(buffer).0.chars().count() >= 3 {
         let is_kanji = |ch: char| ('一'..='龥').contains(&ch);
-        if let Some(i) = predicted.iter().position(|p| p.chars().count() >= 3 && p.chars().all(is_kanji) && !dict_cands.contains(p)) {
+        if let Some(i) = predicted.iter().position(|p| p.chars().count() >= 3 && p.chars().all(is_kanji) && !dict_cands.contains(p) && !dict_cands.iter().take(2).any(|d| p.starts_with(d.as_str()))) {
             let promoted = predicted.remove(i);
             dict_cands.insert(1, promoted);
         }
@@ -348,6 +348,16 @@ mod tests {
         // 漢字の対応が無い外来語は、カタカナのまま先頭
         let r = convert("konpyu-ta", &ctx, None, Some(&d));
         assert_eq!(r.candidates[0].text, "コンピュータ");
+    }
+
+    #[test]
+    fn homophones_come_before_words_derived_from_the_best() {
+        let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
+        let Ok(d) = Dict::load(&p) else { return };
+        let r = convert("kinou", &cx(""), None, Some(&d));
+        let t: Vec<&str> = r.candidates.iter().map(|c| c.text.as_str()).collect();
+        // 機能 の派生語(機能性)が、同音の 昨日 より前に出ない
+        assert_eq!(&t[..2], &["機能", "昨日"], "{t:?}");
     }
 
     #[test]
