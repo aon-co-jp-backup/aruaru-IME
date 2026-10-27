@@ -1,467 +1,123 @@
 package jp.aon.aruaruime;
 
-import android.graphics.Color;
-import android.graphics.Typeface;
+import android.annotation.SuppressLint;
 import android.inputmethodservice.InputMethodService;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.Gravity;
+import android.text.InputType;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
-import android.widget.Button;
-import android.widget.HorizontalScrollView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * aruaru-IME のキーボード(ローマ字入力 → 漢字かな交じりに変換)。変換はサーバー(easy-web.tokyo)のエンジンで行う。
- * 入力はサーバーに送られるが、保存・学習はしない。「あ/A」で、変換しない直接入力に切り替える。
+ * aruaru-IME のキーボード。画面もロジックも Rust(RPoem で生成した HTML + libaruaru_ime_android.so)にある。
+ * この Java は、WebView を載せて、入力欄の操作(確定・組み立て中・削除)を中継する接着だけ。
  */
 public class AruaruImeService extends InputMethodService {
-    private static final String API = "https://easy-web.tokyo/ime/api";
-    private final String sid = "and-" + UUID.randomUUID().toString().substring(0, 12);
     private final ExecutorService net = Executors.newSingleThreadExecutor();
     private final Handler ui = new Handler(Looper.getMainLooper());
-    private LinearLayout candBar;
-    private TextView status;
-    private boolean direct = false;   // true: 変換せずそのまま入力
-    private boolean shift = false;
-    private boolean composing = false;
-    // よく使う定型文。学習は端末の中だけに保存する(サーバーには送らない)。フリマ・オークションでは組み込みの定型文も出す。
-    private String app = "";
-    private String marketSite = null;
-    private boolean secretField = false;
-    private String lastReading = "";
-    private static final int LEARN_MIN = 10;
-    private static final int LEARN_MAX = 400;
-    private static final int LEARN_ENTRIES = 300;
-    private final java.util.ArrayList<Button> letterButtons = new java.util.ArrayList<>();
+    private WebView web;
 
+    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
     public View onCreateInputView() {
-        final int bg = Color.parseColor("#1b1d22");
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(bg);
-        root.setPadding(dp(2), dp(2), dp(2), dp(4));
-
-        HorizontalScrollView sv = new HorizontalScrollView(this);
-        sv.setHorizontalScrollBarEnabled(false);
-        candBar = new LinearLayout(this);
-        candBar.setOrientation(LinearLayout.HORIZONTAL);
-        candBar.setMinimumHeight(dp(48));
-        candBar.setGravity(Gravity.CENTER_VERTICAL);
-        sv.addView(candBar);
-        root.addView(sv, new LinearLayout.LayoutParams(-1, dp(52)));
-
-        String[][] rows = {
-            {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
-            {"q", "w", "e", "r", "t", "y", "u", "i", "o", "p"},
-            {"a", "s", "d", "f", "g", "h", "j", "k", "l", "-"},
-            {"z", "x", "c", "v", "b", "n", "m", ",", ".", "?"},
-        };
-        for (String[] row : rows) {
-            LinearLayout r = new LinearLayout(this);
-            r.setOrientation(LinearLayout.HORIZONTAL);
-            for (String k : row) {
-                Button b = key(k, 1f);
-                if (k.length() == 1 && Character.isLetter(k.charAt(0))) letterButtons.add(b);
-                r.addView(b);
-            }
-            root.addView(r, new LinearLayout.LayoutParams(-1, dp(48)));
-        }
-        LinearLayout last = new LinearLayout(this);
-        last.setOrientation(LinearLayout.HORIZONTAL);
-        final Button mode = action("あ", 1.3f, v -> {
-            direct = !direct;
-            ((Button) v).setText(direct ? "A" : "あ");
-            flushComposing();
-            setStatus();
-        });
-        last.addView(mode);
-        last.addView(action("⇧", 1.1f, v -> {
-            shift = !shift;
-            for (Button b : letterButtons) {
-                b.setText(shift ? b.getText().toString().toUpperCase() : b.getText().toString().toLowerCase());
-            }
-        }));
-        last.addView(key("/", 1f));
-        last.addView(key("+", 1f));
-        last.addView(action("空白 / 変換", 3f, v -> typeKey("Space")));
-        last.addView(action("⌫", 1.3f, v -> backspace()));
-        last.addView(action("⏎", 1.3f, v -> enter()));
-        root.addView(last, new LinearLayout.LayoutParams(-1, dp(52)));
-
-        status = new TextView(this);
-        status.setTextColor(Color.parseColor("#888888"));
-        status.setTextSize(11);
-        status.setGravity(Gravity.CENTER);
-        root.addView(status, new LinearLayout.LayoutParams(-1, -2));
-        setStatus();
-        return root;
+        Native.init(getFilesDir().getAbsolutePath());
+        web = new WebView(this);
+        web.getSettings().setJavaScriptEnabled(true);
+        web.setBackgroundColor(0xFF1B1D22);
+        web.addJavascriptInterface(new Bridge(), "AndroidIme");
+        web.loadDataWithBaseURL("https://localhost/", Native.page(), "text/html", "UTF-8", null);
+        web.setLayoutParams(new android.view.ViewGroup.LayoutParams(-1, (int) (300 * getResources().getDisplayMetrics().density)));
+        return web;
     }
 
-    private void setStatus() {
-        if (status != null) {
-            status.setText(direct ? "aruaru-IME  A: 直接入力 / direct" : "aruaru-IME  あ: ローマ字→日本語(サーバーで変換) / converts on the server");
-        }
-    }
-
-    private int dp(int v) {
-        return (int) (v * getResources().getDisplayMetrics().density + 0.5f);
-    }
-
-    private Button key(final String label, float weight) {
-        Button b = new Button(this);
-        b.setText(label);
-        b.setAllCaps(false);
-        b.setTextColor(Color.WHITE);
-        b.setTextSize(18);
-        b.setPadding(0, 0, 0, 0);
-        b.setBackgroundColor(Color.parseColor("#2c2f36"));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, weight);
-        lp.setMargins(dp(1), dp(1), dp(1), dp(1));
-        b.setLayoutParams(lp);
-        b.setOnClickListener(v -> typeChar(((Button) v).getText().toString()));
-        return b;
-    }
-
-    private Button action(String label, float weight, View.OnClickListener l) {
-        Button b = key(label, weight);
-        b.setBackgroundColor(Color.parseColor("#3b4150"));
-        b.setOnClickListener(l);
-        return b;
-    }
-
-    // ---- 入力の処理 -------------------------------------------------
-
-    private void typeChar(String s) {
-        InputConnection ic = getCurrentInputConnection();
-        if (ic == null) return;
-        if (direct) {
-            ic.commitText(s, 1);
-            return;
-        }
-        // 数字は、組み立て中でなければそのまま入力
-        if (!composing && s.length() == 1 && Character.isDigit(s.charAt(0))) {
-            ic.commitText(s, 1);
-            return;
-        }
-        typeKey("{\"Char\":" + JSONObject.quote(s) + "}");
-        if (shift) {
-            shift = false;
-            for (Button b : letterButtons) b.setText(b.getText().toString().toLowerCase());
-        }
-    }
-
-    private void typeKey(String keyJson) {
-        final InputConnection ic = getCurrentInputConnection();
-        if (ic == null) return;
-        if (direct) {
-            if (keyJson.equals("Space") || keyJson.equals("\"Space\"")) ic.commitText(" ", 1);
-            return;
-        }
-        CharSequence before = ic.getTextBeforeCursor(40, 0);
-        final String body = "{\"sid\":\"" + sid + "\",\"key\":" + (keyJson.startsWith("{") ? keyJson : "\"" + keyJson + "\"")
-                + ",\"before\":" + JSONObject.quote(before == null ? "" : before.toString()) + "}";
-        net.execute(() -> {
-            final String res = post("/key", body);
-            ui.post(() -> apply(res, keyJson));
-        });
-    }
-
-    private void backspace() {
-        InputConnection ic = getCurrentInputConnection();
-        if (ic == null) return;
-        if (!direct && composing) {
-            typeKey("Backspace");
-        } else {
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL);
-        }
-    }
-
-    private void enter() {
-        if (!direct && composing) {
-            typeKey("Enter");
-        } else {
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER);
-        }
-    }
-
-    private void flushComposing() {
-        InputConnection ic = getCurrentInputConnection();
-        if (ic != null) ic.finishComposingText();
-        composing = false;
-        showCandidates(new JSONArray());
-        final String body = "{\"sid\":\"" + sid + "\",\"op\":\"cancel\"}";
-        net.execute(() -> post("/session", body));
-    }
-
-    /** サーバーの応答を、入力欄と候補に反映する。 */
-    private void apply(String res, String keyJson) {
-        InputConnection ic = getCurrentInputConnection();
-        if (ic == null) return;
-        try {
-            if (res == null) {
-                // 通信できないときは、打った文字をそのまま入力する
-                if (keyJson.startsWith("{")) ic.commitText(jpPunct(new JSONObject(keyJson).getString("Char")), 1);
-                return;
-            }
-            JSONObject r = new JSONObject(res);
-            if (!r.optBoolean("eaten") && r.isNull("commit")) {
-                // エンジンが処理しない文字(数字・記号など): そのまま入力
-                if (keyJson.startsWith("{")) ic.commitText(new JSONObject(keyJson).getString("Char"), 1);
-                else if (keyJson.equals("Space")) ic.commitText(" ", 1);
-                return;
-            }
-            if (!r.isNull("commit")) {
-                String committed = r.getString("commit");
-                ic.commitText(committed, 1);
-                learnTemplate(lastReading, committed);
-            }
-            composing = r.optBoolean("composing");
-            String reading = r.optString("reading", "");
-            if (composing && reading.length() > 0) lastReading = reading;
-            String pre = r.optString("preedit", "");
-            if (composing && pre.length() > 0) {
-                ic.setComposingText(pre, 1);
-            } else {
-                ic.finishComposingText();
-            }
-            showCandidates(composing ? r.optJSONArray("cands") : new JSONArray());
-            if (composing && !secretField && reading.length() >= 2) fetchTemplates(reading);
-        } catch (Exception e) {
-            // 解釈できない応答は無視する
-        }
-    }
-
-    // ---- 定型文 -------------------------------------------------------
-
-    /** 読みに合う定型文(端末で学習した文章が先、続いてサーバーの組み込み)を、候補の後ろに足す。 */
-    private void fetchTemplates(final String reading) {
-        final String body = "{\"app\":" + JSONObject.quote(app) + ",\"reading\":" + JSONObject.quote(reading) + "}";
-        final boolean market = marketSite != null;
-        net.execute(() -> {
-            final java.util.ArrayList<String> items = localMatches(reading, market);
-            if (market) {
-                String res = post("/templates", body);
-                try {
-                    if (res != null) {
-                        JSONArray a = new JSONObject(res).optJSONArray("items");
-                        for (int i = 0; a != null && i < a.length(); i++) {
-                            String t = a.optString(i);
-                            if (t.length() > 0 && !items.contains(t)) items.add(t);
-                        }
-                    }
-                } catch (Exception e) {
-                    // 組み込みの定型文が取れなくても、学習した文章は出す
-                }
-            }
+    /** ページ(JS)から呼ばれる。 */
+    private final class Bridge {
+        @JavascriptInterface
+        public void commit(String s) {
             ui.post(() -> {
-                if (composing && reading.equals(lastReading)) addTemplateButtons(items, reading);
+                InputConnection ic = getCurrentInputConnection();
+                if (ic != null) ic.commitText(s, 1);
             });
-        });
-    }
+        }
 
-    private void addTemplateButtons(java.util.List<String> items, final String reading) {
-        if (candBar == null) return;
-        for (int i = 0; i < items.size() && i < 8; i++) {
-            final String t = items.get(i);
-            TextView v = new TextView(this);
-            String label = t.length() > 16 ? t.substring(0, 16) + "…" : t;
-            v.setText("📄 " + label);
-            v.setTextColor(Color.parseColor("#ffd479"));
-            v.setTextSize(18);
-            v.setPadding(dp(14), dp(8), dp(14), dp(8));
-            v.setOnClickListener(x -> commitTemplate(t, reading));
-            candBar.addView(v);
+        @JavascriptInterface
+        public void composing(String s) {
+            ui.post(() -> {
+                InputConnection ic = getCurrentInputConnection();
+                if (ic != null) ic.setComposingText(s, 1);
+            });
+        }
+
+        @JavascriptInterface
+        public void finish() {
+            ui.post(() -> {
+                InputConnection ic = getCurrentInputConnection();
+                if (ic != null) ic.finishComposingText();
+            });
+        }
+
+        @JavascriptInterface
+        public void backspace() {
+            ui.post(() -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL));
+        }
+
+        @JavascriptInterface
+        public void enter() {
+            ui.post(() -> sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER));
+        }
+
+        /** Rust を呼んで、結果を __reply(id, json) で返す。 */
+        @JavascriptInterface
+        public void api(final int id, final String path, final String body) {
+            ui.post(() -> {
+                InputConnection ic = getCurrentInputConnection();
+                CharSequence b = ic == null ? null : ic.getTextBeforeCursor(40, 0);
+                final String before = b == null ? "" : b.toString();
+                net.execute(() -> {
+                    final String res = Native.api(path, body, before);
+                    ui.post(() -> {
+                        if (web != null) web.evaluateJavascript("window.__reply(" + id + "," + quote(res) + ")", null);
+                    });
+                });
+            });
         }
     }
 
-    private void commitTemplate(String text, String reading) {
-        InputConnection ic = getCurrentInputConnection();
-        if (ic == null) return;
-        ic.commitText(text, 1);
-        composing = false;
-        showCandidates(new JSONArray());
-        final String body = "{\"sid\":\"" + sid + "\",\"op\":\"cancel\"}";
-        net.execute(() -> post("/session", body));
-        learnTemplate(reading, text);
-    }
-
-    private android.content.SharedPreferences tplPrefs() {
-        return getSharedPreferences("templates", MODE_PRIVATE);
-    }
-
-    private JSONArray loadLearned() {
-        try {
-            return new JSONArray(tplPrefs().getString("learned", "[]"));
-        } catch (Exception e) {
-            return new JSONArray();
-        }
-    }
-
-    /** 端末で学習した文章のうち、読みの先頭が合うもの(よく使う順)。フリマ・オークション以外では、2回以上使った文章だけ。 */
-    private java.util.ArrayList<String> localMatches(String reading, boolean market) {
-        java.util.ArrayList<String> out = new java.util.ArrayList<>();
-        JSONArray a = loadLearned();
-        java.util.ArrayList<JSONObject> hit = new java.util.ArrayList<>();
-        for (int i = 0; i < a.length(); i++) {
-            JSONObject o = a.optJSONObject(i);
-            if (o == null) continue;
-            if (!market && o.optInt("n", 1) < 2) continue;
-            for (String k : o.optString("r").split(",")) {
-                if (k.startsWith(reading)) { hit.add(o); break; }
-            }
-        }
-        java.util.Collections.sort(hit, (x, y) -> y.optInt("n", 1) - x.optInt("n", 1));
-        for (JSONObject o : hit) out.add(o.optString("t"));
-        return out;
-    }
-
-    /** 確定した長めの文章を、端末の中に覚える(同じ文章を使うほど先に出る)。パスワード欄では覚えない。 */
-    private void learnTemplate(String reading, String text) {
-        if (secretField || text == null || reading == null) return;
-        text = text.trim();
-        if (text.length() < LEARN_MIN || text.length() > LEARN_MAX || reading.length() < 2 || text.indexOf('\n') >= 0) return;
-        try {
-            JSONArray a = loadLearned();
-            boolean found = false;
-            for (int i = 0; i < a.length(); i++) {
-                JSONObject o = a.getJSONObject(i);
-                if (o.optString("t").equals(text)) {
-                    o.put("n", o.optInt("n", 1) + 1);
-                    String rs = o.optString("r");
-                    if (!java.util.Arrays.asList(rs.split(",")).contains(reading) && rs.split(",").length < 5) o.put("r", rs + "," + reading);
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) a.put(new JSONObject().put("r", reading).put("t", text).put("n", 1));
-            if (a.length() > LEARN_ENTRIES) {
-                java.util.ArrayList<JSONObject> all = new java.util.ArrayList<>();
-                for (int i = 0; i < a.length(); i++) all.add(a.getJSONObject(i));
-                java.util.Collections.sort(all, (x, y) -> y.optInt("n", 1) - x.optInt("n", 1));
-                a = new JSONArray();
-                for (int i = 0; i < LEARN_ENTRIES; i++) a.put(all.get(i));
-            }
-            tplPrefs().edit().putString("learned", a.toString()).apply();
-        } catch (Exception e) {
-            // 学習できなくても入力には影響しない
-        }
-    }
-
-    /** 通信できないときの、日本語の句読点(, . → 、。)。 */
-    private String jpPunct(String c) {
-        if (!direct && c.equals(",")) return "、";
-        if (!direct && c.equals(".")) return "。";
-        return c;
-    }
-
-    private void showCandidates(JSONArray c) {
-        if (candBar == null) return;
-        candBar.removeAllViews();
-        if (c == null) return;
-        for (int i = 0; i < c.length() && i < 12; i++) {
-            final int idx = i;
-            TextView t = new TextView(this);
-            t.setText(c.optString(i));
-            t.setTextColor(Color.WHITE);
-            t.setTextSize(20);
-            t.setTypeface(Typeface.DEFAULT);
-            t.setPadding(dp(14), dp(8), dp(14), dp(8));
-            t.setOnClickListener(v -> choose(idx));
-            candBar.addView(t);
-        }
-    }
-
-    private void choose(final int idx) {
-        final String body = "{\"sid\":\"" + sid + "\",\"op\":\"choose\",\"idx\":" + idx + "}";
-        net.execute(() -> {
-            final String res = post("/session", body);
-            ui.post(() -> apply(res, "choose"));
-        });
-    }
-
-    // ---- 通信 --------------------------------------------------------
-
-    private String post(String path, String body) {
-        HttpURLConnection c = null;
-        try {
-            c = (HttpURLConnection) new URL(API + path).openConnection();
-            c.setRequestMethod("POST");
-            c.setConnectTimeout(4000);
-            c.setReadTimeout(6000);
-            c.setDoOutput(true);
-            c.setRequestProperty("Content-Type", "application/json");
-            byte[] b = body.getBytes("UTF-8");
-            try (OutputStream o = c.getOutputStream()) {
-                o.write(b);
-            }
-            if (c.getResponseCode() != 200) return null;
-            java.io.InputStream in = c.getInputStream();
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-            return out.toString("UTF-8");
-        } catch (Exception e) {
-            return null;
-        } finally {
-            if (c != null) c.disconnect();
-        }
+    private static String quote(String s) {
+        return org.json.JSONObject.quote(s == null ? "null" : s);
     }
 
     @Override
-    public void onStartInputView(android.view.inputmethod.EditorInfo info, boolean restarting) {
+    public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
-        composing = false;
-        showCandidates(new JSONArray());
-        // 入力先のアプリがフリマ・オークションかを、サーバーに照会する(パスワード欄では何も出さず、学習もしない)
-        app = info != null && info.packageName != null ? info.packageName : "";
-        marketSite = null;
-        lastReading = "";
-        int var = info == null ? 0 : (info.inputType & android.text.InputType.TYPE_MASK_VARIATION);
-        secretField = info != null && (var == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                || var == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
-                || var == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
-                || (info.inputType & android.text.InputType.TYPE_MASK_CLASS) == android.text.InputType.TYPE_CLASS_NUMBER && var == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-        if (!secretField && app.length() > 0) {
-            final String body = "{\"app\":" + JSONObject.quote(app) + ",\"reading\":\"\"}";
-            net.execute(() -> {
-                String res = post("/templates", body);
-                try {
-                    if (res != null) {
-                        JSONObject o = new JSONObject(res);
-                        marketSite = o.isNull("site") ? null : o.optString("site", null);
-                    }
-                } catch (Exception e) {
-                    marketSite = null;
-                }
-            });
-        }
+        final String pkg = info != null && info.packageName != null ? info.packageName : "";
+        int var = info == null ? 0 : (info.inputType & InputType.TYPE_MASK_VARIATION);
+        int cls = info == null ? 0 : (info.inputType & InputType.TYPE_MASK_CLASS);
+        final boolean secret = var == InputType.TYPE_TEXT_VARIATION_PASSWORD
+                || var == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+                || var == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                || (cls == InputType.TYPE_CLASS_NUMBER && var == InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        net.execute(() -> Native.setField(pkg, secret));
+        if (web != null) web.evaluateJavascript("window.__flush&&window.__flush()", null);
     }
 
     @Override
     public void onFinishInputView(boolean finishingInput) {
         super.onFinishInputView(finishingInput);
-        flushComposing();
+        if (web != null) web.evaluateJavascript("window.__flush&&window.__flush()", null);
     }
 
     @Override
     public void onDestroy() {
         net.shutdownNow();
+        if (web != null) web.destroy();
         super.onDestroy();
     }
 }

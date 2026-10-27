@@ -1,5 +1,5 @@
 ﻿[workspace]
-members = ["crates/aruaru-ime-core", "crates/aruaru-ime-cli", "crates/aruaru-ime-daemon", "crates/aruaru-ime-tsf", "crates/aruaru-ime-ibus"]
+members = ["crates/aruaru-ime-core", "crates/aruaru-ime-cli", "crates/aruaru-ime-daemon", "crates/aruaru-ime-tsf", "crates/aruaru-ime-ibus", "crates/aruaru-ime-android"]
 resolver = "2"
 
 [workspace.package]

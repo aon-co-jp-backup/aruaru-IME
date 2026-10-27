@@ -449,7 +449,17 @@ impl Dict {
         let alt: Vec<Option<String>> = fine
             .iter()
             .map(|(r, s)| {
-                if r.chars().count() >= 3 && !has_kanji(s) {
+                if has_kanji(s) {
+                    return None;
+                }
+                // 漢字でよく書く動詞の語幹(かけ → 掛け、つけ → 付け)は、2文字でも、その漢字の表記を選ぶ
+                if let Some(k) = PREFERRED_STEM.iter().find(|(rd, _)| r.starts_with(rd)).map(|(_, k)| *k) {
+                    let last = r.chars().last();
+                    if let Some(a) = self.exact(r, 16).into_iter().find(|a| a.starts_with(k) && a.chars().last() == last && a != r) {
+                        return Some(a);
+                    }
+                }
+                if r.chars().count() >= 3 {
                     self.exact(r, 8).into_iter().find(|a| has_kanji(a) && a != r)
                 } else {
                     None
@@ -559,6 +569,9 @@ impl Dict {
     }
 }
 
+/// 漢字でよく書く動詞の語幹: (読みの先頭, 優先する漢字)。文の中の かけ・かける・かけすぎ を 掛け・掛ける にする候補を出すのに使う。
+const PREFERRED_STEM: &[(&str, &str)] = &[("かけ", "掛"), ("つけ", "付")];
+
 /// `pred` が真の間の先頭側の個数(二分探索)。
 fn partition(n: usize, pred: impl Fn(usize) -> bool) -> usize {
     let (mut lo, mut hi) = (0, n);
@@ -581,6 +594,15 @@ mod tests {
     fn dict() -> Option<Dict> {
         let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
         Dict::load(&p).ok()
+    }
+
+    #[test]
+    fn real_dictionary_kake_has_kana_and_kanji_variants() {
+        let Some(d) = dict() else { return };
+        let c = d.candidates("じかんのかけすぎ", 6);
+        assert_eq!(&c[..2], &["時間のかけすぎ".to_string(), "時間の掛けすぎ".to_string()], "{c:?}");
+        let c = d.candidates("じかんをかける", 6);
+        assert_eq!(&c[..2], &["時間をかける".to_string(), "時間を掛ける".to_string()], "{c:?}");
     }
 
     #[test]

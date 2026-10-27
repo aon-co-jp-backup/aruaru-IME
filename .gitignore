@@ -3,3 +3,5 @@ dist/
 data/
 target-dev/
 fcitx5/build/
+
+android/app/src/main/jniLibs/

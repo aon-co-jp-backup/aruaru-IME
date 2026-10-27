@@ -1,0 +1,23 @@
+[package]
+name = "aruaru-ime-android"
+description = "aruaru-IME Android keyboard: logic in Rust, UI generated with RPoem (open-runo-crossui / open-runo-view); Java is only a thin glue."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+name = "aruaru_ime_android"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+aruaru-ime-core = { path = "../aruaru-ime-core" }
+open-runo-crossui = { path = "../../../RPoem/crates/open-runo-crossui" }
+open-runo-view = { path = "../../../RPoem/crates/open-runo-view" }
+jni = "0.21"
+serde_json = "1"
+ureq = { version = "2", features = ["json"] }
+
+[dev-dependencies]
+tiny_http = "0.12"
