@@ -9,6 +9,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "ahash"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
+dependencies = [
+ "cfg-if",
+ "getrandom 0.3.4",
+ "once_cell",
+ "version_check",
+ "zerocopy",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -28,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-android"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "aruaru-ime-core",
  "jni",
@@ -41,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-cli"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "aruaru-ime-core",
  "open-runo-crossui",
@@ -49,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-core"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "base64",
  "chrono",
@@ -60,7 +73,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "sonic-rs",
+ "sonic-rs 0.5.10",
  "tar",
  "ureq",
  "zip",
@@ -68,21 +81,21 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-daemon"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "aruaru-ime-core",
  "image",
  "open-runo-crossui",
  "serde",
  "serde_json",
- "sonic-rs",
+ "sonic-rs 0.3.17",
  "tiny_http",
  "windows",
 ]
 
 [[package]]
 name = "aruaru-ime-ibus"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "async-io",
  "futures-lite",
@@ -93,11 +106,11 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-tsf"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "aruaru-ime-core",
  "serde_json",
- "sonic-rs",
+ "sonic-rs 0.3.17",
  "windows",
  "windows-core",
 ]
@@ -708,13 +721,25 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "r-efi 5.3.0",
+ "wasip2",
+]
+
+[[package]]
+name = "getrandom"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
 dependencies = [
  "cfg-if",
  "libc",
- "r-efi",
+ "r-efi 6.0.0",
 ]
 
 [[package]]
@@ -1293,6 +1318,12 @@ dependencies = [
 
 [[package]]
 name = "r-efi"
+version = "5.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
+
+[[package]]
+name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
@@ -1652,6 +1683,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "sonic-rs"
+version = "0.5.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "756586caeeb21126a57c17d1ef2b9386e2613ba784aae0f27104f5e9982335ec"
+dependencies = [
+ "ahash",
+ "bumpalo",
+ "bytes",
+ "cfg-if",
+ "faststr",
+ "itoa",
+ "ref-cast",
+ "serde",
+ "simdutf8",
+ "sonic-number",
+ "sonic-simd",
+ "thiserror 2.0.21",
+ "zmij",
+]
+
+[[package]]
 name = "sonic-simd"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1992,6 +2044,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
+name = "wasip2"
+version = "1.0.4+wasi-0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b67efb37e106e55ce722a510d6b5f9c17f083e5fc79afc2badeb12cc313d9487"
+dependencies = [
+ "wit-bindgen",
+]
+
+[[package]]
 name = "wasm-bindgen"
 version = "0.2.129"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2304,6 +2365,12 @@ checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "wit-bindgen"
+version = "0.57.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "writeable"

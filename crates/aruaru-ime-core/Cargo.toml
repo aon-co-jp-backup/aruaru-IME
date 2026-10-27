@@ -11,7 +11,7 @@ authors.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # 型付き構造体へ直接読む高速JSON(SIMD)。大きな辞書(JMdict等)の読み込み用。方針の正本はRS-JSON。
-sonic-rs = "0.3"
+sonic-rs = "0.5"
 ureq = { version = "2", features = ["json"] }
 base64 = "0.22"
 zip = { version = "2", default-features = false, features = ["deflate"] }
