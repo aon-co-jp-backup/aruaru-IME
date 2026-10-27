@@ -111,7 +111,7 @@ pub fn load_all(root: &std::path::Path) -> String {
 
 /// フリマ・オークションのサイトで確定した、ある程度長い文章を覚える(同じ文章を使うほど先に出る)。
 /// 読みは、打った読み(ひらがな)。パスワード欄などはここへ来ない(呼び出し側で除く)。
-pub fn learn(root: &std::path::Path, reading: &str, text: &str, site: Site) -> bool {
+pub fn learn(root: &std::path::Path, reading: &str, text: &str, site: Option<Site>) -> bool {
     let text = text.trim();
     let n = text.chars().count();
     if !(LEARN_MIN_CHARS..=LEARN_MAX_CHARS).contains(&n) || text.contains(['\n', '\t']) || reading.chars().count() < 2 || reading.contains('\t') {
@@ -126,11 +126,13 @@ pub fn learn(root: &std::path::Path, reading: &str, text: &str, site: Site) -> b
             (f.len() >= 4).then(|| (f[0].to_string(), f[1].to_string(), f[2].to_string(), f[3].parse().unwrap_or(1)))
         })
         .collect();
-    let code = site.code().to_string();
+    let code = site.map_or('-', |s| s.code()).to_string();
     if let Some(r) = rows.iter_mut().find(|r| r.1 == text) {
         r.3 += 1;
-        if !r.2.contains(site.code()) {
-            r.2.push(site.code());
+        if let Some(s) = site {
+            if !r.2.contains(s.code()) {
+                r.2.push(s.code());
+            }
         }
         if r.0 != reading && !r.0.split(',').any(|k| k == reading) && r.0.split(',').count() < 5 {
             r.0 = format!("{},{}", r.0, reading);
@@ -145,6 +147,25 @@ pub fn learn(root: &std::path::Path, reading: &str, text: &str, site: Site) -> b
     let body: String = rows.iter().map(|r| format!("{}\t{}\t{}\t{}\n", r.0, r.1, r.2, r.3)).collect();
     std::fs::create_dir_all(root).ok();
     std::fs::write(path, body).is_ok()
+}
+
+/// フリマ・オークション以外でも、2回以上確定した長い文章(よく使う定型文)を、読みの先頭が合えば返す。
+/// 回数の多い順。学習した文章だけが対象。
+pub fn frequent(root: &std::path::Path, hira: &str, max: usize) -> Vec<String> {
+    if hira.chars().count() < 2 {
+        return vec![];
+    }
+    let mut hit: Vec<(u32, String)> = std::fs::read_to_string(root.join(LEARNED))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split('\t').collect();
+            let n: u32 = f.get(3)?.parse().ok()?;
+            (n >= 2 && f[0].split(',').any(|k| k.starts_with(hira))).then(|| (n, f[1].to_string()))
+        })
+        .collect();
+    hit.sort_by(|a, b| b.0.cmp(&a.0));
+    hit.into_iter().map(|x| x.1).take(max).collect()
 }
 
 fn site_ok(spec: &str, site: Site) -> bool {
@@ -234,12 +255,17 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("aruaru-tpl-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         // 短い文・改行入りは覚えない
-        assert!(!learn(&dir, "ありがとう", "ありがとう", Site::Mercari));
-        assert!(!learn(&dir, "ありがとう", "一行目です、長い文章\n二行目です", Site::Mercari));
-        assert!(learn(&dir, "とりひきあいさつ", "この度はお取引いただき、誠にありがとうございます。", Site::Mercari));
-        assert!(learn(&dir, "ぷろふぃーる", "プロフィールをご一読のうえ、ご購入をお願いいたします。", Site::Mercari));
+        assert!(!learn(&dir, "ありがとう", "ありがとう", Some(Site::Mercari)));
+        assert!(!learn(&dir, "ありがとう", "一行目です、長い文章\n二行目です", Some(Site::Mercari)));
+        assert!(learn(&dir, "とりひきあいさつ", "この度はお取引いただき、誠にありがとうございます。", Some(Site::Mercari)));
+        assert!(learn(&dir, "ぷろふぃーる", "プロフィールをご一読のうえ、ご購入をお願いいたします。", Some(Site::Mercari)));
         // 2回使った方が先
-        assert!(learn(&dir, "ぷろふぃーる", "プロフィールをご一読のうえ、ご購入をお願いいたします。", Site::Mercari));
+        assert!(learn(&dir, "ぷろふぃーる", "プロフィールをご一読のうえ、ご購入をお願いいたします。", Some(Site::Mercari)));
+        // フリマ以外で覚えた文章は、2回目から「よく使う文」として出る
+        assert!(learn(&dir, "かいぎのしゅうち", "会議の日程が決まりましたので、ご連絡いたします。", None));
+        assert!(frequent(&dir, "かいぎ", 5).is_empty(), "1回だけでは出さない");
+        assert!(learn(&dir, "かいぎのしゅうち", "会議の日程が決まりましたので、ご連絡いたします。", None));
+        assert_eq!(frequent(&dir, "かいぎ", 5), vec!["会議の日程が決まりましたので、ご連絡いたします。".to_string()]);
         let all = load_all(&dir);
         let t = lookup("ぷろ", Site::Mercari, &all, 5);
         assert_eq!(t[0], "プロフィールをご一読のうえ、ご購入をお願いいたします。");

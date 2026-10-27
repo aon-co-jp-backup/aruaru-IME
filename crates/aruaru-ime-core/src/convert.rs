@@ -228,6 +228,12 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     // フリマ・オークション(メルカリ・ラクマ・ヤフオク・Yahoo!フリマ)を使っているときは、読みに合う定型文(自動学習した文も)を候補に足す。
     // 「ていけい」と打ったときは、定型文を先頭に並べる。
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) && !matches!(ctx.field_kind.as_deref(), Some("password" | "url" | "email")) {
+        if crate::templates::detect_site(&ctx.screen_text).is_none() {
+            // フリマ・オークション以外でも、よく使う長い文(2回以上確定したもの)は候補に足す
+            for t in crate::templates::frequent(&crate::components::data_dir(), &hira_for_exact, 3) {
+                push(&mut c, t, "template");
+            }
+        }
         if let Some(site) = crate::templates::detect_site(&ctx.screen_text) {
             let all = crate::templates::load_all(&crate::components::data_dir());
             let found = crate::templates::lookup(&hira_for_exact, site, &all, 8);

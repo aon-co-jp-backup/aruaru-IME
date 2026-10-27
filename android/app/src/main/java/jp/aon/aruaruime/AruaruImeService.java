@@ -38,6 +38,14 @@ public class AruaruImeService extends InputMethodService {
     private boolean direct = false;   // true: 変換せずそのまま入力
     private boolean shift = false;
     private boolean composing = false;
+    // よく使う定型文。学習は端末の中だけに保存する(サーバーには送らない)。フリマ・オークションでは組み込みの定型文も出す。
+    private String app = "";
+    private String marketSite = null;
+    private boolean secretField = false;
+    private String lastReading = "";
+    private static final int LEARN_MIN = 10;
+    private static final int LEARN_MAX = 400;
+    private static final int LEARN_ENTRIES = 300;
     private final java.util.ArrayList<Button> letterButtons = new java.util.ArrayList<>();
 
     @Override
@@ -218,9 +226,13 @@ public class AruaruImeService extends InputMethodService {
                 return;
             }
             if (!r.isNull("commit")) {
-                ic.commitText(r.getString("commit"), 1);
+                String committed = r.getString("commit");
+                ic.commitText(committed, 1);
+                learnTemplate(lastReading, committed);
             }
             composing = r.optBoolean("composing");
+            String reading = r.optString("reading", "");
+            if (composing && reading.length() > 0) lastReading = reading;
             String pre = r.optString("preedit", "");
             if (composing && pre.length() > 0) {
                 ic.setComposingText(pre, 1);
@@ -228,8 +240,125 @@ public class AruaruImeService extends InputMethodService {
                 ic.finishComposingText();
             }
             showCandidates(composing ? r.optJSONArray("cands") : new JSONArray());
+            if (composing && !secretField && reading.length() >= 2) fetchTemplates(reading);
         } catch (Exception e) {
             // 解釈できない応答は無視する
+        }
+    }
+
+    // ---- 定型文 -------------------------------------------------------
+
+    /** 読みに合う定型文(端末で学習した文章が先、続いてサーバーの組み込み)を、候補の後ろに足す。 */
+    private void fetchTemplates(final String reading) {
+        final String body = "{\"app\":" + JSONObject.quote(app) + ",\"reading\":" + JSONObject.quote(reading) + "}";
+        final boolean market = marketSite != null;
+        net.execute(() -> {
+            final java.util.ArrayList<String> items = localMatches(reading, market);
+            if (market) {
+                String res = post("/templates", body);
+                try {
+                    if (res != null) {
+                        JSONArray a = new JSONObject(res).optJSONArray("items");
+                        for (int i = 0; a != null && i < a.length(); i++) {
+                            String t = a.optString(i);
+                            if (t.length() > 0 && !items.contains(t)) items.add(t);
+                        }
+                    }
+                } catch (Exception e) {
+                    // 組み込みの定型文が取れなくても、学習した文章は出す
+                }
+            }
+            ui.post(() -> {
+                if (composing && reading.equals(lastReading)) addTemplateButtons(items, reading);
+            });
+        });
+    }
+
+    private void addTemplateButtons(java.util.List<String> items, final String reading) {
+        if (candBar == null) return;
+        for (int i = 0; i < items.size() && i < 8; i++) {
+            final String t = items.get(i);
+            TextView v = new TextView(this);
+            String label = t.length() > 16 ? t.substring(0, 16) + "…" : t;
+            v.setText("📄 " + label);
+            v.setTextColor(Color.parseColor("#ffd479"));
+            v.setTextSize(18);
+            v.setPadding(dp(14), dp(8), dp(14), dp(8));
+            v.setOnClickListener(x -> commitTemplate(t, reading));
+            candBar.addView(v);
+        }
+    }
+
+    private void commitTemplate(String text, String reading) {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null) return;
+        ic.commitText(text, 1);
+        composing = false;
+        showCandidates(new JSONArray());
+        final String body = "{\"sid\":\"" + sid + "\",\"op\":\"cancel\"}";
+        net.execute(() -> post("/session", body));
+        learnTemplate(reading, text);
+    }
+
+    private android.content.SharedPreferences tplPrefs() {
+        return getSharedPreferences("templates", MODE_PRIVATE);
+    }
+
+    private JSONArray loadLearned() {
+        try {
+            return new JSONArray(tplPrefs().getString("learned", "[]"));
+        } catch (Exception e) {
+            return new JSONArray();
+        }
+    }
+
+    /** 端末で学習した文章のうち、読みの先頭が合うもの(よく使う順)。フリマ・オークション以外では、2回以上使った文章だけ。 */
+    private java.util.ArrayList<String> localMatches(String reading, boolean market) {
+        java.util.ArrayList<String> out = new java.util.ArrayList<>();
+        JSONArray a = loadLearned();
+        java.util.ArrayList<JSONObject> hit = new java.util.ArrayList<>();
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) continue;
+            if (!market && o.optInt("n", 1) < 2) continue;
+            for (String k : o.optString("r").split(",")) {
+                if (k.startsWith(reading)) { hit.add(o); break; }
+            }
+        }
+        java.util.Collections.sort(hit, (x, y) -> y.optInt("n", 1) - x.optInt("n", 1));
+        for (JSONObject o : hit) out.add(o.optString("t"));
+        return out;
+    }
+
+    /** 確定した長めの文章を、端末の中に覚える(同じ文章を使うほど先に出る)。パスワード欄では覚えない。 */
+    private void learnTemplate(String reading, String text) {
+        if (secretField || text == null || reading == null) return;
+        text = text.trim();
+        if (text.length() < LEARN_MIN || text.length() > LEARN_MAX || reading.length() < 2 || text.indexOf('\n') >= 0) return;
+        try {
+            JSONArray a = loadLearned();
+            boolean found = false;
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.getJSONObject(i);
+                if (o.optString("t").equals(text)) {
+                    o.put("n", o.optInt("n", 1) + 1);
+                    String rs = o.optString("r");
+                    if (!java.util.Arrays.asList(rs.split(",")).contains(reading) && rs.split(",").length < 5) o.put("r", rs + "," + reading);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) a.put(new JSONObject().put("r", reading).put("t", text).put("n", 1));
+            if (a.length() > LEARN_ENTRIES) {
+                java.util.ArrayList<JSONObject> all = new java.util.ArrayList<>();
+                for (int i = 0; i < a.length(); i++) all.add(a.getJSONObject(i));
+                java.util.Collections.sort(all, (x, y) -> y.optInt("n", 1) - x.optInt("n", 1));
+                a = new JSONArray();
+                for (int i = 0; i < LEARN_ENTRIES; i++) a.put(all.get(i));
+            }
+            tplPrefs().edit().putString("learned", a.toString()).apply();
+        } catch (Exception e) {
+            // 学習できなくても入力には影響しない
         }
     }
 
@@ -299,6 +428,29 @@ public class AruaruImeService extends InputMethodService {
         super.onStartInputView(info, restarting);
         composing = false;
         showCandidates(new JSONArray());
+        // 入力先のアプリがフリマ・オークションかを、サーバーに照会する(パスワード欄では何も出さず、学習もしない)
+        app = info != null && info.packageName != null ? info.packageName : "";
+        marketSite = null;
+        lastReading = "";
+        int var = info == null ? 0 : (info.inputType & android.text.InputType.TYPE_MASK_VARIATION);
+        secretField = info != null && (var == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                || var == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+                || var == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                || (info.inputType & android.text.InputType.TYPE_MASK_CLASS) == android.text.InputType.TYPE_CLASS_NUMBER && var == android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        if (!secretField && app.length() > 0) {
+            final String body = "{\"app\":" + JSONObject.quote(app) + ",\"reading\":\"\"}";
+            net.execute(() -> {
+                String res = post("/templates", body);
+                try {
+                    if (res != null) {
+                        JSONObject o = new JSONObject(res);
+                        marketSite = o.isNull("site") ? null : o.optString("site", null);
+                    }
+                } catch (Exception e) {
+                    marketSite = null;
+                }
+            });
+        }
     }
 
     @Override

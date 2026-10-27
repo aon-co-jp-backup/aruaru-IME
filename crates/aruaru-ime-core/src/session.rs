@@ -16,6 +16,11 @@ pub trait Converter: Send {
         None
     }
 
+    /// 確定した長い文章を、定型文として端末の中に覚えてよいか(共有サーバー・パスワード欄では覚えない)。既定は覚えない。
+    fn learns_templates(&self) -> bool {
+        false
+    }
+
     /// 利用者が変換を求めたとき(Space など)だけ呼ばれる、時間のかかる追加候補(Web のサジェストなど)。辞書に無い固有名詞・作品名向け。
     /// 既定は何も足さない。
     fn extra(&self, _buffer: &str, _before: &str) -> Vec<String> {
@@ -96,6 +101,9 @@ pub struct Step {
     /// カーソル直前が日本語の文字か(「,」「.」を「、」「。」にするかの判定に使う)。
     #[serde(default)]
     pub last_ja: bool,
+    /// 入力中の読み(ひらがな)。スマホ・タブレットのキーボードが、定型文を引くのに使う。
+    #[serde(default)]
+    pub reading: String,
 }
 
 /// このキーをIMEが処理するか。状態(オン/組み立て中/直前が日本語)だけで決まるので、通信なしで判定できる。
@@ -421,6 +429,7 @@ impl Session {
             note: if self.composing() { crate::knowledge::note_for(&self.cands.get(self.sel.unwrap_or(0)).cloned().unwrap_or_default()) } else { None },
             lang: self.lang.code().to_string(),
             last_ja: self.before.chars().last().is_some_and(is_ja),
+            reading: if self.composing() && self.lang == Lang::Ja { romaji::to_hiragana(&self.buf) } else { String::new() },
         }
     }
 
@@ -694,12 +703,8 @@ impl Session {
             }
         }
         // フリマ・オークションで確定した長めの文章は、定型文として覚える(同じ文章を使うほど先に出る)
-        if self.lang == Lang::Ja && s.chars().count() >= 10 {
-            if let Some(site) = self.conv.site() {
-                if !matches!(self.field_kind.as_deref(), Some("password" | "url" | "email")) {
-                    crate::templates::learn(&crate::components::data_dir(), &romaji::to_hiragana(&self.buf), &s, site);
-                }
-            }
+        if self.lang == Lang::Ja && s.chars().count() >= 10 && self.conv.learns_templates() && !matches!(self.field_kind.as_deref(), Some("password" | "url" | "email")) {
+            crate::templates::learn(&crate::components::data_dir(), &romaji::to_hiragana(&self.buf), &s, self.conv.site());
         }
         self.reset();
         self.note_commit(&s);

@@ -70,6 +70,11 @@ impl EngineConv {
 }
 
 impl Converter for EngineConv {
+    fn learns_templates(&self) -> bool {
+        // 共有サーバーでは利用者の文章を保存しない。パスワード欄でも覚えない
+        !server_mode() && !self.state.lock().map(|s| s.password).unwrap_or(true)
+    }
+
     fn site(&self) -> Option<aruaru_ime_core::templates::Site> {
         let s = self.state.lock().ok()?;
         if s.password {
@@ -138,6 +143,14 @@ struct KeyReq {
 }
 
 #[derive(Deserialize)]
+struct TplReq {
+    #[serde(default)]
+    app: String,
+    #[serde(default)]
+    reading: String,
+}
+
+#[derive(serde::Deserialize)]
 struct SessReq {
     sid: String,
     op: String,
@@ -726,6 +739,22 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
                         s.key(r.key)
                     });
                     (200, serde_json::to_string(&step).unwrap_or_default())
+                }
+                Err(e) => (400, e.to_string()),
+            },
+            // スマホ・タブレットのキーボード向け: 開いているアプリ名(パッケージ名)から、フリマ・オークションかを見分け、読みに合う組み込みの定型文を返す。
+            // 学習した文章は、端末の中だけに持つ(サーバーは利用者の入力を保存しない)。
+            ("POST", "/templates") => match sonic_rs::from_str::<TplReq>(&body) {
+                Ok(t) => {
+                    let site = aruaru_ime_core::templates::detect_site(&t.app);
+                    let items = match site {
+                        Some(s) => {
+                            let all = if server_mode() { String::new() } else { aruaru_ime_core::templates::load_all(&aruaru_ime_core::components::data_dir()) };
+                            aruaru_ime_core::templates::lookup(&t.reading, s, &all, 8)
+                        }
+                        None => vec![],
+                    };
+                    (200, serde_json::json!({"site": site.map(|s| s.name()), "items": items}).to_string())
                 }
                 Err(e) => (400, e.to_string()),
             },
