@@ -29,7 +29,7 @@ pub struct Report {
 }
 
 /// バックアップ対象: 単独のファイルと、フォルダ(中の *.json / *.tsv)。
-const SINGLE: &[&str] = &["user_dict.json", "learned.json", "settings.json", "wishlist.json"];
+const SINGLE: &[&str] = &["user_dict.json", "learned.json", "settings.json", "wishlist.json", "templates.tsv", "templates-learned.tsv"];
 const DIRS: &[(&str, &str)] = &[("vocab", "json"), ("words", "tsv")];
 
 /// UTC の `YYYYMMDD-HHMMSS`(外部クレートなしで暦を計算する)。

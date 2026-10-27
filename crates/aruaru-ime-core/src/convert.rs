@@ -225,6 +225,24 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             push(&mut c, hira, "hiragana");
         }
     }
+    // フリマ・オークション(メルカリ・ラクマ・ヤフオク・Yahoo!フリマ)を使っているときは、読みに合う定型文(自動学習した文も)を候補に足す。
+    // 「ていけい」と打ったときは、定型文を先頭に並べる。
+    if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) && !matches!(ctx.field_kind.as_deref(), Some("password" | "url" | "email")) {
+        if let Some(site) = crate::templates::detect_site(&ctx.screen_text) {
+            let all = crate::templates::load_all(&crate::components::data_dir());
+            let found = crate::templates::lookup(&hira_for_exact, site, &all, 8);
+            if "ていけい".starts_with(hira_for_exact.as_str()) && !found.is_empty() {
+                let mut head: Vec<Candidate> = found.into_iter().map(|t| Candidate { text: t, kind: "template" }).collect();
+                c.retain(|x| !head.iter().any(|h| h.text == x.text));
+                head.extend(c);
+                c = head;
+            } else {
+                for t in found {
+                    push(&mut c, t, "template");
+                }
+            }
+        }
+    }
     // 優先順位の調整(組み込み + 利用者の prefer.tsv)と、記号の一覧(はいふん → - － ‐ – — ― …)、ハイフンの種類
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
         let user = crate::prefer::load_user(&crate::components::data_dir());
@@ -358,6 +376,23 @@ mod tests {
         let t: Vec<&str> = r.candidates.iter().map(|c| c.text.as_str()).collect();
         // 機能 の派生語(機能性)が、同音の 昨日 より前に出ない
         assert_eq!(&t[..2], &["機能", "昨日"], "{t:?}");
+    }
+
+    #[test]
+    fn marketplace_templates_appear_only_on_marketplace_sites() {
+        let on_site = Context { screen_text: "メルカリ 取引画面".into(), ..Default::default() };
+        let r = convert("hassou", &on_site, None, None);
+        assert!(r.candidates.iter().any(|c| c.kind == "template" && c.text.contains("発送いたしました")), "{:?}", r.candidates);
+        // ていけい は定型文を先頭に
+        let r = convert("teikei", &on_site, None, None);
+        assert_eq!(r.candidates[0].kind, "template", "{:?}", r.candidates);
+        // 別のサイトでは出ない
+        let other = Context { screen_text: "Googleで検索".into(), ..Default::default() };
+        let r = convert("hassou", &other, None, None);
+        assert!(!r.candidates.iter().any(|c| c.kind == "template"));
+        // パスワード欄では出さない
+        let pw = Context { screen_text: "メルカリ".into(), field_kind: Some("password".into()), ..Default::default() };
+        assert!(!convert("hassou", &pw, None, None).candidates.iter().any(|c| c.kind == "template"));
     }
 
     #[test]

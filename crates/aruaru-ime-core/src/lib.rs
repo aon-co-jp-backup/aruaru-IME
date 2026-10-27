@@ -33,6 +33,7 @@ pub mod packs_table;
 pub mod prefer;
 pub mod lastime;
 pub mod seasonal;
+pub mod templates;
 pub mod wish;
 pub mod zh;
 

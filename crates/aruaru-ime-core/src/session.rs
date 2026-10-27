@@ -11,6 +11,11 @@ use crate::translit::{self, Lang};
 pub trait Converter: Send {
     fn convert(&self, buffer: &str, before: &str, field_kind: Option<&str>) -> Conversion;
 
+    /// いま使っているフリマ・オークションのサイト(メルカリなど)。見つからない・パスワード欄などは None。確定した長い文章を定型文として学習するのに使う。
+    fn site(&self) -> Option<crate::templates::Site> {
+        None
+    }
+
     /// 利用者が変換を求めたとき(Space など)だけ呼ばれる、時間のかかる追加候補(Web のサジェストなど)。辞書に無い固有名詞・作品名向け。
     /// 既定は何も足さない。
     fn extra(&self, _buffer: &str, _before: &str) -> Vec<String> {
@@ -685,6 +690,14 @@ impl Session {
                 self.learned.record(&reading, &s);
                 if let Some(p) = self.learn_path.clone() {
                     self.learned.save(&p);
+                }
+            }
+        }
+        // フリマ・オークションで確定した長めの文章は、定型文として覚える(同じ文章を使うほど先に出る)
+        if self.lang == Lang::Ja && s.chars().count() >= 10 {
+            if let Some(site) = self.conv.site() {
+                if !matches!(self.field_kind.as_deref(), Some("password" | "url" | "email")) {
+                    crate::templates::learn(&crate::components::data_dir(), &romaji::to_hiragana(&self.buf), &s, site);
                 }
             }
         }

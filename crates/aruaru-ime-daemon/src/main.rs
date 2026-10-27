@@ -70,6 +70,13 @@ impl EngineConv {
 }
 
 impl Converter for EngineConv {
+    fn site(&self) -> Option<aruaru_ime_core::templates::Site> {
+        let s = self.state.lock().ok()?;
+        if s.password {
+            return None;
+        }
+        aruaru_ime_core::templates::detect_site(&s.screen_text)
+    }
     fn convert(&self, buffer: &str, before: &str, field_kind: Option<&str>) -> Conversion {
         let (ctx, password) = self.ctx(before, field_kind);
         if !password {
