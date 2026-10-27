@@ -34,6 +34,7 @@ pub mod prefer;
 pub mod lastime;
 pub mod seasonal;
 pub mod templates;
+pub mod templates_mine;
 pub mod wish;
 pub mod zh;
 

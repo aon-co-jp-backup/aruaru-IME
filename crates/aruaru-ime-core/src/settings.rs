@@ -56,6 +56,9 @@ pub struct Settings {
     /// 毎朝、取得済みの郵便番号データを更新し、国名・主要都市名を入れ直す(端末のローカル時刻の朝6〜8時台)。選んでいないデータは取得しない。既定オン。
     #[serde(default = "default_true")]
     pub data_update: bool,
+    /// 定型文の自動調査(aruaru-llm に、確定した長い文章から定型文を作らせ、よく使うサイトの例文を検索から拾わせる)。文章は PC の中の aruaru-llm にだけ渡す。既定オン。
+    #[serde(default = "default_true")]
+    pub template_mining: bool,
     /// バックアップの保存先を指定する(空なら自動)。
     #[serde(default)]
     pub backup_dir: Option<String>,
@@ -86,7 +89,7 @@ fn default_theme() -> String {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, update_channel: default_channel(), packs_seen: vec![], dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, data_update: true, backup_dir: None }
+        Self { theme: default_theme(), bypass_apps: vec![], live_conversion: true, candidate_scale: default_scale(), auto_update: true, autocorrect: true, old_forms: false, languages: default_languages(), web_suggest: true, update_channel: default_channel(), packs_seen: vec![], dev_stack: vec![], open_online_ui: true, github_repo: None, prefer_kanji: true, auto_backup: true, data_update: true, template_mining: true, backup_dir: None }
     }
 }
 

@@ -44,6 +44,18 @@ impl Client {
         Some(lines.join("\n"))
     }
 
+    /// aruaru-llm が、この PC の中(127.0.0.1 / localhost)にあるか。利用者の文章を送ってよいかの判定に使う。
+    pub fn is_local(&self) -> bool {
+        let b = self.base.as_str();
+        ["http://127.0.0.1", "http://localhost", "http://[::1]"].iter().any(|p| b.starts_with(p))
+    }
+
+    /// 時間のかかる生成(定型文の自動調査など)。待ち時間を長くとる。
+    pub fn generate_long(&self, prompt: &str, max_new_tokens: usize, secs: u64) -> Option<String> {
+        let v = self.post_timeout("/v1/generate-qwen", json!({"prompt": prompt, "max_new_tokens": max_new_tokens}), secs)?;
+        v["text"].as_str().map(str::to_string)
+    }
+
     /// Qwenで続きを生成。
     pub fn generate(&self, prompt: &str, max_new_tokens: usize) -> Option<String> {
         let v = self.post("/v1/generate-qwen", json!({"prompt": prompt, "max_new_tokens": max_new_tokens}))?;

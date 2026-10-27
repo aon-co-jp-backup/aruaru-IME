@@ -680,6 +680,7 @@ fn main() {
         spawn_restore_ime();
         spawn_autobackup();
         spawn_data_update();
+        spawn_template_mining();
         resume_wishes(client.clone());
     }
     let (c2, d2, s2, g2) = (client.clone(), Arc::clone(&dict), Arc::clone(&state), Arc::clone(&gloss));
@@ -892,6 +893,25 @@ mod cors_tests {
             assert!(!origin_allowed(bad), "{bad}");
         }
     }
+}
+
+/// 定型文の自動調査。3時間おきに、aruaru-llm(open-cuda / open-cpu で動く Qwen)へ、確定した長い文章からの定型文づくりと、
+/// よく使うサイトの例文の検索を頼み、結果を候補へ組み込む。設定 `template_mining` で止められる。
+fn spawn_template_mining() {
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_secs(600));
+        loop {
+            if aruaru_ime_core::settings::Settings::load().template_mining {
+                let url = std::env::var("ARUARU_LLM_URL").unwrap_or_else(|_| aruaru_ime_core::client::DEFAULT_URL.to_string());
+                let client = Client::new(&url);
+                let n = aruaru_ime_core::templates_mine::run(&client, &aruaru_ime_core::components::data_dir());
+                if n > 0 {
+                    eprintln!("template mining: {n} added");
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_secs(3 * 3600));
+        }
+    });
 }
 
 /// 毎朝の自動更新(端末のローカル時刻の朝6〜8時台、端末ごとにずらす。起動が遅れても、その日のうちに1回)。

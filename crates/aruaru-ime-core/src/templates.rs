@@ -15,7 +15,7 @@ pub enum Site {
 }
 
 impl Site {
-    fn code(self) -> char {
+    pub(crate) fn code(self) -> char {
         match self {
             Site::Mercari => 'm',
             Site::Rakuma => 'r',
@@ -166,6 +166,56 @@ pub fn frequent(root: &std::path::Path, hira: &str, max: usize) -> Vec<String> {
         .collect();
     hit.sort_by(|a, b| b.0.cmp(&a.0));
     hit.into_iter().map(|x| x.1).take(max).collect()
+}
+
+/// 学習した定型文の1行。
+pub struct LearnedRow {
+    pub reading: String,
+    pub text: String,
+    pub spec: String,
+    pub count: u32,
+}
+
+/// 学習した定型文を読む。
+pub fn learned_rows(root: &std::path::Path) -> Vec<LearnedRow> {
+    std::fs::read_to_string(root.join(LEARNED))
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split('\t').collect();
+            (f.len() >= 4).then(|| LearnedRow { reading: f[0].to_string(), text: f[1].to_string(), spec: f[2].to_string(), count: f[3].parse().unwrap_or(1) })
+        })
+        .collect()
+}
+
+/// 利用者が実際に使ったサイトの記号(`m` `r` `y` `f`)。
+pub fn used_site_codes(root: &std::path::Path) -> Vec<char> {
+    let mut v: Vec<char> = vec![];
+    for r in learned_rows(root) {
+        for c in r.spec.chars().filter(|c| "mryf".contains(*c)) {
+            if !v.contains(&c) {
+                v.push(c);
+            }
+        }
+    }
+    v
+}
+
+/// 自動調査(aruaru-llm)で作った定型文を足す。同じ文があれば足さない。回数は 2 から(利用者が使うほど上がる)。
+/// `spec` は `-`(サイト指定なし)か、サイトの記号。
+pub fn add_mined(root: &std::path::Path, reading: &str, text: &str, spec: &str) -> bool {
+    let mut rows = learned_rows(root);
+    if rows.iter().any(|r| r.text == text) {
+        return false;
+    }
+    rows.push(LearnedRow { reading: reading.to_string(), text: text.to_string(), spec: spec.to_string(), count: 2 });
+    if rows.len() > LEARN_MAX_ENTRIES {
+        rows.sort_by(|a, b| b.count.cmp(&a.count));
+        rows.truncate(LEARN_MAX_ENTRIES);
+    }
+    let body: String = rows.iter().map(|r| format!("{}\t{}\t{}\t{}\n", r.reading, r.text, r.spec, r.count)).collect();
+    std::fs::create_dir_all(root).ok();
+    std::fs::write(root.join(LEARNED), body).is_ok()
 }
 
 fn site_ok(spec: &str, site: Site) -> bool {
