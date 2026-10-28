@@ -581,12 +581,23 @@ fn resume_wishes(client: Client) {
     });
 }
 
-/// 自動アップデート: **起動時の1回だけ**最新版を確認し、新しければ入れ替える(設定 auto_update)。定期的な確認はしない。
+/// 次の朝6時(現地時間)までの秒数。
+fn secs_until_morning() -> u64 {
+    use chrono::{Duration as D, Local};
+    let now = Local::now();
+    let mut next = now.date_naive().and_hms_opt(6, 0, 0).unwrap_or_else(|| now.naive_local());
+    if next <= now.naive_local() {
+        next += D::days(1);
+    }
+    (next - now.naive_local()).num_seconds().max(60) as u64
+}
+
+/// 自動アップデート: 起動直後に1回、その後は**毎朝6時**に最新版を確認し、新しければ入れ替える(設定 auto_update)。
 fn spawn_updater() {
     std::thread::spawn(|| {
-        // 起動処理(辞書の読み込み・最初の入力)を邪魔しないよう、少し待ってから1回だけ確認する
+        // 起動処理(辞書の読み込み・最初の入力)を邪魔しないよう、少し待ってから確認する
         std::thread::sleep(Duration::from_secs(15));
-        {
+        loop {
             if aruaru_ime_core::settings::Settings::load().auto_update {
                 let root = aruaru_ime_core::components::data_dir().join("app");
                 match aruaru_ime_core::update::run_once(aruaru_ime_core::update::REPO, &root) {
@@ -609,6 +620,7 @@ fn spawn_updater() {
                     Err(e) => eprintln!("update check failed: {e}"),
                 }
             }
+            std::thread::sleep(Duration::from_secs(secs_until_morning()));
         }
     });
 }
