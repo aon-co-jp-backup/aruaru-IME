@@ -84,6 +84,7 @@ name = "aruaru-ime-daemon"
 version = "0.2.16"
 dependencies = [
  "aruaru-ime-core",
+ "chrono",
  "image",
  "open-runo-crossui",
  "serde",
