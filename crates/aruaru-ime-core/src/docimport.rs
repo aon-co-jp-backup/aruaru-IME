@@ -109,7 +109,7 @@ pub fn extract_lines(path: &Path) -> Result<Vec<String>, String> {
         }
         "pptx" => {
             let mut z = zip_of(bytes)?;
-            let mut names: Vec<String> = (0..z.len()).filter_map(|i| z.by_index(i).ok().map(|f| f.name().to_string())).filter(|n| n.starts_with("ppt/slides/slide") && n.ends_with(".xml")).collect();
+            let mut names: Vec<String> = (0..z.len()).filter_map(|i| z.by_index(i).ok().and_then(|f| f.name().ok().map(|n| n.to_string()))).filter(|n| n.starts_with("ppt/slides/slide") && n.ends_with(".xml")).collect();
             names.sort_by_key(|n| n.trim_start_matches("ppt/slides/slide").trim_end_matches(".xml").parse::<u32>().unwrap_or(0));
             let mut out = vec![];
             for n in names {
