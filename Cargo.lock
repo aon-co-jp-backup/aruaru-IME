@@ -41,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-android"
-version = "0.2.16"
+version = "0.2.17"
 dependencies = [
  "aruaru-ime-core",
  "jni",
@@ -54,7 +54,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-cli"
-version = "0.2.16"
+version = "0.2.17"
 dependencies = [
  "aruaru-ime-core",
  "open-runo-crossui",
@@ -62,7 +62,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-core"
-version = "0.2.16"
+version = "0.2.17"
 dependencies = [
  "base64",
  "chrono",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-daemon"
-version = "0.2.16"
+version = "0.2.17"
 dependencies = [
  "aruaru-ime-core",
  "chrono",
@@ -96,7 +96,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-ibus"
-version = "0.2.16"
+version = "0.2.17"
 dependencies = [
  "async-io",
  "futures-lite",
@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-tsf"
-version = "0.2.16"
+version = "0.2.17"
 dependencies = [
  "aruaru-ime-core",
  "serde_json",
@@ -1301,9 +1301,9 @@ checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
 
 [[package]]
 name = "quick-xml"
-version = "0.36.2"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7649a7b4df05aed9ea7ec6f628c67c9953a43869b8bc50929569b2999d443fe"
+checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
 dependencies = [
  "memchr",
 ]

@@ -58,8 +58,23 @@ fn xml_paragraphs(xml: &[u8], para: &[u8], text: &[u8]) -> Vec<String> {
                 }
             }
             Ok(Event::Text(t)) if in_t => {
-                if let Ok(s) = t.unescape() {
+                if let Ok(s) = t.decode() {
                     cur.push_str(&s);
+                }
+            }
+            // quick-xml 0.41以降、`&amp;`や`&#x41;`などの参照は本文と別のイベントで届く。
+            Ok(Event::GeneralRef(r)) if in_t => {
+                if let Ok(Some(c)) = r.resolve_char_ref() {
+                    cur.push(c);
+                } else if let Ok(name) = r.decode() {
+                    match name.as_ref() {
+                        "lt" => cur.push('<'),
+                        "gt" => cur.push('>'),
+                        "amp" => cur.push('&'),
+                        "apos" => cur.push('\''),
+                        "quot" => cur.push('"'),
+                        _ => {}
+                    }
                 }
             }
             Ok(Event::Eof) | Err(_) => break,
@@ -306,6 +321,15 @@ mod tests {
         assert_eq!(extract_lines(&d.join("a.pptx")).unwrap(), vec!["一枚目", "二枚目"]);
         make_zip(&d.join("a.xlsx"), &[("xl/sharedStrings.xml", r#"<sst xmlns="x"><si><t>請求書</t></si><si><r><t>納</t></r><r><t>品書</t></r></si></sst>"#)]);
         assert_eq!(extract_lines(&d.join("a.xlsx")).unwrap(), vec!["請求書", "納品書"]);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// quick-xml 0.41以降は参照(`&amp;`・`&#x41;`)が別イベントで届くので、本文に戻ること。
+    #[test]
+    fn docx_entity_references_are_restored() {
+        let d = tmpdir("ent");
+        make_zip(&d.join("e.docx"), &[("word/document.xml", r#"<w:document xmlns:w="x"><w:body><w:p><w:r><w:t>A&amp;B &lt;C&gt; &#x41;&#66;</w:t></w:r></w:p></w:body></w:document>"#)]);
+        assert_eq!(extract_lines(&d.join("e.docx")).unwrap(), vec!["A&B <C> AB"]);
         let _ = std::fs::remove_dir_all(&d);
     }
 
