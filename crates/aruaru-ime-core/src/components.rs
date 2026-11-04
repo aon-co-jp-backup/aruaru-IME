@@ -28,7 +28,7 @@ pub const ARUARU_LLM: Spec = Spec {
     name: "aruaru-llm",
     repo: "aon-co-jp/aruaru-llm",
     exe: "aruaru-llm",
-    health_url: "http://127.0.0.1:4600/v1/runtime",
+    health_url: "http://127.0.0.1:4600/aruaru_llm.v1.Llm/Runtime",
     asset_win: "windows-x86_64.zip",
     asset_linux: "linux-x86_64.tar.gz",
     inno_app_id: "{3E7A1C4F-9B2D-4A6E-8F31-5D9C2E7B0A44}",
@@ -105,7 +105,13 @@ impl Ledger {
 
 /// ヘルスチェックに応答するか。
 pub fn is_running(url: &str) -> bool {
-    ureq::AgentBuilder::new().timeout(Duration::from_secs(2)).build().get(url).call().is_ok()
+    let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(2)).build();
+    // Connect の単純呼び出し(POST /<パッケージ>.<Service>/<Method>)は POST、それ以外(/healthz 等)は GET。
+    if url.contains(".v1.") {
+        agent.post(url).send_json(serde_json::json!({})).is_ok()
+    } else {
+        agent.get(url).call().is_ok()
+    }
 }
 
 fn exe_name(exe: &str) -> String {
@@ -271,11 +277,11 @@ pub fn ensure(spec: &Spec, root: &Path, installed_by: &str, allow_download: bool
 /// aruaru-llm に Qwen を導入・選択させる(強制同梱: 無ければ取得する)。
 pub fn ensure_qwen(base_url: &str, model_id: &str) -> Result<(), String> {
     let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(3600)).build();
-    let sel = |agent: &ureq::Agent| agent.post(&format!("{base_url}/v1/qwen/select")).send_json(serde_json::json!({"id": model_id}));
+    let sel = |agent: &ureq::Agent| agent.post(&format!("{base_url}/aruaru_llm.v1.Llm/QwenSelect")).send_json(serde_json::json!({"id": model_id}));
     if sel(&agent).is_ok() {
         return Ok(());
     }
-    agent.post(&format!("{base_url}/v1/qwen/install")).send_json(serde_json::json!({"id": model_id})).map_err(|e| format!("qwen install: {e}"))?;
+    agent.post(&format!("{base_url}/aruaru_llm.v1.Llm/QwenInstall")).send_json(serde_json::json!({"id": model_id})).map_err(|e| format!("qwen install: {e}"))?;
     sel(&agent).map(|_| ()).map_err(|e| format!("qwen select: {e}"))
 }
 

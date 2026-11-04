@@ -28,13 +28,13 @@ impl Client {
     }
 
     pub fn alive(&self) -> bool {
-        self.agent.get(&format!("{}/v1/runtime", self.base)).call().is_ok()
+        self.agent.post(&format!("{}/aruaru_llm.v1.Llm/Runtime", self.base)).send_json(json!({})).is_ok()
     }
 
     /// 画面(PNG)をOCRして行を連結した文字列を返す。
     pub fn ocr_png(&self, png: &[u8]) -> Option<String> {
         let b64 = base64::engine::general_purpose::STANDARD.encode(png);
-        let v = self.post("/v1/ocr", json!({"image_base64": b64, "languages": ["jpn", "eng"], "quality": "fast"}))?;
+        let v = self.post("/aruaru_llm.v1.Llm/Ocr", json!({"image_base64": b64, "languages": ["jpn", "eng"], "quality": "fast"}))?;
         let lines: Vec<String> = v["pages"][0]["lines"]
             .as_array()?
             .iter()
@@ -52,19 +52,19 @@ impl Client {
 
     /// 時間のかかる生成(定型文の自動調査など)。待ち時間を長くとる。
     pub fn generate_long(&self, prompt: &str, max_new_tokens: usize, secs: u64) -> Option<String> {
-        let v = self.post_timeout("/v1/generate-qwen", json!({"prompt": prompt, "max_new_tokens": max_new_tokens}), secs)?;
+        let v = self.post_timeout("/aruaru_llm.v1.Llm/GenerateQwen", json!({"prompt": prompt, "max_new_tokens": max_new_tokens}), secs)?;
         v["text"].as_str().map(str::to_string)
     }
 
     /// Qwenで続きを生成。
     pub fn generate(&self, prompt: &str, max_new_tokens: usize) -> Option<String> {
-        let v = self.post("/v1/generate-qwen", json!({"prompt": prompt, "max_new_tokens": max_new_tokens}))?;
+        let v = self.post("/aruaru_llm.v1.Llm/GenerateQwen", json!({"prompt": prompt, "max_new_tokens": max_new_tokens}))?;
         v["text"].as_str().map(str::to_string)
     }
 
     /// 検索(Web)の結果から、タイトルと抜粋を集める。検索は時間がかかるので、待ち時間は長め(45秒)。
     pub fn search_snippets(&self, query: &str, max: u8) -> Vec<String> {
-        let Some(v) = self.post_timeout("/v1/search/raw", json!({"source": "google", "query": query, "max_results": max, "free_only": true}), 45)
+        let Some(v) = self.post_timeout("/aruaru_llm.v1.Llm/SearchRaw", json!({"source": "google", "query": query, "max_results": max, "free_only": true}), 45)
         else {
             return vec![];
         };
