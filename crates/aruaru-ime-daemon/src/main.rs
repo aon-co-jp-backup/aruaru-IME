@@ -628,6 +628,15 @@ fn spawn_updater() {
 fn main() {
     let llm_url = std::env::var("ARUARU_LLM_URL").unwrap_or_else(|_| DEFAULT_URL.to_string());
     let client = Client::new(&llm_url);
+    {
+        // DATABASE(消費税・核武装などの固定回答)を手元の知識ベースへ。起動時と6時間ごと。
+        let c = client.clone();
+        std::thread::spawn(move || loop {
+            let n = aruaru_ime_core::knowledge::sync_from_database(&c);
+            eprintln!("knowledge sync: +{n}");
+            std::thread::sleep(Duration::from_secs(6 * 3600));
+        });
+    }
     let dict = Dict::load(&dict_path()).map_err(|e| eprintln!("dictionary NOT loaded ({}): {e}\n  searched: {:?}", dict_path().display(), dict_candidates())).ok();
     eprintln!("dictionary: {}", if dict.is_some() { dict_path().display().to_string() } else { "none".into() });
     let dict = Arc::new(dict);

@@ -27,6 +27,27 @@ impl Client {
         self.agent.post(&format!("{}{}", self.base, path)).timeout(Duration::from_secs(secs)).send_json(body).ok()?.into_json().ok()
     }
 
+    /// aruaru-llm の知識ベース(DATABASE)を全件取得する(IMEの補足表示用に手元へ取り込む)。
+    pub fn knowledge_all(&self) -> Option<Vec<Value>> {
+        let v = self.agent.get(&format!("{}/v1/knowledge/search", self.base)).call().ok()?.into_json::<Value>().ok()?;
+        v["items"].as_array().cloned()
+    }
+
+    /// 公開サイト(maid-cafe.tokyo)のDBから、語(消費税・核武装など)の固定回答を取る。無ければ None。
+    pub fn public_answer(term: &str) -> Option<String> {
+        let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(10)).build();
+        let v: Value = agent
+            .post("https://maid-cafe.tokyo/openenglish.v1.ChatProviders/CompletePriority")
+            .send_json(json!({"prompt": format!("Student: {term}について")}))
+            .ok()?
+            .into_json()
+            .ok()?;
+        if v["reply"]["provider"].as_str() != Some("knowledge") {
+            return None;
+        }
+        v["reply"]["text"].as_str().map(str::to_string)
+    }
+
     pub fn alive(&self) -> bool {
         self.agent.post(&format!("{}/aruaru_llm.v1.Llm/Runtime", self.base)).send_json(json!({})).is_ok()
     }

@@ -75,6 +75,37 @@ pub fn search(items: &[Item], query: &str, max: usize) -> Vec<Item> {
     v
 }
 
+/// DATABASE(aruaru-llm の知識ベース、無ければ公開サイトの固定回答)から、手元の知識ベースへ取り込む。
+/// 消費税・核武装など、変換候補の補足説明にDBの回答を出すため。増えた件数を返す(失敗は黙って 0)。
+pub fn sync_from_database(client: &crate::client::Client) -> usize {
+    let p = path(&crate::components::data_dir());
+    let mut n = 0;
+    if let Some(items) = client.knowledge_all() {
+        for i in items {
+            let text = i["text"].as_str().unwrap_or("");
+            let tags: Vec<String> = i["tags"].as_array().map(|a| a.iter().filter_map(|t| t.as_str().map(str::to_string)).collect()).unwrap_or_default();
+            if add(&p, text, &tags, "aruaru-llm").unwrap_or(false) {
+                n += 1;
+            }
+        }
+    }
+    for term in SEED_TERMS {
+        if load(&p).iter().any(|i| i.tags.iter().any(|t| t == term)) {
+            continue;
+        }
+        if let Some(text) = crate::client::Client::public_answer(term) {
+            let text: String = text.chars().take(2000).collect();
+            if add(&p, &text, &[term.to_string(), "固定回答".to_string()], "maid-cafe.tokyo").unwrap_or(false) {
+                n += 1;
+            }
+        }
+    }
+    n
+}
+
+/// 必ずDBから引いて補足に出したい語。
+const SEED_TERMS: &[&str] = &["消費税", "核武装"];
+
 /// 候補ウィンドウの補足表示用。選んでいる候補(語)を含む知識を1件、短くして返す。ファイルが変わったときだけ読み直す。
 pub fn note_for(word: &str) -> Option<String> {
     use std::sync::Mutex;
@@ -92,9 +123,10 @@ pub fn note_for(word: &str) -> Option<String> {
         *g = Some((mt, load(&p)));
     }
     let items = &g.as_ref()?.1;
-    let hit = items.iter().rev().find(|i| i.text.contains(w) || i.tags.iter().any(|t| t == w))?;
-    let t: String = hit.text.chars().take(60).collect();
-    Some(if hit.text.chars().count() > 60 { format!("{t}…") } else { t })
+    let hit = items.iter().rev().find(|i| i.tags.iter().any(|t| t == w)).or_else(|| items.iter().rev().find(|i| i.text.contains(w)))?;
+    let flat: String = hit.text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let t: String = flat.chars().take(60).collect();
+    Some(if flat.chars().count() > 60 { format!("{t}…") } else { t })
 }
 
 #[cfg(test)]
