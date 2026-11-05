@@ -48,6 +48,31 @@ impl Client {
         v["reply"]["text"].as_str().map(str::to_string)
     }
 
+    /// 公開サイトのカスタムQ&A(DATABASE。核武装など)を全件取得する。(キーワード群, 日本語の回答)。
+    pub fn public_custom_qa() -> Vec<(Vec<String>, String)> {
+        let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(10)).build();
+        let Some(v) = agent
+            .post("https://maid-cafe.tokyo/openenglish.v1.CustomQa/CustomQaGet")
+            .send_json(json!({}))
+            .ok()
+            .and_then(|r| r.into_json::<Value>().ok())
+        else {
+            return vec![];
+        };
+        v["pairs"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|p| {
+                        let kw: Vec<String> = p["keywords"].as_array()?.iter().filter_map(|k| k.as_str().map(str::to_string)).collect();
+                        let ans = p["answer_ja"].as_str().or_else(|| p["answer"].as_str())?.to_string();
+                        (!kw.is_empty() && !ans.is_empty()).then_some((kw, ans))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     pub fn alive(&self) -> bool {
         self.agent.post(&format!("{}/aruaru_llm.v1.Llm/Runtime", self.base)).send_json(json!({})).is_ok()
     }

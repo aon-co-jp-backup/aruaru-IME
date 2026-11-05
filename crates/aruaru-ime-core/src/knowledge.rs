@@ -89,6 +89,14 @@ pub fn sync_from_database(client: &crate::client::Client) -> usize {
             }
         }
     }
+    for (kw, ans) in crate::client::Client::public_custom_qa() {
+        let text: String = ans.chars().take(2000).collect();
+        let mut tags = kw.clone();
+        tags.push("固定回答".to_string());
+        if add(&p, &text, &tags, "maid-cafe.tokyo").unwrap_or(false) {
+            n += 1;
+        }
+    }
     for term in SEED_TERMS {
         if load(&p).iter().any(|i| i.tags.iter().any(|t| t == term)) {
             continue;
@@ -149,5 +157,19 @@ mod tests {
         let q = d.join("q.json");
         let _ = std::fs::remove_file(&q);
         assert_eq!(import(&q, &p).unwrap(), 1);
+    }
+
+    /// 実ネットワーク(maid-cafe.tokyo)を使う確認。`cargo test -- --ignored database_notes`
+    #[test]
+    #[ignore]
+    fn database_notes() {
+        let c = crate::client::Client::new("http://127.0.0.1:1");
+        let n = sync_from_database(&c);
+        println!("synced +{n}");
+        for w in ["消費税", "核武装"] {
+            let note = note_for(w);
+            println!("{w} => {note:?}");
+            assert!(note.map(|t| t.chars().count() > 20).unwrap_or(false), "{w}");
+        }
     }
 }
