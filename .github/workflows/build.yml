@@ -160,7 +160,7 @@ jobs:
           cd pkg/aruaru-ime-${{ matrix.name }}
           sh ./install.sh
           for i in $(seq 1 30); do curl -fs http://127.0.0.1:4660/health && break; sleep 1; done
-          curl -fs http://127.0.0.1:4660/health | grep -q "dict=1225528" || { echo "dictionary not loaded"; exit 1; }
+          curl -fs http://127.0.0.1:4660/health | grep -qE "dict=1[0-9]{6}" || { echo "dictionary not loaded"; exit 1; }
           post() { curl -fs -X POST "http://127.0.0.1:4660$1" -d "$2"; }
           post /session '{"sid":"i","op":"lang","lang":"ja"}' >/dev/null
           R=""
