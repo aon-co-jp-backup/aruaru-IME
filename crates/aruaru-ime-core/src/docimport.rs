@@ -36,7 +36,7 @@ fn decode_text(bytes: &[u8]) -> String {
     encoding_rs::SHIFT_JIS.decode(bytes).0.into_owned()
 }
 
-fn xml_paragraphs(xml: &[u8], para: &[u8], text: &[u8]) -> Vec<String> {
+fn xml_paragraphs(xml: &[u8], para: &str, text: &str) -> Vec<String> {
     let mut r = Reader::from_reader(xml);
     let mut out = vec![];
     let mut cur = String::new();
@@ -58,16 +58,14 @@ fn xml_paragraphs(xml: &[u8], para: &[u8], text: &[u8]) -> Vec<String> {
                 }
             }
             Ok(Event::Text(t)) if in_t => {
-                if let Ok(s) = t.decode() {
-                    cur.push_str(&s);
-                }
+                cur.push_str(t.as_ref());
             }
             // quick-xml 0.41以降、`&amp;`や`&#x41;`などの参照は本文と別のイベントで届く。
             Ok(Event::GeneralRef(r)) if in_t => {
                 if let Ok(Some(c)) = r.resolve_char_ref() {
                     cur.push(c);
-                } else if let Ok(name) = r.decode() {
-                    match name.as_ref() {
+                } else {
+                    match r.as_ref() {
                         "lt" => cur.push('<'),
                         "gt" => cur.push('>'),
                         "amp" => cur.push('&'),
@@ -105,7 +103,7 @@ pub fn extract_lines(path: &Path) -> Result<Vec<String>, String> {
         "docx" => {
             let mut z = zip_of(bytes)?;
             let doc = read_zip_file(&mut z, "word/document.xml").ok_or("word/document.xml がありません")?;
-            Ok(xml_paragraphs(&doc, b"p", b"t"))
+            Ok(xml_paragraphs(&doc, "p", "t"))
         }
         "pptx" => {
             let mut z = zip_of(bytes)?;
@@ -114,7 +112,7 @@ pub fn extract_lines(path: &Path) -> Result<Vec<String>, String> {
             let mut out = vec![];
             for n in names {
                 if let Some(x) = read_zip_file(&mut z, &n) {
-                    out.extend(xml_paragraphs(&x, b"p", b"t"));
+                    out.extend(xml_paragraphs(&x, "p", "t"));
                 }
             }
             Ok(out)
@@ -123,7 +121,7 @@ pub fn extract_lines(path: &Path) -> Result<Vec<String>, String> {
             let mut z = zip_of(bytes)?;
             // 文字列セルは共有文字列表にまとまっている(各 <si> が1セル)
             let ss = read_zip_file(&mut z, "xl/sharedStrings.xml").ok_or("文字列セルがありません")?;
-            Ok(xml_paragraphs(&ss, b"si", b"t"))
+            Ok(xml_paragraphs(&ss, "si", "t"))
         }
         "pdf" => {
             let doc = lopdf::Document::load_mem(&bytes).map_err(|e| format!("PDFを開けません: {e}"))?;

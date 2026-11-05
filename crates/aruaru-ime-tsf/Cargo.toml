@@ -12,7 +12,7 @@ name = "aruaru_ime_tsf"
 crate-type = ["cdylib"]
 
 [dependencies]
-sonic-rs = "0.3"
+sonic-rs = "0.5"
 aruaru-ime-core = { path = "../aruaru-ime-core" }
 serde_json = "1"
 
