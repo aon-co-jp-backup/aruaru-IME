@@ -478,3 +478,9 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **案A(辞書の元データの追加)**: `aruaru-ime build-extra data/mozc-src <jmdict-eng.json> <jmnedict-all.json>` が、Mozc 辞書に無い「読み+表記」を JMdict(名詞・サ変名詞)と JMnedict(姓・名・人名・地名・駅名・組織名・作品名など)から `data/mozc-src/extra00.txt`(Mozc 形式)に作る。`build-dict` は `extra*.txt` を自動で読み込む。実測: 追加 532,127 件(Mozc 約 122 万 → 約 176 万、`dict.bin` 約 64MB → 約 83MB)。コストは Mozc の平均より少し大きく(=優先度は低く)付けるので、既存の変換結果は崩れない。元データは jmdict-simplified の JSON(CC BY-SA 4.0、`installer/LICENSES.txt` に JMnedict も明記)。
 - **案C(毎朝の自動追加)**: `dataupdate` が Wikidata の「かな表記(P1814)」つきの項目から、作品名(アニメ・マンガ・ゲーム・映画・TV)・人名(日本語記事 3 件以上)・企業団体名・地名駅名(駅・山・名所)を利用者辞書へ出所つきで入れる(`自動更新:作品名` ほか。出所ごとに削除可)。読みが確かなものだけ。実測 約 3.2 万件。結果が少なすぎるときは辞書を消さない。
 - 辞書の作り直しは `build-extra` → `build-dict`。`data/` は git 管理外。インストーラー・VPS の `dict.bin` への反映は別途必要。
+
+
+## 依存更新(2026-11-06、version-control 通知への対応)
+- **更新済み**(`cargo test -p aruaru-ime-core` 196件成功): base64 0.23・sha2 0.11・quick-xml 0.42(名前・本文が`&str`化、`decode()`廃止、`docimport.rs`を追従)・lopdf 0.47・sonic-rs 0.5(tsf/daemon)。
+- **未更新(個別の作業が要る)**: `windows` 0.62/`windows-core`(0.62で`implement`機能が無くなり、TSFのCOM実装〈`#[implement]`〉の書き換えが必要。実機のIME登録試験が要る)、`ureq` 3(`AgentBuilder`廃止・約20箇所、`Error::Status`の扱い変更)、`jni` 0.22(Androidビルド環境が要る)、`zbus` 6(Linux/IBusの実機が要る)。
+- *Updated and tested: base64, sha2, quick-xml (str-based API), lopdf, sonic-rs. Deferred: windows 0.62 (the `implement` feature is gone; TSF COM code needs rewriting and on-device IME tests), ureq 3, jni 0.22, zbus 6.*
