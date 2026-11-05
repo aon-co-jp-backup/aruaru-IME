@@ -13,6 +13,13 @@ use std::time::Duration;
 pub const REPO: &str = "aon-co-jp/aruaru-IME";
 /// 展開後に必ず存在していなければならないファイル(無ければ切り替えない)。
 pub const REQUIRED_FILES: &[&str] = &["aruaru_ime_tsf.dll", "aruaru-ime-daemon.exe"];
+/// 常駐エンジンの実行ファイル名(OSごと)。
+pub const DAEMON_NAME: &str = if cfg!(windows) { "aruaru-ime-daemon.exe" } else { "aruaru-ime-daemon" };
+
+/// この環境で、展開後に必ず存在していなければならないファイル。Windows は DLL とエンジン、Linux/macOS はエンジン。
+pub fn required_files() -> &'static [&'static str] {
+    if cfg!(windows) { REQUIRED_FILES } else { &[DAEMON_NAME] }
+}
 
 pub type Version = (u32, u32, u32);
 
@@ -48,7 +55,7 @@ pub fn pick_release(json: &Value, current: Version, platform_pat: &str, allow_pr
         return None;
     }
     let assets = json["assets"].as_array()?;
-    let zip = assets.iter().find(|a| a["name"].as_str().is_some_and(|n| n.ends_with(".zip") && n.contains(platform_pat)))?;
+    let zip = assets.iter().find(|a| a["name"].as_str().is_some_and(|n| (n.ends_with(".zip") || n.ends_with(".tar.gz")) && n.contains(platform_pat)))?;
     let zip_name = zip["name"].as_str()?;
     let asset_url = zip["browser_download_url"].as_str()?.to_string();
     let sha256_url = assets
@@ -72,7 +79,7 @@ pub fn platform_pattern() -> &'static str {
     if cfg!(windows) {
         "windows-x86_64"
     } else if cfg!(target_os = "macos") {
-        "macos"
+        if cfg!(target_arch = "aarch64") { "macos-arm64" } else { "macos-x86_64" }
     } else {
         "linux-x86_64"
     }
@@ -132,14 +139,20 @@ pub fn stage(zip_bytes: &[u8], versions_root: &Path, tag: &str) -> Result<PathBu
     let tmp = versions_root.join(format!(".{tag}.partial"));
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
-    let mut z = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).map_err(|e| format!("zip を開けません: {e}"))?;
-    z.extract(&tmp).map_err(|e| format!("展開に失敗: {e}"))?; // 親ディレクトリへ抜けるパスは拒否される
+    if zip_bytes.starts_with(&[0x1f, 0x8b]) {
+        // .tar.gz(Linux / macOS)。実行権限も保たれ、親ディレクトリへ抜けるパスは拒否される
+        let gz = flate2::read::GzDecoder::new(std::io::Cursor::new(zip_bytes));
+        tar::Archive::new(gz).unpack(&tmp).map_err(|e| format!("展開に失敗: {e}"))?;
+    } else {
+        let mut z = zip::ZipArchive::new(std::io::Cursor::new(zip_bytes)).map_err(|e| format!("zip を開けません: {e}"))?;
+        z.extract(&tmp).map_err(|e| format!("展開に失敗: {e}"))?; // 親ディレクトリへ抜けるパスは拒否される
+    }
     // zip の中身が1つのフォルダに入っている場合は、その中を版フォルダとして扱う
     let root = {
         let entries: Vec<_> = std::fs::read_dir(&tmp).map_err(|e| e.to_string())?.flatten().collect();
         if entries.len() == 1 && entries[0].path().is_dir() { entries[0].path() } else { tmp.clone() }
     };
-    for f in REQUIRED_FILES {
+    for f in required_files() {
         if !root.join(f).is_file() {
             let _ = std::fs::remove_dir_all(&tmp);
             return Err(format!("更新ファイルに {f} がありません。更新を中止しました"));
@@ -204,15 +217,15 @@ pub fn run_once(repo: &str, app_root: &Path) -> Result<Option<(String, PathBuf)>
     let Some(rel) = check(repo, current_version())? else { return Ok(None) };
     let versions = app_root.join("versions");
     std::fs::create_dir_all(&versions).map_err(|e| e.to_string())?;
-    if versions.join(&rel.tag).join(REQUIRED_FILES[0]).is_file() {
+    if versions.join(&rel.tag).join(required_files()[0]).is_file() {
         // 取得済み: 切り替えだけやり直す
         let dir = versions.join(&rel.tag);
-        activate(&dir.join(REQUIRED_FILES[0])).map_err(|e| e.to_string())?;
+        activate(&dir.join(required_files()[0])).map_err(|e| e.to_string())?;
         return Ok(Some((rel.tag, dir)));
     }
     let bytes = download(&rel)?;
     let dir = stage(&bytes, &versions, &rel.tag)?;
-    activate(&dir.join(REQUIRED_FILES[0])).map_err(|e| e.to_string())?;
+    activate(&dir.join(required_files()[0])).map_err(|e| e.to_string())?;
     prune(&versions, &rel.tag, 2);
     Ok(Some((rel.tag, dir)))
 }
@@ -296,6 +309,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn stages_complete_release_and_rejects_incomplete() {
         let root = tmp("stage");
         let ok = make_zip(&[("aruaru_ime_tsf.dll", b"dll"), ("aruaru-ime-daemon.exe", b"exe"), ("README.txt", b"r")]);
@@ -327,5 +341,59 @@ mod tests {
     #[test]
     fn sha256_known_value() {
         assert_eq!(sha256_hex(b"abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    }
+
+    fn make_targz(files: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut raw = Vec::new();
+        {
+            let mut b = tar::Builder::new(&mut raw);
+            for (n, d) in files {
+                let mut h = tar::Header::new_gnu();
+                h.set_size(d.len() as u64);
+                h.set_mode(0o755);
+                h.set_cksum();
+                b.append_data(&mut h, n, *d).unwrap();
+            }
+            b.finish().unwrap();
+        }
+        let mut e = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        e.write_all(&raw).unwrap();
+        e.finish().unwrap()
+    }
+
+    #[test]
+    fn picks_and_stages_tar_gz_for_unix() {
+        let j = json!({"tag_name": "v0.2.0", "draft": false, "prerelease": false, "assets": [
+            {"name": "aruaru-ime-linux-x86_64.tar.gz", "browser_download_url": "https://github.com/a/b/releases/download/x/aruaru-ime-linux-x86_64.tar.gz"}]});
+        assert_eq!(pick_release(&j, (0, 1, 0), "linux-x86_64", false).unwrap().tag, "v0.2.0");
+        let root = tmp("targz");
+        let t = make_targz(&[("aruaru-ime-linux-x86_64/aruaru-ime-daemon", b"elf"), ("aruaru-ime-linux-x86_64/install.sh", b"sh")]);
+        // Unix では必須ファイルは常駐エンジンのみ(Windows の DLL は要らない)
+        if !cfg!(windows) {
+            let dir = stage(&t, &root, "v0.2.0").unwrap();
+            assert!(dir.join("aruaru-ime-daemon").is_file());
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_ne!(std::fs::metadata(dir.join("aruaru-ime-daemon")).unwrap().permissions().mode() & 0o111, 0, "実行権限が残る");
+            }
+            let bad = make_targz(&[("x/readme", b"r")]);
+            assert!(stage(&bad, &root, "v0.3.0").is_err());
+        }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 実リリースでの確認(ネットワーク)。`cargo test -p aruaru-ime-core live_release -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn live_release_roundtrip() {
+        let rel = check(REPO, (0, 2, 0)).unwrap().expect("新しい版が見つかる");
+        println!("found {} {}", rel.tag, rel.asset_url);
+        let bytes = download(&rel).unwrap();
+        let root = tmp("live");
+        let dir = stage(&bytes, &root, &rel.tag).unwrap();
+        println!("staged {}", dir.display());
+        assert!(dir.join(DAEMON_NAME).is_file() || cfg!(windows));
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

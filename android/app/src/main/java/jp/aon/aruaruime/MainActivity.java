@@ -49,11 +49,77 @@ public class MainActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient());
         offerKeyboard();
+        startMaintenance();
         if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(HOME);
         }
+    }
+
+    private final android.content.BroadcastReceiver installStatus = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            int st = i.getIntExtra(android.content.pm.PackageInstaller.EXTRA_STATUS, -1);
+            if (st == android.content.pm.PackageInstaller.STATUS_PENDING_USER_ACTION) {
+                Intent confirm = i.getParcelableExtra(Intent.EXTRA_INTENT);
+                if (confirm != null) {
+                    confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(confirm); // OS の「更新しますか?」画面
+                }
+            }
+        }
+    };
+
+    /** 起動時のメンテナンス: 新しい版を確認・取得し、あれば更新の案内を出す(6時間に1回まで確認)。 */
+    private void startMaintenance() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(installStatus, new android.content.IntentFilter(Updater.ACTION_STATUS), Context.RECEIVER_NOT_EXPORTED);
+            else registerReceiver(installStatus, new android.content.IntentFilter(Updater.ACTION_STATUS));
+        } catch (Exception ignored) {
+        }
+        offerUpdate(); // 前回までに取得済みのものがあれば、すぐ案内する
+        new Thread(() -> {
+            Updater.maintenance(getApplicationContext(), false);
+            runOnUiThread(this::offerUpdate);
+        }).start();
+    }
+
+    private boolean updateDialogShown = false;
+
+    private void offerUpdate() {
+        final Updater.Pending p = Updater.pending(this);
+        if (p == null || updateDialogShown || isFinishing()) return;
+        updateDialogShown = true;
+        new AlertDialog.Builder(this)
+            .setTitle("新しい版 " + p.tag + " / New version")
+            .setMessage("aruaru-IME の新しい版を取得しました。更新しますか?(データは残ります)\nA new version of aruaru-IME is ready. Update now? (your data is kept)")
+            .setPositiveButton("更新する / Update", (d, w) -> {
+                try {
+                    if (!Updater.canInstall(this)) {
+                        startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + getPackageName())));
+                        updateDialogShown = false; // 許可したあと戻ってきたら、もう一度案内する
+                        return;
+                    }
+                    Updater.install(this, p);
+                } catch (Exception e) {
+                    updateDialogShown = false;
+                }
+            })
+            .setNegativeButton("あとで / Later", null)
+            .show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        offerUpdate();
+    }
+
+    @Override
+    protected void onDestroy() {
+        try { unregisterReceiver(installStatus); } catch (Exception ignored) { }
+        super.onDestroy();
     }
 
     /** aruaru-IME のキーボードがまだ有効でなければ、設定を案内する。 */

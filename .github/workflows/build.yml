@@ -225,5 +225,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # 自動更新(デスクトップ・Android)が取得物を検証できるよう、各ファイルのSHA-256を添える
+          (cd out && for f in *; do case "$f" in *.sha256) ;; *) sha256sum "$f" > "$f.sha256" ;; esac; done)
           ls -la out
           gh release upload "${{ github.ref_name }}" out/* --clobber --repo "${{ github.repository }}"

@@ -28,6 +28,9 @@ public class AruaruImeService extends InputMethodService {
     @Override
     public View onCreateInputView() {
         Native.init(getFilesDir().getAbsolutePath());
+        // キーボードの初回表示でもメンテナンス(新しい版の確認と取得。入れる確認はアプリを開いたときに出る)
+        final android.content.Context app = getApplicationContext();
+        net.execute(() -> Updater.maintenance(app, false));
         web = new WebView(this);
         web.getSettings().setJavaScriptEnabled(true);
         web.setBackgroundColor(0xFF1B1D22);

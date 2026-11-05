@@ -526,7 +526,7 @@ pub(crate) fn run_wish(client: &Client, term: String, cat: aruaru_ime_core::wish
 
 /// 更新で入れ替わった新しい版のエンジンを起動し、自分は終了する(新しいエンジンがポートを引き継ぐ)。
 pub(crate) fn swap_engine(dir: &std::path::Path) {
-    let exe = dir.join("aruaru-ime-daemon.exe");
+    let exe = dir.join(aruaru_ime_core::update::DAEMON_NAME);
     let me = std::env::current_exe().ok();
     if exe.is_file() && me.as_deref() != Some(exe.as_path()) {
         let mut c = std::process::Command::new(&exe);
