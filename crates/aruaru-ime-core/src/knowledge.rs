@@ -77,7 +77,7 @@ pub fn search(items: &[Item], query: &str, max: usize) -> Vec<Item> {
 
 /// DATABASE(aruaru-llm の知識ベース、無ければ公開サイトの固定回答)から、手元の知識ベースへ取り込む。
 /// 消費税・核武装など、変換候補の補足説明にDBの回答を出すため。増えた件数を返す(失敗は黙って 0)。
-const SEED_JSON: &str = include_str!("../../../data/knowledge-seed.json");
+const SEED_JSON: &str = include_str!("../assets/knowledge-seed.json");
 
 /// 同梱の初期知識(消費税・核武装)を手元の知識ベースへ。オフラインでも・初回起動でも出せるように。1回だけ。
 pub fn ensure_builtin_seed() {
