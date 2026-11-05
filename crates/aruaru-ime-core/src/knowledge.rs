@@ -138,6 +138,23 @@ pub fn sync_from_database(client: &crate::client::Client) -> usize {
 /// 必ずDBから引いて補足に出したい語。
 const SEED_TERMS: &[&str] = &["消費税", "核武装"];
 
+/// 変換候補の文脈判断(`contextual.rs`)の手がかり用に、知識ベース全体の本文とタグをつなげたもの。ファイルが変わったときだけ読み直す。
+pub fn corpus() -> String {
+    use std::sync::Mutex;
+    use std::time::SystemTime;
+    static CACHE: Mutex<Option<(SystemTime, String)>> = Mutex::new(None);
+    ensure_builtin_seed();
+    let p = path(&crate::components::data_dir());
+    let Some(mt) = std::fs::metadata(&p).and_then(|m| m.modified()).ok() else { return String::new() };
+    let Ok(mut g) = CACHE.lock() else { return String::new() };
+    if g.as_ref().map(|(t, _)| *t != mt).unwrap_or(true) {
+        let all: String = load(&p).iter().map(|i| format!("{} {}
+", i.tags.join(" "), i.text)).collect();
+        *g = Some((mt, all));
+    }
+    g.as_ref().map(|(_, s)| s.clone()).unwrap_or_default()
+}
+
 /// 候補ウィンドウの補足表示用。選んでいる候補(語)を含む知識を1件、短くして返す。ファイルが変わったときだけ読み直す。
 pub fn note_for(word: &str) -> Option<String> {
     use std::sync::Mutex;
@@ -150,13 +167,16 @@ pub fn note_for(word: &str) -> Option<String> {
     }
     ensure_builtin_seed();
     let p = path(&crate::components::data_dir());
-    let mt = std::fs::metadata(&p).and_then(|m| m.modified()).ok()?;
+    let Some(mt) = std::fs::metadata(&p).and_then(|m| m.modified()).ok() else { return crate::newsstock::headline_with(w) };
     let mut g = CACHE.lock().ok()?;
     if g.as_ref().map(|(t, _)| *t != mt).unwrap_or(true) {
         *g = Some((mt, load(&p)));
     }
     let items = &g.as_ref()?.1;
-    let hit = items.iter().rev().find(|i| i.tags.iter().any(|t| t == w)).or_else(|| items.iter().rev().find(|i| i.text.contains(w)))?;
+    let Some(hit) = items.iter().rev().find(|i| i.tags.iter().any(|t| t == w)).or_else(|| items.iter().rev().find(|i| i.text.contains(w))) else {
+        // DATABASEに無ければ、蓄積したネットニュースの見出し(maid-cafe.tokyo と同じストック)を補足に出す
+        return crate::newsstock::headline_with(w);
+    };
     let flat: String = hit.text.split_whitespace().collect::<Vec<_>>().join(" ");
     let t: String = flat.chars().take(60).collect();
     Some(if flat.chars().count() > 60 { format!("{t}…") } else { t })

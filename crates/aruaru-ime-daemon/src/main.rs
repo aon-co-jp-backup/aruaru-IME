@@ -634,6 +634,8 @@ fn main() {
         std::thread::spawn(move || loop {
             let n = aruaru_ime_core::knowledge::sync_from_database(&c);
             eprintln!("knowledge sync: +{n}");
+            let (lines, kata) = aruaru_ime_core::newsstock::sync();
+            eprintln!("news stock sync: +{lines} lines, +{kata} katakana terms");
             std::thread::sleep(Duration::from_secs(6 * 3600));
         });
     }

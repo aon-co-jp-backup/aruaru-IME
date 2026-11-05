@@ -135,6 +135,12 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
             }
         }
     }
+    // 文脈(直前・直後の文章、画面の文字、DATABASEの知識)に手がかりのある同音語を前へ。手がかりが無ければ辞書の順のまま。
+    if dict_cands.len() >= 2 && !matches!(ctx.field_kind.as_deref(), Some("password" | "url" | "email")) {
+        let ev = crate::contextual::Evidence::from_context(ctx, format!("{}
+{}", crate::knowledge::corpus(), crate::newsstock::corpus()));
+        crate::contextual::rerank(&mut dict_cands, &ev, 8);
+    }
     let mut predicted: Vec<String> = vec![];
     // 1文字だけでは候補が多すぎて役に立たないので、読みが2文字以上になってから予測する
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::to_hiragana_partial(buffer).0.chars().count() >= 2 {
