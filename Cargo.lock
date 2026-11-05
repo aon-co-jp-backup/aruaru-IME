@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-android"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "aruaru-ime-core",
  "jni",
@@ -71,7 +71,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-cli"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "aruaru-ime-core",
  "open-runo-crossui",
@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-core"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -98,7 +98,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-daemon"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "aruaru-ime-core",
  "chrono",
@@ -113,7 +113,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-ibus"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "async-io",
  "futures-lite",
@@ -124,7 +124,7 @@ dependencies = [
 
 [[package]]
 name = "aruaru-ime-tsf"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "aruaru-ime-core",
  "serde_json",
