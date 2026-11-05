@@ -286,6 +286,12 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("build-extra") && args.len() == 4 {
+        // aruaru-ime build-extra <mozc-src> <jmdict.json> <jmnedict.json>: extra00.txt を作る
+        let n = aruaru_ime_core::extra::build_extra(std::path::Path::new(&args[1]), std::path::Path::new(&args[2]), std::path::Path::new(&args[3])).expect("build-extra");
+        println!("{n} extra entries");
+        return;
+    }
     if args.first().map(String::as_str) == Some("build-dict") && args.len() == 3 {
         let t = std::time::Instant::now();
         let n = aruaru_ime_core::kanji::build(std::path::Path::new(&args[1]), std::path::Path::new(&args[2])).expect("build");

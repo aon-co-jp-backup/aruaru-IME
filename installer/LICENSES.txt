@@ -32,6 +32,9 @@ aruaru-IME  ライセンス / Licenses
    Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0): https://creativecommons.org/licenses/by-sa/4.0/
    取得した辞書データ(glossary.tsv)は CC BY-SA 4.0 のままです。IME 本体のライセンスには影響しません。
    The downloaded data (glossary.tsv) remains under CC BY-SA 4.0 and does not affect the IME's own license.
+   変換辞書(dict.bin)には、上記 JMdict の名詞と JMnedict(人名・地名・組織名など)から作った語彙も含みます。
+   The conversion dictionary (dict.bin) also contains vocabulary derived from JMdict nouns and JMnedict (names of people, places, organizations),
+   (c) EDRDG, CC BY-SA 4.0, https://www.edrdg.org/enamdict/enamdict_doc.html . 毎朝の自動追加には Wikidata (CC0) を使います / Wikidata (CC0) is used for the daily additions.
 
 4. 画面の文字を読む機能・変換の補助 / Optional components installed on request
    aruaru-llm / open-cuda / open-easy-web (aon-co-jp)  それぞれのリポジトリのライセンスに従います。

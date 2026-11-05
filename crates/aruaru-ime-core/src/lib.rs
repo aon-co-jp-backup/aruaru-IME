@@ -10,6 +10,7 @@ pub mod docimport;
 pub mod geo;
 pub mod dataupdate;
 pub mod gloss;
+pub mod extra;
 pub mod kanji;
 pub mod kyujitai;
 pub mod mode;

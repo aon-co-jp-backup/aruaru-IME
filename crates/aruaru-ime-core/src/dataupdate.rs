@@ -17,6 +17,10 @@ use std::path::{Path, PathBuf};
 const UA: &str = "aruaru-IME-data-updater/0.1 (https://github.com/aon-co-jp/aruaru-IME)";
 pub const SRC_COUNTRIES: &str = "自動更新:国名";
 pub const SRC_CITIES: &str = "自動更新:都市名";
+pub const SRC_WORKS: &str = "自動更新:作品名";
+pub const SRC_PEOPLE: &str = "自動更新:人名";
+pub const SRC_ORGS: &str = "自動更新:企業・団体名";
+pub const SRC_PLACES: &str = "自動更新:地名・駅名";
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 struct Validator {
@@ -73,6 +77,8 @@ pub struct Report {
     pub japan: Option<bool>,
     pub countries: usize,
     pub cities: usize,
+    /// 作品名・人名・企業団体名・地名駅名として入れた件数(Wikidata の「かな表記」つきのもの)。
+    pub vocab: usize,
     pub current_country: Option<String>,
     pub errors: Vec<String>,
 }
@@ -188,6 +194,49 @@ fn update_names(user: &mut UserDict, rep: &mut Report) {
     }
 }
 
+/// 語彙の自動拡張(案C): Wikidata で「かな表記(P1814)」を持つ項目だけを取る(読みが確かなものだけ入れるため)。
+/// 各クエリは (出所, SPARQL, 最低件数)。最低件数に満たない結果では、いまの辞書を消さない。
+const Q_VOCAB: [(&str, &str, usize); 4] = [
+    (SRC_WORKS, r#"SELECT ?ja ?kana WHERE { VALUES ?t { wd:Q1107 wd:Q21198342 wd:Q7889 wd:Q11424 wd:Q5398426 } ?c wdt:P31 ?t; wdt:P1814 ?kana; rdfs:label ?ja. FILTER(LANG(?ja)="ja") } LIMIT 20000"#, 300),
+    (SRC_PEOPLE, r#"SELECT ?ja ?kana WHERE { ?c wdt:P31 wd:Q5; wdt:P1814 ?kana; wikibase:sitelinks ?sl. FILTER(?sl>=3) ?c rdfs:label ?ja. FILTER(LANG(?ja)="ja") } LIMIT 30000"#, 1000),
+    (SRC_ORGS, r#"SELECT ?ja ?kana WHERE { VALUES ?t { wd:Q4830453 wd:Q783794 wd:Q891723 wd:Q3918 wd:Q31855 } ?c wdt:P31 ?t; wdt:P1814 ?kana; rdfs:label ?ja. FILTER(LANG(?ja)="ja") } LIMIT 20000"#, 200),
+    (SRC_PLACES, r#"SELECT ?ja ?kana WHERE { VALUES ?t { wd:Q55488 wd:Q8502 wd:Q570116 } ?c wdt:P31 ?t; wdt:P1814 ?kana; rdfs:label ?ja. FILTER(LANG(?ja)="ja") } LIMIT 20000"#, 200),
+];
+
+/// かな表記(空白・中黒・イコール入り可)から読み(ひらがな)を作る。かな以外が混ざるものは None。
+fn kana_reading(kana: &str) -> Option<String> {
+    reading_of(kana)
+}
+
+/// 作品名・人名・企業団体名・地名駅名を Wikidata から取り、出所ごとに利用者辞書を入れ替える。表記が読みと同じもの(かなだけの表記)は入れない。
+fn update_vocab(user: &mut UserDict, rep: &mut Report) {
+    for (src, q, min) in Q_VOCAB {
+        match sparql(q) {
+            Ok(tsv) => {
+                let mut seen = std::collections::HashSet::new();
+                let pairs: Vec<(String, String)> = parse_sparql_tsv(&tsv)
+                    .into_iter()
+                    .filter_map(|(ja, kana)| {
+                        let r = kana_reading(&kana)?;
+                        (ja != r && ja.chars().count() <= 40 && seen.insert((r.clone(), ja.clone()))).then_some((r, ja))
+                    })
+                    .collect();
+                if pairs.len() < min {
+                    rep.errors.push(format!("{src}: 結果が少なすぎます({}件)ので更新しません", pairs.len()));
+                    continue;
+                }
+                let _ = user.remove_source(src);
+                match user.add_many(&pairs, src) {
+                    Ok(n) => rep.vocab += n,
+                    Err(e) => rep.errors.push(format!("{src}: {e}")),
+                }
+            }
+            Err(e) => rep.errors.push(e),
+        }
+        std::thread::sleep(std::time::Duration::from_millis(800)); // サーバーへの配慮
+    }
+}
+
 /// 更新を1回行う。エラーが無ければ、今日の分を完了として記録する(エラーがあれば次の機会に再試行)。
 pub fn run(root: &Path, user: &mut UserDict) -> Report {
     let mut rep = Report::default();
@@ -236,6 +285,7 @@ pub fn run(root: &Path, user: &mut UserDict) -> Report {
         }
     }
     update_names(user, &mut rep);
+    update_vocab(user, &mut rep);
 
     if rep.errors.is_empty() {
         meta.last_run = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -285,6 +335,13 @@ mod tests {
         assert_eq!(reading_of("上海市"), None);
         assert_eq!(reading_of("São Paulo"), None);
         assert_eq!(reading_of(""), None);
+    }
+
+    #[test]
+    fn kana_readings_drop_spaces_and_reject_kanji() {
+        assert_eq!(kana_reading("やまべ の あかひと").as_deref(), Some("やまべのあかひと"));
+        assert_eq!(kana_reading("キリング フロア").as_deref(), Some("きりんぐふろあ"));
+        assert_eq!(kana_reading("山部"), None);
     }
 
     #[test]

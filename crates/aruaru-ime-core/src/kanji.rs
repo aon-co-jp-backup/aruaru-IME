@@ -70,6 +70,27 @@ pub fn build(src_dir: &Path, out: &Path) -> std::io::Result<usize> {
             rows.push((r.to_string(), s.to_string(), l, rr, c.clamp(0, 65535) as u16));
         }
     }
+    // 語彙の拡張(`extra::build_extra` が作る extra*.txt。無ければ何もしない)。
+    if let Ok(rd) = fs::read_dir(src_dir) {
+        let mut names: Vec<String> = rd
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| n.starts_with("extra") && n.ends_with(".txt"))
+            .collect();
+        names.sort();
+        for n in names {
+            let Ok(text) = fs::read_to_string(src_dir.join(&n)) else { continue };
+            for line in text.lines() {
+                let mut it = line.split('\t');
+                let (Some(r), Some(l), Some(rr), Some(c), Some(s)) = (it.next(), it.next(), it.next(), it.next(), it.next()) else { continue };
+                let (Ok(l), Ok(rr), Ok(c)) = (l.parse::<u16>(), rr.parse::<u16>(), c.parse::<i32>()) else { continue };
+                if r.len() > MAX_READING_BYTES || s.len() > 250 {
+                    continue;
+                }
+                rows.push((r.to_string(), s.to_string(), l, rr, c.clamp(0, 65535) as u16));
+            }
+        }
+    }
     rows.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()).then(a.4.cmp(&b.4)).then(a.1.cmp(&b.1)));
     rows.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1 && a.2 == b.2 && a.3 == b.3);
 
