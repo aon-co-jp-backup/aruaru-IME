@@ -482,9 +482,13 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 
 ## 依存更新(2026-11-06、version-control 通知への対応)
 - **更新済み**(`cargo test -p aruaru-ime-core` 196件成功): base64 0.23・sha2 0.11・quick-xml 0.42(名前・本文が`&str`化、`decode()`廃止、`docimport.rs`を追従)・lopdf 0.47・sonic-rs 0.5(tsf/daemon)。
-- **未更新(個別の作業が要る)**: `windows` 0.62/`windows-core`(0.62で`implement`機能が無くなり、TSFのCOM実装〈`#[implement]`〉の書き換えが必要。実機のIME登録試験が要る)、`jni` 0.22(Androidビルド環境が要る)、`zbus` 6(Linux/IBusの実機が要る)。
+- **未更新(個別の作業が要る)**: `windows` 0.62/`windows-core`(0.62で`implement`機能が無くなり、TSFのCOM実装〈`#[implement]`〉の書き換えが必要。実機のIME登録試験が要る)、`jni` 0.22(Androidビルド環境が要る)、
 - *Updated and tested: base64, sha2, quick-xml (str-based API), lopdf, sonic-rs. Deferred: windows 0.62 (the `implement` feature is gone; TSF COM code needs rewriting and on-device IME tests), ureq 3, jni 0.22, zbus 6.*
 
 ### ureq 3 へ更新済み(2026-11-06)
 `crates/aruaru-ime-core/src/http.rs` に ureq 2 風の薄い互換層(`AgentBuilder`/`set`/`query`/`into_json` 等)を置き、約60箇所の呼び出しはほぼそのまま ureq 3 に載せた(`Error::Status(n,_)` は `Error::StatusCode(n)`)。ibus は直接 ureq 3 の API に移行。`cargo test -p aruaru-ime-core` 207件、WSL で ibus の `cargo check`、android の `cargo check` 成功。本文の読み込み上限は JSON/文字列が 256 MiB、バイト列は従来どおり呼び出し側の `take()`。実ネットワーク越しの通し試験は未実施。
 *ureq 3 done via a thin compat layer (`http.rs`); real-network end-to-end not run.*
+
+### zbus 6 へ更新済み(2026-11-06)
+`SignalContext`→`SignalEmitter`、`#[zbus(signal_context)]`→`#[zbus(signal_emitter)]`、機能は `service`(`async-io` 機能は無くなった)、`StructureBuilder::build()` が `Result` に、`Type::signature()`→`SIGNATURE`、`Builder` の `address`/`name`/`serve_at` は `?` 不要に。WSL(Ubuntu)で `cargo test -p aruaru-ime-ibus` 成功(IBusText/LookupTableの署名が不変であることを確認)。**実際の ibus-daemon との接続試験は未実施**(Linux実機が要る)。非推奨警告(`zvariant::Value`→`zbus::Variant`等)は残している。
+*zbus 6 done; builds and signature tests pass under WSL; not tested against a live ibus-daemon.*

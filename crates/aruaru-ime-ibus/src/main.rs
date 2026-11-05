@@ -12,7 +12,7 @@ mod linux {
     use std::collections::HashMap;
     use std::sync::atomic::{AtomicU32, Ordering};
     use std::time::Duration;
-    use zbus::object_server::SignalContext;
+    use zbus::object_server::SignalEmitter;
     use zbus::zvariant::{ObjectPath, OwnedObjectPath, StructureBuilder, Value};
     use zbus::{connection, interface, Connection};
 
@@ -117,8 +117,8 @@ mod linux {
     // ---- IBusText / IBusLookupTable の値 ----
     /// `IBusText` = ("IBusText", {}, text, <IBusAttrList>)
     pub fn ibus_text(s: &str) -> Value<'static> {
-        let attrs = StructureBuilder::new().add_field("IBusAttrList").add_field(HashMap::<String, Value>::new()).add_field(Vec::<Value>::new()).build();
-        let t = StructureBuilder::new().add_field("IBusText").add_field(HashMap::<String, Value>::new()).add_field(s.to_string()).add_field(Value::new(attrs)).build();
+        let attrs = StructureBuilder::new().add_field("IBusAttrList").add_field(HashMap::<String, Value>::new()).add_field(Vec::<Value>::new()).build().expect("IBusAttrList");
+        let t = StructureBuilder::new().add_field("IBusText").add_field(HashMap::<String, Value>::new()).add_field(s.to_string()).add_field(Value::new(attrs)).build().expect("IBusText");
         Value::Structure(t)
     }
 
@@ -135,7 +135,7 @@ mod linux {
             .add_field(1i32) // vertical
             .add_field(items)
             .add_field(Vec::<Value>::new()) // labels
-            .build();
+            .build().expect("IBusLookupTable");
         Value::Structure(t)
     }
 
@@ -149,7 +149,7 @@ mod linux {
         }
 
         /// エンジンの応答(JSON)を IBus に反映する。
-        async fn apply(&self, ctxt: &SignalContext<'_>, r: &serde_json::Value) -> zbus::Result<()> {
+        async fn apply(&self, ctxt: &SignalEmitter<'_>, r: &serde_json::Value) -> zbus::Result<()> {
             if let Some(c) = r["commit"].as_str() {
                 if !c.is_empty() {
                     Self::commit_text(ctxt, Value::new(ibus_text(c))).await?;
@@ -176,7 +176,7 @@ mod linux {
 
     #[interface(name = "org.freedesktop.IBus.Engine")]
     impl Engine {
-        async fn process_key_event(&self, keyval: u32, _keycode: u32, state: u32, #[zbus(signal_context)] ctxt: SignalContext<'_>) -> bool {
+        async fn process_key_event(&self, keyval: u32, _keycode: u32, state: u32, #[zbus(signal_emitter)] ctxt: SignalEmitter<'_>) -> bool {
             dbg(&format!("ProcessKeyEvent keyval=0x{keyval:x} state=0x{state:x}"));
             let Some(k) = key_json(keyval, state) else { return false };
             let body = format!("{{\"sid\":\"{}\",\"key\":{k}}}", self.sid);
@@ -195,10 +195,10 @@ mod linux {
         async fn cancel_hand_writing(&self, _n_strokes: u32) {}
 
         async fn focus_in(&self) {}
-        async fn focus_out(&self, #[zbus(signal_context)] ctxt: SignalContext<'_>) {
+        async fn focus_out(&self, #[zbus(signal_emitter)] ctxt: SignalEmitter<'_>) {
             self.reset(ctxt).await;
         }
-        async fn reset(&self, #[zbus(signal_context)] ctxt: SignalContext<'_>) {
+        async fn reset(&self, #[zbus(signal_emitter)] ctxt: SignalEmitter<'_>) {
             let _ = http("POST", "/session", &format!("{{\"sid\":\"{}\",\"op\":\"cancel\"}}", self.sid));
             let _ = Self::hide_preedit_text(&ctxt).await;
             let _ = Self::hide_lookup_table(&ctxt).await;
@@ -209,7 +209,7 @@ mod linux {
         async fn page_down(&self) {}
         async fn cursor_up(&self) {}
         async fn cursor_down(&self) {}
-        async fn candidate_clicked(&self, index: u32, _button: u32, _state: u32, #[zbus(signal_context)] ctxt: SignalContext<'_>) {
+        async fn candidate_clicked(&self, index: u32, _button: u32, _state: u32, #[zbus(signal_emitter)] ctxt: SignalEmitter<'_>) {
             let body = format!("{{\"sid\":\"{}\",\"op\":\"choose\",\"idx\":{index}}}", self.sid);
             if let Some(r) = http("POST", "/session", &body) {
                 let _ = self.apply(&ctxt, &r).await;
@@ -223,15 +223,15 @@ mod linux {
         async fn destroy(&self) {}
 
         #[zbus(signal)]
-        async fn commit_text(ctxt: &SignalContext<'_>, text: Value<'_>) -> zbus::Result<()>;
+        async fn commit_text(ctxt: &SignalEmitter<'_>, text: Value<'_>) -> zbus::Result<()>;
         #[zbus(signal)]
-        async fn update_preedit_text(ctxt: &SignalContext<'_>, text: Value<'_>, cursor_pos: u32, visible: bool, mode: u32) -> zbus::Result<()>;
+        async fn update_preedit_text(ctxt: &SignalEmitter<'_>, text: Value<'_>, cursor_pos: u32, visible: bool, mode: u32) -> zbus::Result<()>;
         #[zbus(signal)]
-        async fn hide_preedit_text(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
+        async fn hide_preedit_text(ctxt: &SignalEmitter<'_>) -> zbus::Result<()>;
         #[zbus(signal)]
-        async fn update_lookup_table(ctxt: &SignalContext<'_>, table: Value<'_>, visible: bool) -> zbus::Result<()>;
+        async fn update_lookup_table(ctxt: &SignalEmitter<'_>, table: Value<'_>, visible: bool) -> zbus::Result<()>;
         #[zbus(signal)]
-        async fn hide_lookup_table(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
+        async fn hide_lookup_table(ctxt: &SignalEmitter<'_>) -> zbus::Result<()>;
     }
 
     struct Factory {
@@ -266,9 +266,9 @@ mod linux {
         ensure_daemon();
         let addr = ibus_address().ok_or("IBus のバスに接続できません(ibus-daemon が動いていません)")?;
         async_io::block_on(async move {
-            let _conn = connection::Builder::address(addr.as_str())?
-                .name(COMPONENT_NAME)?
-                .serve_at("/org/freedesktop/IBus/Factory", Factory { next: AtomicU32::new(1) })?
+            let _conn = connection::Builder::address(addr.as_str())
+                .name(COMPONENT_NAME)
+                .serve_at("/org/freedesktop/IBus/Factory", Factory { next: AtomicU32::new(1) })
                 .build()
                 .await?;
             dbg("ready");
@@ -301,7 +301,7 @@ mod linux {
             assert_eq!(v.value_signature().to_string(), "(sa{sv}sv)");
             let t = ibus_lookup_table(&["a".into(), "b".into()], 0);
             assert_eq!(t.value_signature().to_string(), "(sa{sv}uubbiavav)");
-            let _ = <Value as Type>::signature();
+            let _ = <Value as Type>::SIGNATURE;
         }
     }
 }
