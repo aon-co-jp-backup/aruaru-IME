@@ -42,7 +42,10 @@ pub fn headline_with(word: &str) -> Option<String> {
     if w.chars().count() < 2 {
         return None;
     }
-    let line = corpus().lines().find(|l| l.contains(w))?.to_string();
+    let Some(line) = corpus().lines().find(|l| l.contains(w)).map(str::to_string) else {
+        lookup_in_background(w); // 手元に無ければ、背景でアーカイブを引いておく(次回から出る)
+        return None;
+    };
     let t: String = line.chars().take(60).collect();
     Some(format!("📰 {}{}", t, if line.chars().count() > 60 { "…" } else { "" }))
 }
@@ -83,6 +86,54 @@ fn fetch_country(agent: &ureq::Agent, country: &str) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// 候補で選んだ語を、蓄積ニュースのアーカイブ(maid-cafe.tokyo の `News/ArchiveSearch`、realdata.pro 由来のストック)で
+/// 背景で検索し、見つかった見出しを手元のストックへ足す。次に同じ語を選んだとき補足に出る。1語につき1回(起動中)、同時に1件まで。
+pub fn lookup_in_background(word: &str) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Mutex;
+    static BUSY: AtomicBool = AtomicBool::new(false);
+    static DONE: Mutex<Vec<String>> = Mutex::new(Vec::new());
+    let w = word.trim().to_string();
+    if w.chars().count() < 2 || w.chars().count() > 12 || w.is_ascii() && w.len() < 4 {
+        return;
+    }
+    {
+        let Ok(mut d) = DONE.lock() else { return };
+        if d.contains(&w) || d.len() > 500 {
+            return;
+        }
+        d.push(w.clone());
+    }
+    if BUSY.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    std::thread::spawn(move || {
+        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(10)).build();
+        let q: String = w.bytes().map(|b| if b.is_ascii_alphanumeric() { (b as char).to_string() } else { format!("%{b:02X}") }).collect();
+        let url = format!("https://maid-cafe.tokyo/openenglish.v1.News/ArchiveSearch?q={q}&limit=3");
+        if let Some(v) = agent.post(&url).send_json(serde_json::json!({})).ok().and_then(|r| r.into_json::<serde_json::Value>().ok()) {
+            let found: Vec<String> = v["items"]
+                .as_array()
+                .map(|a| a.iter().filter_map(|i| Some(format!("[{} {}] {}", i["date"].as_str()?, i["country"].as_str().unwrap_or(""), i["title"].as_str()?))).collect())
+                .unwrap_or_default();
+            if !found.is_empty() {
+                let p = path(&crate::components::data_dir());
+                let mut lines = load(&p);
+                for l in found {
+                    if !lines.contains(&l) {
+                        lines.push(l);
+                    }
+                }
+                if lines.len() > MAX_LINES {
+                    lines.drain(..lines.len() - MAX_LINES);
+                }
+                let _ = std::fs::write(&p, serde_json::to_string(&lines).unwrap_or_default());
+            }
+        }
+        BUSY.store(false, Ordering::Release);
+    });
 }
 
 /// ニュースのストックを取り込む。増えた(見出しの行数, 辞書に入れたカタカナ語)を返す。失敗は黙って 0。
