@@ -71,7 +71,7 @@ pub fn katakana_terms(lines: &[String]) -> Vec<String> {
     out
 }
 
-fn fetch_country(agent: &ureq::Agent, country: &str) -> Vec<String> {
+fn fetch_country(agent: &crate::http::Agent, country: &str) -> Vec<String> {
     let url = format!("https://maid-cafe.tokyo/openenglish.v1.News/For?country={}", country.replace(' ', "%20"));
     let Ok(resp) = agent.post(&url).send_json(serde_json::json!({})) else { return vec![] };
     let Ok(v) = resp.into_json::<serde_json::Value>() else { return vec![] };
@@ -110,7 +110,7 @@ pub fn lookup_in_background(word: &str) {
         return;
     }
     std::thread::spawn(move || {
-        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(10)).build();
+        let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(10)).build();
         let q: String = w.bytes().map(|b| if b.is_ascii_alphanumeric() { (b as char).to_string() } else { format!("%{b:02X}") }).collect();
         let url = format!("https://maid-cafe.tokyo/openenglish.v1.News/ArchiveSearch?q={q}&limit=3");
         if let Some(v) = agent.post(&url).send_json(serde_json::json!({})).ok().and_then(|r| r.into_json::<serde_json::Value>().ok()) {
@@ -138,7 +138,7 @@ pub fn lookup_in_background(word: &str) {
 
 /// ニュースのストックを取り込む。増えた(見出しの行数, 辞書に入れたカタカナ語)を返す。失敗は黙って 0。
 pub fn sync() -> (usize, usize) {
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(12)).build();
+    let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(12)).build();
     let root = crate::components::data_dir();
     let p = path(&root);
     let mut lines = load(&p);

@@ -105,7 +105,7 @@ impl Ledger {
 
 /// ヘルスチェックに応答するか。
 pub fn is_running(url: &str) -> bool {
-    let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(2)).build();
+    let agent = crate::http::AgentBuilder::new().timeout(Duration::from_secs(2)).build();
     // Connect の単純呼び出し(POST /<パッケージ>.<Service>/<Method>)は POST、それ以外(/healthz 等)は GET。
     if url.contains(".v1.") {
         agent.post(url).send_json(serde_json::json!({})).is_ok()
@@ -169,7 +169,7 @@ impl Drop for Lock {
 
 /// GitHub Releases の最新版から該当資産を取得して展開する。
 fn download(spec: &Spec, dest: &Path) -> Result<String, String> {
-    let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(600)).user_agent("aruaru-ime").build();
+    let agent = crate::http::AgentBuilder::new().timeout(Duration::from_secs(600)).user_agent("aruaru-ime").build();
     let rel: serde_json::Value = agent
         .get(&format!("https://api.github.com/repos/{}/releases/latest", spec.repo))
         .call()
@@ -276,8 +276,8 @@ pub fn ensure(spec: &Spec, root: &Path, installed_by: &str, allow_download: bool
 
 /// aruaru-llm に Qwen を導入・選択させる(強制同梱: 無ければ取得する)。
 pub fn ensure_qwen(base_url: &str, model_id: &str) -> Result<(), String> {
-    let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(3600)).build();
-    let sel = |agent: &ureq::Agent| agent.post(&format!("{base_url}/aruaru_llm.v1.Llm/QwenSelect")).send_json(serde_json::json!({"id": model_id}));
+    let agent = crate::http::AgentBuilder::new().timeout(Duration::from_secs(3600)).build();
+    let sel = |agent: &crate::http::Agent| agent.post(&format!("{base_url}/aruaru_llm.v1.Llm/QwenSelect")).send_json(serde_json::json!({"id": model_id}));
     if sel(&agent).is_ok() {
         return Ok(());
     }

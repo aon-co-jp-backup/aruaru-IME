@@ -85,7 +85,7 @@ pub fn is_installed(root: &Path) -> bool {
 /// 日本郵便の公開ファイルを取得して `postal.tsv` を作る(利用者が選んだときだけ呼ぶ)。作った郵便番号の数を返す。
 pub fn install(root: &Path) -> Result<usize, String> {
     use std::io::Read;
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(120)).user_agent("aruaru-ime").build();
+    let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(120)).user_agent("aruaru-ime").build();
     let mut zip_bytes = Vec::new();
     agent.get(SOURCE_URL).call().map_err(|e| format!("取得できません: {e}"))?.into_reader().take(30 * 1024 * 1024).read_to_end(&mut zip_bytes).map_err(|e| e.to_string())?;
     store_zip(root, zip_bytes)

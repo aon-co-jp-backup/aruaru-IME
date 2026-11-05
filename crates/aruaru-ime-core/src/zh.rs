@@ -414,7 +414,7 @@ pub fn ensure(root: &Path, allow_download: bool) -> Ensured {
     let r = (|| -> Result<usize, String> {
         let src = root.join("zh-src");
         std::fs::create_dir_all(&src).map_err(|e| e.to_string())?;
-        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(300)).user_agent("aruaru-ime").build();
+        let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(300)).user_agent("aruaru-ime").build();
         for (name, url) in SOURCES {
             if !crate::update::is_trusted_url(url) {
                 return Err(format!("取得先が許可されていません: {url}"));

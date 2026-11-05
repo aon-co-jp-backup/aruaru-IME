@@ -10,12 +10,12 @@ pub const DEFAULT_URL: &str = "http://127.0.0.1:4600";
 #[derive(Clone)]
 pub struct Client {
     base: String,
-    agent: ureq::Agent,
+    agent: crate::http::Agent,
 }
 
 impl Client {
     pub fn new(base: &str) -> Self {
-        let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(8)).build();
+        let agent = crate::http::AgentBuilder::new().timeout(Duration::from_secs(8)).build();
         Self { base: base.trim_end_matches('/').to_string(), agent }
     }
 
@@ -35,7 +35,7 @@ impl Client {
 
     /// 公開サイト(maid-cafe.tokyo)のDBから、語(消費税・核武装など)の固定回答を取る。無ければ None。
     pub fn public_answer(term: &str) -> Option<String> {
-        let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(10)).build();
+        let agent = crate::http::AgentBuilder::new().timeout(Duration::from_secs(10)).build();
         let v: Value = agent
             .post("https://maid-cafe.tokyo/openenglish.v1.ChatProviders/CompletePriority")
             .send_json(json!({"prompt": format!("Student: {term}について")}))
@@ -50,7 +50,7 @@ impl Client {
 
     /// 公開サイトのカスタムQ&A(DATABASE。核武装など)を全件取得する。(キーワード群, 日本語の回答)。
     pub fn public_custom_qa() -> Vec<(Vec<String>, String)> {
-        let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(10)).build();
+        let agent = crate::http::AgentBuilder::new().timeout(Duration::from_secs(10)).build();
         let Some(v) = agent
             .post("https://maid-cafe.tokyo/openenglish.v1.CustomQa/CustomQaGet")
             .send_json(json!({}))

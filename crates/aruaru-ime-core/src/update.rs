@@ -85,8 +85,8 @@ pub fn platform_pattern() -> &'static str {
     }
 }
 
-fn agent() -> ureq::Agent {
-    ureq::AgentBuilder::new().timeout(Duration::from_secs(600)).user_agent("aruaru-ime-updater").build()
+fn agent() -> crate::http::Agent {
+    crate::http::AgentBuilder::new().timeout(Duration::from_secs(600)).user_agent("aruaru-ime-updater").build()
 }
 
 /// 新しい版があれば返す。ネットワークエラーは Err(静かに次回へ)。リリースがまだ無い場合は Ok(None)。
@@ -96,7 +96,7 @@ pub fn check(repo: &str, current: Version) -> Result<Option<Release>, String> {
     let resp = agent().get(&format!("https://api.github.com/repos/{repo}/releases?per_page=15")).call();
     let v: Value = match resp {
         Ok(r) => r.into_json().map_err(|e| e.to_string())?,
-        Err(ureq::Error::Status(404, _)) => return Ok(None),
+        Err(ureq::Error::StatusCode(404)) => return Ok(None),
         Err(e) => return Err(e.to_string()),
     };
     Ok(pick_newest(v.as_array().map(|a| a.as_slice()).unwrap_or(&[]), current, platform_pattern(), allow_pre))

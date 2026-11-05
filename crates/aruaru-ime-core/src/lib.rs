@@ -2,6 +2,7 @@
 pub mod backup;
 pub mod capture_store;
 pub mod client;
+pub mod http;
 pub mod code;
 pub mod codevocab;
 pub mod components;

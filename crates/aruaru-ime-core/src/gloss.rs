@@ -216,7 +216,7 @@ pub fn ensure(root: &Path, allow_download: bool) -> Ensured {
         return Ensured::Unavailable("英語訳の辞書(JMdict)は未インストールです".into());
     }
     let result = (|| -> Result<usize, String> {
-        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(600)).user_agent("aruaru-ime").build();
+        let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(600)).user_agent("aruaru-ime").build();
         let rel: serde_json::Value = agent
             .get(&format!("https://api.github.com/repos/{REPO}/releases/latest"))
             .call()

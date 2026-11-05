@@ -85,7 +85,7 @@ pub struct Report {
 
 /// 条件付きで取得する。`Ok(None)` は「前回から変わっていない」(304)。
 fn conditional_get(url: &str, prev: Option<&Validator>, limit: u64) -> Result<Option<(Vec<u8>, Validator)>, String> {
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(180)).user_agent(UA).build();
+    let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(180)).user_agent(UA).build();
     let mut req = agent.get(url);
     if let Some(p) = prev {
         if let Some(e) = &p.etag {
@@ -104,7 +104,7 @@ fn conditional_get(url: &str, prev: Option<&Validator>, limit: u64) -> Result<Op
             r.into_reader().take(limit).read_to_end(&mut b).map_err(|e| e.to_string())?;
             Ok(Some((b, v)))
         }
-        Err(ureq::Error::Status(304, _)) => Ok(None),
+        Err(ureq::Error::StatusCode(304)) => Ok(None),
         Err(e) => Err(format!("{url}: {e}")),
     }
 }
@@ -146,7 +146,7 @@ pub fn reading_of(label: &str) -> Option<String> {
 }
 
 fn sparql(query: &str) -> Result<String, String> {
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(120)).user_agent(UA).build();
+    let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(120)).user_agent(UA).build();
     agent
         .get("https://query.wikidata.org/sparql")
         .query("query", query)

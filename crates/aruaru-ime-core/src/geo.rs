@@ -259,7 +259,7 @@ pub fn parse_geonames(txt: &str) -> std::collections::BTreeMap<String, Vec<Strin
 fn fetch_zip(cc: &str) -> Result<String, String> {
     use std::io::Read;
     let url = format!("https://download.geonames.org/export/zip/{cc}.zip");
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(120)).user_agent("aruaru-ime").build();
+    let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(120)).user_agent("aruaru-ime").build();
     let mut bytes = Vec::new();
     agent.get(&url).call().map_err(|e| format!("{cc}: {e}"))?.into_reader().take(60 * 1024 * 1024).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
     let mut ar = zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| e.to_string())?;
@@ -271,7 +271,7 @@ fn fetch_zip(cc: &str) -> Result<String, String> {
 
 /// 現在地の国を、IP から国を返す公開の窓口に1回だけ問い合わせて調べる(利用者が選んだときだけ呼ぶ)。
 pub fn detect_country() -> Result<String, String> {
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(10)).user_agent("aruaru-ime").build();
+    let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(10)).user_agent("aruaru-ime").build();
     let body = agent.get("https://www.cloudflare.com/cdn-cgi/trace").call().map_err(|e| format!("国を調べられません: {e}"))?.into_string().map_err(|e| e.to_string())?;
     body.lines()
         .find_map(|l| l.strip_prefix("loc="))

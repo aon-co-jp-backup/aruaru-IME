@@ -89,9 +89,10 @@ mod linux {
 
     fn http(method: &str, path: &str, body: &str) -> Option<serde_json::Value> {
         let url = format!("http://127.0.0.1:{ENGINE_PORT}{path}");
-        let agent = ureq::AgentBuilder::new().timeout(Duration::from_millis(1500)).build();
-        let r = if method == "GET" { agent.get(&url).call() } else { agent.post(&url).send_string(body) };
-        let text = r.ok()?.into_string().ok()?;
+        let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(Duration::from_millis(1500))).build().into();
+        let r = if method == "GET" { agent.get(&url).call() } else { agent.post(&url).send(body) };
+        let mut resp = r.ok()?;
+        let text = resp.body_mut().read_to_string().ok()?;
         serde_json::from_str(&text).ok().or_else(|| Some(serde_json::Value::String(text)))
     }
 

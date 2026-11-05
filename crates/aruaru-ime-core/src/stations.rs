@@ -68,7 +68,7 @@ pub fn parse(csv: &str) -> Vec<(String, String)> {
 /// 取得して、利用者辞書に入れる(調べ直しは入れ替え)。入れた駅数を返す。
 pub fn install(user: &mut UserDict) -> Result<usize, String> {
     use std::io::Read;
-    let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(240)).user_agent("aruaru-ime/0.2 (https://github.com/aon-co-jp/aruaru-IME)").build();
+    let agent = crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(240)).user_agent("aruaru-ime/0.2 (https://github.com/aon-co-jp/aruaru-IME)").build();
     let mut body = String::new();
     let mut last = String::new();
     for (i, url) in ENDPOINTS.iter().enumerate() {

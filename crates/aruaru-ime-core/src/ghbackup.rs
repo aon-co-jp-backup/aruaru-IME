@@ -30,8 +30,8 @@ pub fn sanitize_for_public(b: &mut Bundle) {
     b.files.retain(|k, _| k != "learned.json" && k != "settings.json");
 }
 
-fn agent() -> ureq::Agent {
-    ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(60)).user_agent("aruaru-ime").build()
+fn agent() -> crate::http::Agent {
+    crate::http::AgentBuilder::new().timeout(std::time::Duration::from_secs(60)).user_agent("aruaru-ime").build()
 }
 
 /// リポジトリが公開かどうか(GitHub に問い合わせる)。

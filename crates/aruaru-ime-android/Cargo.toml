@@ -17,7 +17,7 @@ open-runo-crossui = { path = "../../../RPoem/crates/open-runo-crossui" }
 open-runo-view = { path = "../../../RPoem/crates/open-runo-view" }
 jni = "0.21"
 serde_json = "1"
-ureq = { version = "2", features = ["json"] }
+ureq = { version = "3", features = ["json"] }
 
 [dev-dependencies]
 tiny_http = "0.12"
