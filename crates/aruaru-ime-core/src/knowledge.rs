@@ -77,7 +77,31 @@ pub fn search(items: &[Item], query: &str, max: usize) -> Vec<Item> {
 
 /// DATABASE(aruaru-llm の知識ベース、無ければ公開サイトの固定回答)から、手元の知識ベースへ取り込む。
 /// 消費税・核武装など、変換候補の補足説明にDBの回答を出すため。増えた件数を返す(失敗は黙って 0)。
+const SEED_JSON: &str = include_str!("../../../data/knowledge-seed.json");
+
+/// 同梱の初期知識(消費税・核武装)を手元の知識ベースへ。オフラインでも・初回起動でも出せるように。1回だけ。
+pub fn ensure_builtin_seed() {
+    use std::sync::Once;
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        let p = path(&crate::components::data_dir());
+        if let Some(d) = p.parent() {
+            let _ = std::fs::create_dir_all(d);
+        }
+        let seed: Vec<Item> = sonic_rs::from_str(SEED_JSON).unwrap_or_default();
+        let have = load(&p);
+        for i in seed {
+            // 同じ語(タグ)が既にあれば、DB同期で入った新しい方を優先して足さない
+            if i.tags.iter().any(|t| t != "固定回答" && have.iter().any(|h| h.tags.contains(t))) {
+                continue;
+            }
+            let _ = add(&p, &i.text, &i.tags, &i.source);
+        }
+    });
+}
+
 pub fn sync_from_database(client: &crate::client::Client) -> usize {
+    ensure_builtin_seed();
     let p = path(&crate::components::data_dir());
     let mut n = 0;
     if let Some(items) = client.knowledge_all() {
@@ -124,6 +148,7 @@ pub fn note_for(word: &str) -> Option<String> {
     if w.is_empty() || (w.chars().count() < 2 && w.is_ascii()) {
         return None;
     }
+    ensure_builtin_seed();
     let p = path(&crate::components::data_dir());
     let mt = std::fs::metadata(&p).and_then(|m| m.modified()).ok()?;
     let mut g = CACHE.lock().ok()?;
