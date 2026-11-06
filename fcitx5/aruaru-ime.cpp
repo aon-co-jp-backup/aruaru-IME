@@ -211,7 +211,7 @@ public:
         std::string k = keyJson(ev.key());
         if (k.empty()) return;
         auto *ic = ev.inputContext();
-        std::string text = http("POST", "/key", "{\"sid\":\"" + sid(ic) + "\",\"key\":" + k + "}");
+        std::string text = http("POST", "/aruaru_ime.v1.Ime/Key", "{\"sid\":\"" + sid(ic) + "\",\"key\":" + k + "}");
         if (text.empty()) return;
         P p{text};
         J r = p.val();
@@ -224,7 +224,7 @@ public:
 
     void reset(const fcitx::InputMethodEntry &, fcitx::InputContextEvent &ev) override {
         auto *ic = ev.inputContext();
-        http("POST", "/session", "{\"sid\":\"" + sid(ic) + "\",\"op\":\"cancel\"}");
+        http("POST", "/aruaru_ime.v1.Ime/Session", "{\"sid\":\"" + sid(ic) + "\",\"op\":\"cancel\"}");
         ic->inputPanel().reset();
         ic->updatePreedit();
         ic->updateUserInterface(fcitx::UserInterfaceComponent::InputPanel);

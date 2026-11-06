@@ -27,7 +27,7 @@ func post(_ path: String, _ body: [String: Any]) -> [String: Any]? {
 
 /// Start the engine if it is not running (installed next to the app by install.sh).
 func ensureEngine() {
-    if post("/session", ["sid": "probe", "op": "cancel"]) != nil { return }
+    if post("/aruaru_ime.v1.Ime/Session", ["sid": "probe", "op": "cancel"]) != nil { return }
     let candidates = [NSHomeDirectory() + "/.local/share/aruaru-ime/bin/aruaru-ime-daemon"]
     for c in candidates where FileManager.default.isExecutableFile(atPath: c) {
         let p = Process()
@@ -35,7 +35,7 @@ func ensureEngine() {
         try? p.run()
         for _ in 0..<20 {
             Thread.sleep(forTimeInterval: 0.25)
-            if post("/session", ["sid": "probe", "op": "cancel"]) != nil { return }
+            if post("/aruaru_ime.v1.Ime/Session", ["sid": "probe", "op": "cancel"]) != nil { return }
         }
     }
 }
@@ -97,7 +97,7 @@ class AruaruIMEController: IMKInputController {
             let from = max(0, sel.location - 40)
             before = client.attributedSubstring(from: NSRange(location: from, length: sel.location - from))?.string ?? ""
         }
-        guard let r = post("/key", ["sid": sid, "key": key, "before": before]) else { return false }
+        guard let r = post("/aruaru_ime.v1.Ime/Key", ["sid": sid, "key": key, "before": before]) else { return false }
         let eaten = (r["eaten"] as? Bool) ?? false
         let hasCommit = ((r["commit"] as? String) ?? "").isEmpty == false
         if !eaten && !hasCommit { return false }
@@ -109,11 +109,11 @@ class AruaruIMEController: IMKInputController {
 
     override func candidateSelected(_ candidateString: NSAttributedString!) {
         guard let s = candidateString?.string, let idx = cands.firstIndex(of: s), let client = self.client() else { return }
-        if let r = post("/session", ["sid": sid, "op": "choose", "idx": idx]) { apply(r, client) }
+        if let r = post("/aruaru_ime.v1.Ime/Session", ["sid": sid, "op": "choose", "idx": idx]) { apply(r, client) }
     }
 
     override func deactivateServer(_ sender: Any!) {
-        _ = post("/session", ["sid": sid, "op": "cancel"])
+        _ = post("/aruaru_ime.v1.Ime/Session", ["sid": sid, "op": "cancel"])
         panel.hide()
         super.deactivateServer(sender)
     }

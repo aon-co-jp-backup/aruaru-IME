@@ -87,7 +87,7 @@ impl Engine {
         self.last_preedit.clear();
         self.local.set_lang(lang);
         let body = serde_json::json!({"sid": self.sid, "op": "lang", "lang": lang.code()}).to_string();
-        let _ = daemon::post("/session", &body, 400);
+        let _ = daemon::post("/aruaru_ime.v1.Ime/Session", &body, 400);
     }
 
     pub fn lang(&self) -> Lang {
@@ -102,7 +102,7 @@ impl Engine {
     pub fn apply_settings(&mut self, s: &aruaru_ime_core::settings::Settings) {
         self.local.apply_settings(s);
         let body = serde_json::json!({"sid": self.sid, "op": "settings"}).to_string();
-        let _ = daemon::post("/session", &body, 300);
+        let _ = daemon::post("/aruaru_ime.v1.Ime/Session", &body, 300);
     }
 
     pub fn cancel(&mut self) {
@@ -111,7 +111,7 @@ impl Engine {
         self.last_preedit.clear();
         if self.remote_usable() {
             let body = serde_json::json!({"sid": self.sid, "op": "cancel"}).to_string();
-            let _ = daemon::post("/session", &body, 300);
+            let _ = daemon::post("/aruaru_ime.v1.Ime/Session", &body, 300);
         }
     }
 
@@ -122,7 +122,7 @@ impl Engine {
         self.on = false;
         self.composing = false;
         let body = serde_json::json!({"sid": self.sid, "op": "off"}).to_string();
-        let _ = daemon::post("/session", &body, 300);
+        let _ = daemon::post("/aruaru_ime.v1.Ime/Session", &body, 300);
     }
 
     pub fn key(&mut self, key: Key) -> Step {
@@ -134,7 +134,7 @@ impl Engine {
                 "raw": self.pending_raw,
             })
             .to_string();
-            if let Some(resp) = daemon::post("/key", &body, 1500) {
+            if let Some(resp) = daemon::post("/aruaru_ime.v1.Ime/Key", &body, 1500) {
                 if let Ok(st) = sonic_rs::from_str::<Step>(&resp) {
                     self.pending_before = None;
                     self.pending_raw = false;

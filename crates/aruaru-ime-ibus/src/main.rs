@@ -180,7 +180,7 @@ mod linux {
             dbg(&format!("ProcessKeyEvent keyval=0x{keyval:x} state=0x{state:x}"));
             let Some(k) = key_json(keyval, state) else { return false };
             let body = format!("{{\"sid\":\"{}\",\"key\":{k}}}", self.sid);
-            let Some(r) = http("POST", "/key", &body) else { return false };
+            let Some(r) = http("POST", "/aruaru_ime.v1.Ime/Key", &body) else { return false };
             let eaten = r["eaten"].as_bool().unwrap_or(false);
             let has_commit = r["commit"].as_str().is_some_and(|c| !c.is_empty());
             if !eaten && !has_commit {
@@ -199,7 +199,7 @@ mod linux {
             self.reset(ctxt).await;
         }
         async fn reset(&self, #[zbus(signal_emitter)] ctxt: SignalEmitter<'_>) {
-            let _ = http("POST", "/session", &format!("{{\"sid\":\"{}\",\"op\":\"cancel\"}}", self.sid));
+            let _ = http("POST", "/aruaru_ime.v1.Ime/Session", &format!("{{\"sid\":\"{}\",\"op\":\"cancel\"}}", self.sid));
             let _ = Self::hide_preedit_text(&ctxt).await;
             let _ = Self::hide_lookup_table(&ctxt).await;
         }
@@ -211,7 +211,7 @@ mod linux {
         async fn cursor_down(&self) {}
         async fn candidate_clicked(&self, index: u32, _button: u32, _state: u32, #[zbus(signal_emitter)] ctxt: SignalEmitter<'_>) {
             let body = format!("{{\"sid\":\"{}\",\"op\":\"choose\",\"idx\":{index}}}", self.sid);
-            if let Some(r) = http("POST", "/session", &body) {
+            if let Some(r) = http("POST", "/aruaru_ime.v1.Ime/Session", &body) {
                 let _ = self.apply(&ctxt, &r).await;
             }
         }

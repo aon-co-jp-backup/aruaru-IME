@@ -88,7 +88,7 @@ impl TextService {
         let password = focused_is_password();
         let body = format!("{{\"editable\":{editable},\"password\":{password}}}");
         std::thread::spawn(move || {
-            let _ = daemon::post("/focus", &body, 300);
+            let _ = daemon::post("/aruaru_ime.v1.Ime/Focus", &body, 300);
         });
     }
 

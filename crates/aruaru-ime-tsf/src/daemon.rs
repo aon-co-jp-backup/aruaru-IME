@@ -102,7 +102,7 @@ pub fn revive() {
 impl Converter for DaemonConverter {
     fn convert(&self, buffer: &str, before: &str, field_kind: Option<&str>) -> Conversion {
         let body = serde_json::json!({"buffer": buffer, "before": before, "field_kind": field_kind}).to_string();
-        if let Some(resp) = post("/convert", &body, 700) {
+        if let Some(resp) = post("/aruaru_ime.v1.Ime/Convert", &body, 700) {
             if let Some(c) = serde_json::from_str::<serde_json::Value>(&resp).ok().and_then(|v| parse_conversion(&v)) {
                 return c;
             }

@@ -743,7 +743,14 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
             let _ = req.respond(r);
             continue;
         }
-        let (code, out) = match (req.method().as_str(), path.as_str()) {
+        // Connect の単純呼び出し(POST /aruaru_ime.v1.Ime/<Method>)を、内部の経路へ写す。
+        // 旧経路(/key 等)は、すでに配布済みのクライアント(TSF DLL・easy-web.tokyo のオンライン画面・RPoem の crossui 生成ページ)のための
+        // 期限つき互換(2026-12-06 まで)。期限後に削除する。/health・/ui は規格外の例外(ヘルスチェック・静的な画面)。
+        let (method_s, path) = match connect_route(req.method().as_str(), &path) {
+            Some(r) => r,
+            None => (req.method().as_str().to_string(), path),
+        };
+        let (code, out) = match (method_s.as_str(), path.as_str()) {
             ("GET", "/ui") => (200, open_runo_crossui::page_html(&open_runo_crossui::ime_app("", env!("CARGO_PKG_VERSION")), "")),
             ("GET", "/health") => (200, format!("ok dict={} v={} proto=1", dict.as_ref().as_ref().map_or(0, |d| d.len()), env!("CARGO_PKG_VERSION"))),
             ("GET", "/stats") => {
@@ -953,4 +960,30 @@ fn spawn_data_update() {
             std::thread::sleep(std::time::Duration::from_secs(30 * 60));
         }
     });
+}
+
+/// `POST /aruaru_ime.v1.Ime/<Method>` を内部の (メソッド, 経路) へ写す。Connect 以外・未知のメソッドは None。
+fn connect_route(method: &str, path: &str) -> Option<(String, String)> {
+    let name = path.strip_prefix("/aruaru_ime.v1.Ime/")?;
+    let inner = match name {
+        "Key" => ("POST", "/key"),
+        "Templates" => ("POST", "/templates"),
+        "Session" => ("POST", "/session"),
+        "VocabLearn" => ("POST", "/vocab/learn"),
+        "VocabRemove" => ("POST", "/vocab/remove"),
+        "VocabList" => ("GET", "/vocab/list"),
+        "DictAdd" => ("POST", "/dict/add"),
+        "DictRemove" => ("POST", "/dict/remove"),
+        "DictList" => ("GET", "/dict/list"),
+        "Focus" => ("POST", "/focus"),
+        "Convert" => ("POST", "/convert"),
+        "Stats" => ("GET", "/stats"),
+        "Version" => ("GET", "/version"),
+        _ => return Some(("POST".into(), "/__unknown".into())),
+    };
+    // Connect は POST だけ。POST 以外は存在しない経路として扱う。
+    if method != "POST" {
+        return Some(("POST".into(), "/__unknown".into()));
+    }
+    Some((inner.0.into(), inner.1.into()))
 }

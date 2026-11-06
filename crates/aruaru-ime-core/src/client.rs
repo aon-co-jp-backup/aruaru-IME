@@ -29,7 +29,8 @@ impl Client {
 
     /// aruaru-llm の知識ベース(DATABASE)を全件取得する(IMEの補足表示用に手元へ取り込む)。
     pub fn knowledge_all(&self) -> Option<Vec<Value>> {
-        let v = self.agent.get(&format!("{}/v1/knowledge/search", self.base)).call().ok()?.into_json::<Value>().ok()?;
+        // Connect の単純呼び出し(旧 GET /v1/knowledge/search)。q 無しで全件。
+        let v = self.post("/aruaru_llm.v1.Llm/KnowledgeSearch", json!({}))?;
         v["items"].as_array().cloned()
     }
 

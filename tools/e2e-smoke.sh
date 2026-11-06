@@ -18,19 +18,19 @@ fail() { echo "FAIL: $1"; exit 1; }
 H="$(curl -fs http://127.0.0.1:4660/health)"; echo "health: $H"
 echo "$H" | grep -q "proto=1" || fail "health"
 post() { curl -fs -X POST "http://127.0.0.1:4660$1" -d "$2"; }
-post /session '{"sid":"s","op":"lang","lang":"ja"}' >/dev/null
+post /aruaru_ime.v1.Ime/Session '{"sid":"s","op":"lang","lang":"ja"}' >/dev/null
 R=""
-for c in k o n n i c h i h a; do R="$(post /key "{\"sid\":\"s\",\"key\":{\"Char\":\"$c\"}}")"; done
+for c in k o n n i c h i h a; do R="$(post /aruaru_ime.v1.Ime/Key "{\"sid\":\"s\",\"key\":{\"Char\":\"$c\"}}")"; done
 echo "typed konnichiha: $R" | cut -c1-160
 echo "$R" | grep -q 'こんにちは' || fail "romaji to hiragana"
-post /session '{"sid":"s","op":"cancel"}' >/dev/null
-R="$(post /key '{"sid":"s","key":{"Char":"-"},"before":""}')"
+post /aruaru_ime.v1.Ime/Session '{"sid":"s","op":"cancel"}' >/dev/null
+R="$(post /aruaru_ime.v1.Ime/Key '{"sid":"s","key":{"Char":"-"},"before":""}')"
 echo "$R" | grep -q '－' || fail "hyphen candidates"
-post /session '{"sid":"s","op":"cancel"}' >/dev/null
-R="$(post /key '{"sid":"s","key":{"Char":"/"},"before":""}')"
+post /aruaru_ime.v1.Ime/Session '{"sid":"s","op":"cancel"}' >/dev/null
+R="$(post /aruaru_ime.v1.Ime/Key '{"sid":"s","key":{"Char":"/"},"before":""}')"
 echo "$R" | grep -q '・' || fail "slash gives the middle dot candidate (MS-IME style)"
-post /session '{"sid":"s","op":"cancel"}' >/dev/null
-R="$(post /key '{"sid":"s","key":{"Char":"+"},"before":""}')"
+post /aruaru_ime.v1.Ime/Session '{"sid":"s","op":"cancel"}' >/dev/null
+R="$(post /aruaru_ime.v1.Ime/Key '{"sid":"s","key":{"Char":"+"},"before":""}')"
 echo "$R" | grep -q 'プラス' || fail "plus candidates"
 curl -fs http://127.0.0.1:4660/ui | grep -q 'ダウンロードはこちら' || fail "web screen"
 # a second instance must exit quietly (same version already running)
