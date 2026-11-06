@@ -98,6 +98,9 @@ Install with `aruaru-ime-windows-x86_64-setup.exe` (admin); right-click the tray
 **v0.2.22 (2026-11-06)**: Right-click the notification-area icon → Dictionaries & registration → **Register by genre**: word, phrase, person's name, thing, manga, anime, game, TV drama, movie. Each entry is saved to the user dictionary with the source `登録:<genre>`, so it can be removed per genre from the same menu.
 **v0.2.22(2026-11-06)**: 通知領域のアイコンを右クリック → 辞書・登録 → **ジャンルを選んで登録**: 単語・熟語・人名・物・漫画・アニメ・ゲーム・ドラマ・映画。登録した語は出所「登録:ジャンル名」で利用者辞書に入り、同じメニューのファイル単位の削除からジャンルごとにまとめて消せます。
 
+**v0.2.23 (2026-11-06)**: Fix release for v0.2.22: the Linux IBus engine could not connect (zbus 6 runtime feature missing), and the Android app still said 0.2.21 and offered to update to itself. CI is green on all platforms again (the Android smoke test now retries and dismisses the update prompt).
+**v0.2.23(2026-11-06)**: v0.2.22 の修正版。Linux の IBus エンジンが接続できない不具合(zbus 6 の実行基盤の機能が抜けていた)と、Android の版が 0.2.21 のままで自分自身への更新を案内する不具合を修正。CI は全 OS で成功に戻した(Android のスモーク試験は、更新案内を閉じ、描画の取りこぼしを再試行する)。
+
 ---
 
 ## 引っ越し / Moving to another machine
