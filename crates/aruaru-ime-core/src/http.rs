@@ -116,7 +116,9 @@ impl Request {
         self.post_builder().send(b).map(Response)
     }
     pub fn send_json(self, body: impl serde::Serialize) -> Result<Response, Error> {
-        self.post_builder().send_json(body).map(Response)
+        // ureq 3 の send_json は整形(インデント付き)で送るので、ureq 2 と同じ詰めた JSON で送る。
+        let bytes = serde_json::to_vec(&body).map_err(|e| Error::Json(e))?;
+        self.post_builder().header("Content-Type", "application/json").send(&bytes[..]).map(Response)
     }
     pub fn send_string(self, body: &str) -> Result<Response, Error> {
         self.post_builder().send(body).map(Response)

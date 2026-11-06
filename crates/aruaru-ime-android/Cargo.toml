@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 aruaru-ime-core = { path = "../aruaru-ime-core" }
 open-runo-crossui = { path = "../../../RPoem/crates/open-runo-crossui" }
 open-runo-view = { path = "../../../RPoem/crates/open-runo-view" }
-jni = "0.21"
+jni = "0.22"
 serde_json = "1"
 ureq = { version = "3", features = ["json"] }
 

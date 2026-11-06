@@ -482,7 +482,7 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 
 ## 依存更新(2026-11-06、version-control 通知への対応)
 - **更新済み**(`cargo test -p aruaru-ime-core` 196件成功): base64 0.23・sha2 0.11・quick-xml 0.42(名前・本文が`&str`化、`decode()`廃止、`docimport.rs`を追従)・lopdf 0.47・sonic-rs 0.5(tsf/daemon)。
-- **未更新(個別の作業が要る)**: `jni` 0.22(Androidビルド環境が要る)、
+- **未更新(個別の作業が要る)**: 
 - *Updated and tested: base64, sha2, quick-xml (str-based API), lopdf, sonic-rs. Deferred: windows 0.62 (the `implement` feature is gone; TSF COM code needs rewriting and on-device IME tests), ureq 3, jni 0.22, zbus 6.*
 
 ### ureq 3 へ更新済み(2026-11-06)
@@ -496,3 +496,8 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 ### windows / windows-core 0.62 へ更新済み(2026-11-06)
 `implement` 機能は不要に。追従した点: `BOOL` は `windows::core::BOOL`、COMの入力引数は `Option<&T>` ではなく `Ref<'_, T>`(`.as_ref()` で取り出す)、GDIの `DeleteObject`/`SelectObject` は `.into()`(HGDIOBJ)、`HWND`/`HINSTANCE`/`HDC`/`WPARAM`/`LPARAM` の一部が `Option`、`CreateFontW` の文字セット等が型付き、`AdviseKeyEventSink` の前面指定は `bool`。`cargo test`(core 204件・tsf・daemon)と tsf のリリースビルド成功。**regsvr32 での登録と実際の入力試験は未実施**(管理者権限が要る。リリース前に実機で必ず確認すること)。
 *windows 0.62 done; builds and tests pass; DLL registration / typing on a real machine not tested (needs admin).*
+
+### jni 0.22 へ更新済み(2026-11-06)
+`crates/aruaru-ime-android/src/jni_glue.rs` を新API(`EnvUnowned`+`with_env`+`ThrowRuntimeExAndDefault`、`JString::try_to_string`/`from_str`、`jboolean`→`bool`)へ書き換え。パニックは JVM へ巻き戻さず例外になる。JNI の公開関数名・引数は変更なし(Java側は無変更)。`cargo test -p aruaru-ime-android`(5件)、`cargo ndk -t arm64-v8a build --release` 成功、`.so` に `Java_jp_aon_aruaruime_Native_{init,setField,api,page}` を確認。**実機/エミュレータでの起動は未実施**。
+**ureq 3 移行の回帰を修正**: `send_json` が整形(インデント付き)で送っていた(androidのテストで発覚)。互換層 `http.rs` で詰めた JSON を送る。
+*jni 0.22 done (glue rewritten, .so exports verified, device run not tested). Also fixed a ureq 3 regression: send_json sent pretty-printed JSON.*
