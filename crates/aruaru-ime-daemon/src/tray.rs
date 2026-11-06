@@ -38,6 +38,19 @@ pub fn notify(title: &str, msg: &str) {
     }
 }
 
+/// ジャンル別登録の選択肢(日本語, English, 入力例)。人名は専用の姓+名ダイアログを使う。
+const GENRES: &[(&str, &str, &str)] = &[
+    ("単語", "Word", "読み「ぎじゅつ」 → 表記「技術」"),
+    ("熟語", "Phrase", "読み「おせわになっております」 → 表記「お世話になっております。」"),
+    ("人名", "Person's name", ""),
+    ("物", "Thing / product", "読み「ぷれいすてーしょん」 → 表記「PlayStation」"),
+    ("漫画", "Manga", "読み「わんぴーす」 → 表記「ONE PIECE」"),
+    ("アニメ", "Anime", "読み「しんせいきえゔぁんげりおん」 → 表記「新世紀エヴァンゲリオン」"),
+    ("ゲーム", "Game", "読み「どらごんくえすと」 → 表記「ドラゴンクエスト」"),
+    ("ドラマ", "TV drama", "読み「はんざわなおき」 → 表記「半沢直樹」"),
+    ("映画", "Movie", "読み「となりのととろ」 → 表記「となりのトトロ」"),
+];
+
 #[derive(Clone)]
 enum Action {
     WishAdd,
@@ -50,6 +63,7 @@ enum Action {
     ToggleDataUpdate,
     AddVocab,
     RegisterWord,
+    RegisterGenre(String),
     AddKnowledge,
     ListKnowledge,
     RegisterName,
@@ -168,6 +182,13 @@ unsafe fn build_menu() -> (HMENU, Menu) {
     add(dict, MF_STRING, id, "単語・熟語を登録… / Register a word or phrase");
     let id = m.push(Action::RegisterName);
     add(dict, MF_STRING, id, "人名を登録… / Register a person's name (family + given)");
+    // ジャンルを選んで登録(右クリック→辞書・登録→ここから)。出所は「登録:ジャンル名」で、後からジャンル単位で削除できる。
+    let genre_menu = CreatePopupMenu().unwrap();
+    for g in GENRES {
+        let id = m.push(Action::RegisterGenre(g.0.to_string()));
+        add(genre_menu, MF_STRING, id, &format!("{} / {}…", g.0, g.1));
+    }
+    add_sub(dict, genre_menu, "ジャンルを選んで登録 / Register by genre (単語・熟語・物・漫画・アニメ・ゲーム・ドラマ・映画)");
     let id = m.push(Action::ImportFile);
     add(dict, MF_STRING, id, "ファイルから登録… / Register from a file (txt / xlsx / docx / pptx / pdf)");
     let id = m.push(Action::AddKnowledge);
@@ -702,6 +723,21 @@ fn handle(a: Action, client: &aruaru_ime_core::client::Client) -> bool {
                     notify("aruaru-IME", &format!("{name} の語彙を、検索して作っています…"));
                     crate::learn_in_background(client, name);
                 }
+            }
+        }
+        Action::RegisterGenre(g) if g == "人名" => return handle(Action::RegisterName, client),
+        Action::RegisterGenre(g) => {
+            let (_, en, example) = GENRES.iter().find(|x| x.0 == g).copied().unwrap_or((" ", "", ""));
+            let title = format!("{g}を登録 / Register ({en})");
+            if let Some(v) = input_dialog(&title, &["読み(ひらがな。ローマ字でも可)", &format!("表記({g}の名前・言葉)")], example) {
+                let mut u = UserDict::load(&UserDict::default_path());
+                let source = format!("登録:{g}");
+                let msg = match u.add_from(&v[0], &v[1], Some(&source)) {
+                    Ok(true) => format!("{g}として登録しました: {} → {}", v[0].trim(), v[1].trim()),
+                    Ok(false) => "すでに登録されています".to_string(),
+                    Err(e) => format!("登録できませんでした: {e}"),
+                };
+                notify(&g, &msg);
             }
         }
         Action::RegisterWord => {

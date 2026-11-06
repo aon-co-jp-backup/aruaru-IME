@@ -95,6 +95,9 @@ Install with `aruaru-ime-windows-x86_64-setup.exe` (admin); right-click the tray
 **v0.2.15 (2026-10-16)**: Ctrl+Shift+L switches the input language inside the IME (Windows, IBus, Fcitx5, online screen); hiragana mode follows MS-IME for `, . / [ ]` (as Japanese 109 keyboards do).
 **v0.2.15(2026-10-16)**: Ctrl+Shift+L で、IME の中で入力言語を切り替え(Windows・IBus・Fcitx5・オンライン画面)。ひらがなモードの `, . / [ ]` は、日本語109キーボードのとおり MS-IME 準拠。
 
+**v0.2.22 (2026-11-06)**: Right-click the notification-area icon → Dictionaries & registration → **Register by genre**: word, phrase, person's name, thing, manga, anime, game, TV drama, movie. Each entry is saved to the user dictionary with the source `登録:<genre>`, so it can be removed per genre from the same menu.
+**v0.2.22(2026-11-06)**: 通知領域のアイコンを右クリック → 辞書・登録 → **ジャンルを選んで登録**: 単語・熟語・人名・物・漫画・アニメ・ゲーム・ドラマ・映画。登録した語は出所「登録:ジャンル名」で利用者辞書に入り、同じメニューのファイル単位の削除からジャンルごとにまとめて消せます。
+
 ---
 
 ## 引っ越し / Moving to another machine
