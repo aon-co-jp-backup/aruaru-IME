@@ -27,4 +27,6 @@ adb shell uiautomator dump /sdcard/ui2.xml >/dev/null 2>&1
 adb pull /sdcard/ui2.xml "android-test-$NAME-ui-landscape.xml" >/dev/null 2>&1
 grep -q "ダウンロード" "android-test-$NAME-ui-landscape.xml" 2>/dev/null || ok=0
 adb logcat -d | grep -i "chromium\|aruaru" | tail -30 > "android-test-$NAME-log.txt"
+# 失敗の原因が分かるように、クラッシュとアプリの異常終了のログも残す
+adb logcat -d | grep -E "AndroidRuntime|FATAL|Process: jp.aon.aruaruime|ActivityManager.*(jp.aon.aruaruime|crash|died)|WebView|chromium.*ERR" | tail -60 >> "android-test-$NAME-log.txt"
 if [ $ok = 1 ]; then echo "ANDROID SMOKE OK ($NAME)"; exit 0; else echo "ANDROID SMOKE FAILED ($NAME)"; exit 1; fi
