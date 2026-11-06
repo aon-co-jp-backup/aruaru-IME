@@ -18,6 +18,11 @@ for i in $(seq 1 14); do
     set -- $(grep -o 'text="あとで / Later"[^>]*bounds="[^"]*"' "android-test-$NAME-ui.xml" | head -1 | grep -o 'bounds="[^"]*"' | grep -o '[0-9][0-9]*')
     if [ $# -ge 4 ]; then adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )); sleep 2; continue; fi
   fi
+  # エミュレーターが重くて「Pixel Launcher isn't responding」(ANR)が出たら、「Wait」を押して続ける
+  if grep -q "isn't responding" "android-test-$NAME-ui.xml" 2>/dev/null; then
+    set -- $(grep -o 'text="Wait"[^>]*bounds="[^"]*"' "android-test-$NAME-ui.xml" | head -1 | grep -o 'bounds="[^"]*"' | grep -o '[0-9][0-9]*')
+    if [ $# -ge 4 ]; then adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )); sleep 3; continue; fi
+  fi
   # アプリが前面に出ていない(ホーム画面のまま)なら、起動し直す(エミュレーターが落ち着く前の起動取りこぼし対策)
   if ! grep -q 'package="jp.aon.aruaruime"' "android-test-$NAME-ui.xml" 2>/dev/null; then adb shell am start -W -n jp.aon.aruaruime/.MainActivity >/dev/null 2>&1; sleep 3; continue; fi
   # キーボードの有効化を案内するダイアログが出ていたら、閉じる
