@@ -11,6 +11,11 @@ for i in $(seq 1 40); do
   sleep 3
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   adb pull /sdcard/ui.xml "android-test-$NAME-ui.xml" >/dev/null 2>&1
+  # 「新しい版」の更新案内が出ていたら、「あとで」を押して閉じる(座標は uiautomator のダンプから取る)
+  if grep -q "あとで / Later" "android-test-$NAME-ui.xml" 2>/dev/null; then
+    set -- $(grep -o 'text="あとで / Later"[^>]*bounds="[^"]*"' "android-test-$NAME-ui.xml" | head -1 | grep -o 'bounds="[^"]*"' | grep -o '[0-9][0-9]*')
+    if [ $# -ge 4 ]; then adb shell input tap $(( ($1 + $3) / 2 )) $(( ($2 + $4) / 2 )); sleep 2; continue; fi
+  fi
   # アプリが前面に出ていない(ホーム画面のまま)なら、起動し直す(エミュレーターが落ち着く前の起動取りこぼし対策)
   if ! grep -q 'package="jp.aon.aruaruime"' "android-test-$NAME-ui.xml" 2>/dev/null; then adb shell am start -W -n jp.aon.aruaruime/.MainActivity >/dev/null 2>&1; sleep 3; continue; fi
   # キーボードの有効化を案内するダイアログが出ていたら、閉じる
