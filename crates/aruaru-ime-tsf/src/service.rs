@@ -5,10 +5,10 @@ use aruaru_ime_core::session::{Key, Step};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-use windows::core::{implement, Interface, Result, GUID};
+use windows::core::{implement, Interface, Ref, Result, BOOL, GUID};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows_core::IUnknownImpl;
-use windows::Win32::Foundation::{BOOL, E_FAIL, FALSE, LPARAM, RECT, WPARAM};
+use windows::Win32::Foundation::{E_FAIL, FALSE, LPARAM, RECT, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
 use windows::Win32::UI::TextServices::*;
 
@@ -270,7 +270,7 @@ fn map_key(vk: u32) -> Option<Key> {
 }
 
 impl ITfTextInputProcessor_Impl for TextService_Impl {
-    fn Activate(&self, ptim: Option<&ITfThreadMgr>, tid: u32) -> Result<()> {
+    fn Activate(&self, ptim: Ref<'_, ITfThreadMgr>, tid: u32) -> Result<()> {
         self.ActivateEx(ptim, tid, 0)
     }
     fn Deactivate(&self) -> Result<()> {
@@ -298,14 +298,14 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
 }
 
 impl ITfTextInputProcessorEx_Impl for TextService_Impl {
-    fn ActivateEx(&self, ptim: Option<&ITfThreadMgr>, tid: u32, _flags: u32) -> Result<()> {
+    fn ActivateEx(&self, ptim: Ref<'_, ITfThreadMgr>, tid: u32, _flags: u32) -> Result<()> {
         crate::log("ActivateEx");
-        let tm = ptim.ok_or(E_FAIL)?.clone();
+        let tm = ptim.as_ref().ok_or(E_FAIL)?.clone();
         self.tid.set(tid);
         unsafe {
             let km: ITfKeystrokeMgr = tm.cast()?;
             let key_sink: ITfKeyEventSink = self.as_interface::<ITfKeyEventSink>().to_owned();
-            km.AdviseKeyEventSink(tid, &key_sink, TRUE_)?;
+            km.AdviseKeyEventSink(tid, &key_sink, true)?;
             let src: ITfSource = tm.cast()?;
             let tm_sink: ITfThreadMgrEventSink = self.as_interface::<ITfThreadMgrEventSink>().to_owned();
             let cookie = src.AdviseSink(&ITfThreadMgrEventSink::IID, &tm_sink)?;
@@ -335,24 +335,23 @@ impl ITfTextInputProcessorEx_Impl for TextService_Impl {
     }
 }
 
-const TRUE_: BOOL = BOOL(1);
 
 impl ITfKeyEventSink_Impl for TextService_Impl {
     fn OnSetFocus(&self, _foreground: BOOL) -> Result<()> {
         Ok(())
     }
-    fn OnTestKeyDown(&self, _pic: Option<&ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
+    fn OnTestKeyDown(&self, _pic: Ref<'_, ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
         let eat = map_key(wparam.0 as u32).is_some_and(|k| self.inner.borrow().session.would_eat(&k));
         crate::log(&format!("TestKeyDown vk={:#x} eat={eat}", wparam.0));
         Ok(BOOL(eat as i32))
     }
-    fn OnTestKeyUp(&self, _pic: Option<&ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
+    fn OnTestKeyUp(&self, _pic: Ref<'_, ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
         // 食ったキーダウンに対応するキーアップはアプリへ渡さない
         let eat = is_mode_key(wparam.0 as u32);
         Ok(BOOL(eat as i32))
     }
-    fn OnKeyDown(&self, pic: Option<&ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
-        let (Some(ctx), Some(key)) = (pic, map_key(wparam.0 as u32)) else { return Ok(BOOL(0)) };
+    fn OnKeyDown(&self, pic: Ref<'_, ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
+        let (Some(ctx), Some(key)) = (pic.as_ref(), map_key(wparam.0 as u32)) else { return Ok(BOOL(0)) };
         if !self.inner.borrow().session.would_eat(&key) {
             // 食わないキーは何もしない
             return Ok(BOOL(0));
@@ -394,22 +393,22 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         }
         Ok(BOOL(eaten as i32))
     }
-    fn OnKeyUp(&self, _pic: Option<&ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
+    fn OnKeyUp(&self, _pic: Ref<'_, ITfContext>, wparam: WPARAM, _lparam: LPARAM) -> Result<BOOL> {
         Ok(BOOL(is_mode_key(wparam.0 as u32) as i32))
     }
-    fn OnPreservedKey(&self, _pic: Option<&ITfContext>, _rguid: *const GUID) -> Result<BOOL> {
+    fn OnPreservedKey(&self, _pic: Ref<'_, ITfContext>, _rguid: *const GUID) -> Result<BOOL> {
         Ok(BOOL(0))
     }
 }
 
 impl ITfThreadMgrEventSink_Impl for TextService_Impl {
-    fn OnInitDocumentMgr(&self, _p: Option<&ITfDocumentMgr>) -> Result<()> {
+    fn OnInitDocumentMgr(&self, _p: Ref<'_, ITfDocumentMgr>) -> Result<()> {
         Ok(())
     }
-    fn OnUninitDocumentMgr(&self, _p: Option<&ITfDocumentMgr>) -> Result<()> {
+    fn OnUninitDocumentMgr(&self, _p: Ref<'_, ITfDocumentMgr>) -> Result<()> {
         Ok(())
     }
-    fn OnSetFocus(&self, focus: Option<&ITfDocumentMgr>, _prev: Option<&ITfDocumentMgr>) -> Result<()> {
+    fn OnSetFocus(&self, focus: Ref<'_, ITfDocumentMgr>, _prev: Ref<'_, ITfDocumentMgr>) -> Result<()> {
         {
             let mut g = self.inner.borrow_mut();
             g.session.apply_settings(&aruaru_ime_core::settings::Settings::load()); // 右クリックメニューでの変更を反映
@@ -418,13 +417,13 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
             g.last_focus_post = Some(Instant::now());
         }
         candwin::hide();
-        self.post_focus(focus.is_some());
+        self.post_focus(focus.as_ref().is_some());
         Ok(())
     }
-    fn OnPushContext(&self, _p: Option<&ITfContext>) -> Result<()> {
+    fn OnPushContext(&self, _p: Ref<'_, ITfContext>) -> Result<()> {
         Ok(())
     }
-    fn OnPopContext(&self, _p: Option<&ITfContext>) -> Result<()> {
+    fn OnPopContext(&self, _p: Ref<'_, ITfContext>) -> Result<()> {
         Ok(())
     }
 }
@@ -454,7 +453,7 @@ impl ITfActiveLanguageProfileNotifySink_Impl for TextService_Impl {
 }
 
 impl ITfCompositionSink_Impl for TextService_Impl {
-    fn OnCompositionTerminated(&self, _ec: u32, _comp: Option<&ITfComposition>) -> Result<()> {
+    fn OnCompositionTerminated(&self, _ec: u32, _comp: Ref<'_, ITfComposition>) -> Result<()> {
         let mut g = self.inner.borrow_mut();
         g.comp = None;
         g.session.cancel();

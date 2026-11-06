@@ -8,7 +8,7 @@ mod service;
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicIsize, AtomicU32, Ordering};
-use windows::core::{implement, w, IUnknown, Interface, Result, GUID, HRESULT, PCWSTR};
+use windows::core::{implement, w, IUnknown, Interface, Ref, Result, BOOL, GUID, HRESULT, PCWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
 use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
@@ -28,7 +28,7 @@ static LOCKS: AtomicU32 = AtomicU32::new(0);
 
 pub fn dll_path() -> std::path::PathBuf {
     let mut buf = [0u16; 520];
-    let n = unsafe { GetModuleFileNameW(HMODULE(MODULE.load(Ordering::Relaxed) as *mut c_void), &mut buf) } as usize;
+    let n = unsafe { GetModuleFileNameW(Some(HMODULE(MODULE.load(Ordering::Relaxed) as *mut c_void)), &mut buf) } as usize;
     std::path::PathBuf::from(String::from_utf16_lossy(&buf[..n]))
 }
 
@@ -48,8 +48,8 @@ extern "system" fn DllMain(hinst: HMODULE, reason: u32, _reserved: *mut c_void) 
 struct Factory;
 
 impl IClassFactory_Impl for Factory_Impl {
-    fn CreateInstance(&self, outer: Option<&IUnknown>, riid: *const GUID, ppv: *mut *mut c_void) -> Result<()> {
-        if outer.is_some() {
+    fn CreateInstance(&self, outer: Ref<'_, IUnknown>, riid: *const GUID, ppv: *mut *mut c_void) -> Result<()> {
+        if outer.as_ref().is_some() {
             return Err(CLASS_E_NOAGGREGATION.into());
         }
         let ts: IUnknown = service::TextService::new().into();

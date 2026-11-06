@@ -88,7 +88,7 @@ unsafe fn draw_column(hdc: HDC, list: &[String], sel: Option<usize>, active: boo
         if sel == Some(i) {
             let hb = CreateSolidBrush(COLORREF(if active { pal.sel } else { pal.sel_inactive }));
             FillRect(hdc, &r, hb);
-            let _ = DeleteObject(hb);
+            let _ = DeleteObject(hb.into());
         }
         SetTextColor(hdc, COLORREF(pal.text));
         let num = (i - page + 1) % 10;
@@ -111,12 +111,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             let _ = GetClientRect(hwnd, &mut rc);
             if y < row_h() && x > rc.right - button_w() {
                 Settings::load().toggle_theme();
-                let _ = InvalidateRect(hwnd, None, true);
+                let _ = InvalidateRect(Some(hwnd), None, true);
             }
             LRESULT(0)
         }
         WM_TIMER => {
-            let _ = KillTimer(hwnd, FLASH_TIMER);
+            let _ = KillTimer(Some(hwnd), FLASH_TIMER);
             let _ = ShowWindow(hwnd, SW_HIDE);
             LRESULT(0)
         }
@@ -128,9 +128,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             let _ = GetClientRect(hwnd, &mut rc);
             let bg = CreateSolidBrush(COLORREF(pal.bg));
             FillRect(hdc, &rc, bg);
-            let _ = DeleteObject(bg);
-            let font = CreateFontW(-((18.0 * scale()) as i32), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, w!("Yu Gothic UI"));
-            let old = SelectObject(hdc, font);
+            let _ = DeleteObject(bg.into());
+            let font = CreateFontW(-((18.0 * scale()) as i32), 0, 0, 0, 400, 0, 0, 0, FONT_CHARSET(1), FONT_OUTPUT_PRECISION(0), FONT_CLIP_PRECISION(0), FONT_QUALITY(5), 0, w!("Yu Gothic UI"));
+            let old = SelectObject(hdc, font.into());
             SetBkMode(hdc, TRANSPARENT);
             STATE.with(|s| {
                 let v = s.borrow();
@@ -152,7 +152,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                     let br = RECT { left: rc.right - button_w(), top: 2, right: rc.right - 4, bottom: row_h() - 2 };
                     let bb = CreateSolidBrush(COLORREF(if to_light { 0x00F0_F0F0 } else { 0x0030_3030 }));
                     FillRect(hdc, &br, bb);
-                    let _ = DeleteObject(bb);
+                    let _ = DeleteObject(bb.into());
                     SetTextColor(hdc, COLORREF(if to_light { 0x0020_2020 } else { 0x00FF_FFFF }));
                     let mut bt: Vec<u16> = (if to_light { "白背景・黒文字" } else { "黒背景・白文字" }).encode_utf16().collect();
                     let mut br2 = br;
@@ -166,16 +166,16 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                     draw_column(hdc, &v.cands, v.sel, v.col == 0, 0, left_w, &pal);
                     // 列の区切り線
                     let hp = CreatePen(PS_SOLID, 1, COLORREF(pal.header));
-                    let oldp = SelectObject(hdc, hp);
+                    let oldp = SelectObject(hdc, hp.into());
                     let _ = MoveToEx(hdc, left_w, row_h(), None);
                     let _ = LineTo(hdc, left_w, rc.bottom);
                     SelectObject(hdc, oldp);
-                    let _ = DeleteObject(hp);
+                    let _ = DeleteObject(hp.into());
                     draw_column(hdc, &v.en, v.en_sel, v.col == 1, left_w + 1, rc.right, &pal);
                 }
             });
             SelectObject(hdc, old);
-            let _ = DeleteObject(font);
+            let _ = DeleteObject(font.into());
             let _ = EndPaint(hwnd, &ps);
             LRESULT(0)
         }
@@ -193,7 +193,7 @@ fn ensure_window() -> Option<HWND> {
             let class = w!("AruaruImeCandidate");
             let wc = WNDCLASSW { lpfnWndProc: Some(wndproc), hInstance: hinst.into(), lpszClassName: class, hCursor: LoadCursorW(None, IDC_ARROW).ok()?, ..Default::default() };
             RegisterClassW(&wc); // 既登録なら失敗するが無視
-            let hw = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE, class, w!(""), WS_POPUP | WS_BORDER, 0, 0, 10, 10, None, None, hinst, None).ok()?;
+            let hw = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE, class, w!(""), WS_POPUP | WS_BORDER, 0, 0, 10, 10, None, None, Some(hinst.into()), None).ok()?;
             *h.borrow_mut() = Some(hw);
             Some(hw)
         }
@@ -215,9 +215,9 @@ pub fn show(cands: &[String], sel: Option<usize>, en: &[String], col: u8, en_sel
     let width = (left_w + right_w).max(min_w);
     STATE.with(|s| *s.borrow_mut() = v);
     unsafe {
-        let _ = KillTimer(hw, FLASH_TIMER);
-        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, width, (rows + 1) * row_h() + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        let _ = InvalidateRect(hw, None, true);
+        let _ = KillTimer(Some(hw), FLASH_TIMER);
+        let _ = SetWindowPos(hw, Some(HWND_TOPMOST), x, y + 2, width, (rows + 1) * row_h() + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        let _ = InvalidateRect(Some(hw), None, true);
         let _ = UpdateWindow(hw);
     }
 }
@@ -227,10 +227,10 @@ pub fn flash(label: &str, x: i32, y: i32) {
     let Some(hw) = ensure_window() else { return };
     STATE.with(|s| *s.borrow_mut() = View { header: label.to_string(), ..Default::default() });
     unsafe {
-        let _ = SetWindowPos(hw, HWND_TOPMOST, x, y + 2, (90.0 * scale()) as i32, row_h() + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        let _ = InvalidateRect(hw, None, true);
+        let _ = SetWindowPos(hw, Some(HWND_TOPMOST), x, y + 2, (90.0 * scale()) as i32, row_h() + 4, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        let _ = InvalidateRect(Some(hw), None, true);
         let _ = UpdateWindow(hw);
-        SetTimer(hw, FLASH_TIMER, 1000, None);
+        SetTimer(Some(hw), FLASH_TIMER, 1000, None);
     }
 }
 
@@ -239,7 +239,7 @@ pub fn redraw() {
     HWND_CAND.with(|h| {
         if let Some(hw) = *h.borrow() {
             unsafe {
-                let _ = InvalidateRect(hw, None, true);
+                let _ = InvalidateRect(Some(hw), None, true);
                 let _ = UpdateWindow(hw);
             }
         }
@@ -250,7 +250,7 @@ pub fn hide() {
     HWND_CAND.with(|h| {
         if let Some(hw) = *h.borrow() {
             unsafe {
-                let _ = KillTimer(hw, FLASH_TIMER);
+                let _ = KillTimer(Some(hw), FLASH_TIMER);
                 let _ = ShowWindow(hw, SW_HIDE);
             }
         }

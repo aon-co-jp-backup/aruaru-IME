@@ -482,7 +482,7 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 
 ## 依存更新(2026-11-06、version-control 通知への対応)
 - **更新済み**(`cargo test -p aruaru-ime-core` 196件成功): base64 0.23・sha2 0.11・quick-xml 0.42(名前・本文が`&str`化、`decode()`廃止、`docimport.rs`を追従)・lopdf 0.47・sonic-rs 0.5(tsf/daemon)。
-- **未更新(個別の作業が要る)**: `windows` 0.62/`windows-core`(0.62で`implement`機能が無くなり、TSFのCOM実装〈`#[implement]`〉の書き換えが必要。実機のIME登録試験が要る)、`jni` 0.22(Androidビルド環境が要る)、
+- **未更新(個別の作業が要る)**: `jni` 0.22(Androidビルド環境が要る)、
 - *Updated and tested: base64, sha2, quick-xml (str-based API), lopdf, sonic-rs. Deferred: windows 0.62 (the `implement` feature is gone; TSF COM code needs rewriting and on-device IME tests), ureq 3, jni 0.22, zbus 6.*
 
 ### ureq 3 へ更新済み(2026-11-06)
@@ -492,3 +492,7 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 ### zbus 6 へ更新済み(2026-11-06)
 `SignalContext`→`SignalEmitter`、`#[zbus(signal_context)]`→`#[zbus(signal_emitter)]`、機能は `service`(`async-io` 機能は無くなった)、`StructureBuilder::build()` が `Result` に、`Type::signature()`→`SIGNATURE`、`Builder` の `address`/`name`/`serve_at` は `?` 不要に。WSL(Ubuntu)で `cargo test -p aruaru-ime-ibus` 成功(IBusText/LookupTableの署名が不変であることを確認)。**実際の ibus-daemon との接続試験は未実施**(Linux実機が要る)。非推奨警告(`zvariant::Value`→`zbus::Variant`等)は残している。
 *zbus 6 done; builds and signature tests pass under WSL; not tested against a live ibus-daemon.*
+
+### windows / windows-core 0.62 へ更新済み(2026-11-06)
+`implement` 機能は不要に。追従した点: `BOOL` は `windows::core::BOOL`、COMの入力引数は `Option<&T>` ではなく `Ref<'_, T>`(`.as_ref()` で取り出す)、GDIの `DeleteObject`/`SelectObject` は `.into()`(HGDIOBJ)、`HWND`/`HINSTANCE`/`HDC`/`WPARAM`/`LPARAM` の一部が `Option`、`CreateFontW` の文字セット等が型付き、`AdviseKeyEventSink` の前面指定は `bool`。`cargo test`(core 204件・tsf・daemon)と tsf のリリースビルド成功。**regsvr32 での登録と実際の入力試験は未実施**(管理者権限が要る。リリース前に実機で必ず確認すること)。
+*windows 0.62 done; builds and tests pass; DLL registration / typing on a real machine not tested (needs admin).*

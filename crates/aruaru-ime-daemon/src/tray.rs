@@ -33,7 +33,7 @@ pub fn notify(title: &str, msg: &str) {
     let h = TRAY_HWND.load(Ordering::SeqCst);
     if h != 0 {
         unsafe {
-            let _ = PostMessageW(HWND(h as *mut c_void), WM_NOTICE, WPARAM(0), LPARAM(0));
+            let _ = PostMessageW(Some(HWND(h as *mut c_void)), WM_NOTICE, WPARAM(0), LPARAM(0));
         }
     }
 }
@@ -288,7 +288,7 @@ thread_local! {
 fn font_all(h: HWND) {
     unsafe {
         let f = GetStockObject(DEFAULT_GUI_FONT);
-        SendMessageW(h, WM_SETFONT, WPARAM(f.0 as usize), LPARAM(1));
+        SendMessageW(h, WM_SETFONT, Some(WPARAM(f.0 as usize)), Some(LPARAM(1)));
     }
 }
 
@@ -309,7 +309,7 @@ unsafe extern "system" fn dlg_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM)
                 1 => {
                     let mut vals: Vec<String> = EDITS.with(|e| e.borrow().iter().map(|h| text_of(*h)).collect());
                     if let Some(cb) = COMBO.with(|c| *c.borrow()) {
-                        let i = SendMessageW(cb, 0x0147 /* CB_GETCURSEL */, WPARAM(0), LPARAM(0)).0;
+                        let i = SendMessageW(cb, 0x0147 /* CB_GETCURSEL */, Some(WPARAM(0)), Some(LPARAM(0))).0;
                         vals.insert(0, i.to_string());
                     }
                     RESULT.with(|r| *r.borrow_mut() = Some(vals));
@@ -323,11 +323,11 @@ unsafe extern "system" fn dlg_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM)
                 3 => {
                     // 一覧の選択項目を削除
                     if let Some(l) = LIST.with(|l| *l.borrow()) {
-                        let sel = SendMessageW(l, 0x0188 /* LB_GETCURSEL */, WPARAM(0), LPARAM(0)).0;
+                        let sel = SendMessageW(l, 0x0188 /* LB_GETCURSEL */, Some(WPARAM(0)), Some(LPARAM(0))).0;
                         if sel >= 0 {
                             let ok = DELETER.with(|d| d.borrow_mut().as_mut().map(|f| f(sel as usize)).unwrap_or(false));
                             if ok {
-                                SendMessageW(l, 0x0182 /* LB_DELETESTRING */, WPARAM(sel as usize), LPARAM(0));
+                                SendMessageW(l, 0x0182 /* LB_DELETESTRING */, Some(WPARAM(sel as usize)), Some(LPARAM(0)));
                             }
                         }
                     }
@@ -372,9 +372,9 @@ unsafe fn child(parent: HWND, class: PCWSTR, text: &str, style: u32, x: i32, y: 
         y,
         w,
         h,
-        parent,
-        HMENU(id as isize as *mut c_void),
-        hinst,
+        Some(parent),
+        Some(HMENU(id as isize as *mut c_void)),
+        Some(hinst.into()),
         None,
     )
     .unwrap_or_default();
@@ -414,7 +414,7 @@ fn create_dialog(title: &str, width: i32, height: i32) -> HWND {
             height,
             None,
             None,
-            hinst,
+            Some(hinst.into()),
             None,
         )
         .unwrap_or_default()
@@ -442,7 +442,7 @@ fn input_dialog(title: &str, labels: &[&str], hint: &str) -> Option<Vec<String>>
         child(dlg, w!("BUTTON"), "OK", 1 /* BS_DEFPUSHBUTTON */ | WS_TABSTOP.0, 290, y + 6, 100, 30, 1);
         child(dlg, w!("BUTTON"), "キャンセル", WS_TABSTOP.0, 396, y + 6, 100, 30, 2);
         if let Some(first) = EDITS.with(|e| e.borrow().first().copied()) {
-            let _ = windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(first);
+            let _ = windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(Some(first));
         }
     }
     run_modal(dlg);
@@ -459,9 +459,9 @@ fn wish_dialog() -> Option<(wish::Category, String)> {
         let cb = child(dlg, w!("COMBOBOX"), "", 3 /* CBS_DROPDOWNLIST */ | WS_VSCROLL.0 | WS_TABSTOP.0, 14, 34, 520, 300, 300);
         for c in wish::CATEGORIES {
             let t = wz(c.label());
-            SendMessageW(cb, 0x0143 /* CB_ADDSTRING */, WPARAM(0), LPARAM(t.as_ptr() as isize));
+            SendMessageW(cb, 0x0143 /* CB_ADDSTRING */, Some(WPARAM(0)), Some(LPARAM(t.as_ptr() as isize)));
         }
-        SendMessageW(cb, 0x014E /* CB_SETCURSEL */, WPARAM(0), LPARAM(0));
+        SendMessageW(cb, 0x014E /* CB_SETCURSEL */, Some(WPARAM(0)), Some(LPARAM(0)));
         COMBO.with(|c| *c.borrow_mut() = Some(cb));
         child(dlg, w!("STATIC"), "名前(カタカナ・ひらがな・漢字・英語のどれでもよい。例: キメツ / きめつ / 鬼滅の刃 / 3x3 EYES / Svelte)", 0, 14, 72, 520, 36, 0);
         let e = child(dlg, w!("EDIT"), "", WS_BORDER.0 | WS_TABSTOP.0 | 0x80, 14, 112, 520, 26, 301);
@@ -469,7 +469,7 @@ fn wish_dialog() -> Option<(wish::Category, String)> {
         child(dlg, w!("STATIC"), "検索で調べて、登場人物・必殺技・アイテム・役職・スキル・国名・都市名などの読みと表記を辞書にします(数十秒〜数分)。", 0, 14, 148, 520, 40, 0);
         child(dlg, w!("BUTTON"), "OK", 1 | WS_TABSTOP.0, 330, 200, 100, 30, 1);
         child(dlg, w!("BUTTON"), "キャンセル", WS_TABSTOP.0, 436, 200, 100, 30, 2);
-        let _ = windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(e);
+        let _ = windows::Win32::UI::Input::KeyboardAndMouse::SetFocus(Some(e));
     }
     run_modal(dlg);
     COMBO.with(|c| *c.borrow_mut() = None);
@@ -486,7 +486,7 @@ fn list_dialog(title: &str, items: &[String], button_label: &str, delete: Option
         let list = child(dlg, w!("LISTBOX"), "", WS_BORDER.0 | WS_VSCROLL.0 | WS_TABSTOP.0 | 1 /* LBS_NOTIFY */, 14, 12, 720, 420, 200);
         for it in items {
             let t = wz(it);
-            SendMessageW(list, 0x0180 /* LB_ADDSTRING */, WPARAM(0), LPARAM(t.as_ptr() as isize));
+            SendMessageW(list, 0x0180 /* LB_ADDSTRING */, Some(WPARAM(0)), Some(LPARAM(t.as_ptr() as isize)));
         }
         LIST.with(|l| *l.borrow_mut() = Some(list));
         let has_delete = delete.is_some();
@@ -848,8 +848,8 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
                 let mut pt = POINT::default();
                 let _ = GetCursorPos(&mut pt);
                 let _ = SetForegroundWindow(hwnd);
-                let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, None::<*const RECT>);
-                let _ = PostMessageW(hwnd, WM_NULL, WPARAM(0), LPARAM(0));
+                let cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_BOTTOMALIGN, pt.x, pt.y, Some(0), hwnd, None::<*const RECT>);
+                let _ = PostMessageW(Some(hwnd), WM_NULL, WPARAM(0), LPARAM(0));
                 let _ = DestroyMenu(menu);
                 if cmd.0 > 0 {
                     if let Some((_, action)) = items.items.iter().find(|(id, _)| *id == cmd.0 as usize) {
@@ -902,7 +902,7 @@ pub fn run(client: aruaru_ime_core::client::Client) {
         let hinst = GetModuleHandleW(PCWSTR::null()).unwrap_or_default();
         let wc = WNDCLASSW { lpfnWndProc: Some(main_proc), hInstance: hinst.into(), lpszClassName: w!("AruaruImeTray"), ..Default::default() };
         RegisterClassW(&wc);
-        let hwnd = match CreateWindowExW(WINDOW_EX_STYLE(0), w!("AruaruImeTray"), w!("aruaru-IME"), WS_OVERLAPPED, 0, 0, 0, 0, None, None, hinst, None) {
+        let hwnd = match CreateWindowExW(WINDOW_EX_STYLE(0), w!("AruaruImeTray"), w!("aruaru-IME"), WS_OVERLAPPED, 0, 0, 0, 0, None, None, Some(hinst.into()), None) {
             Ok(h) => h,
             Err(e) => {
                 eprintln!("tray window failed: {e}");

@@ -28,10 +28,10 @@ pub fn capture_png() -> Option<Vec<u8>> {
             return None;
         }
         let screen = GetDC(None);
-        let mem = CreateCompatibleDC(screen);
+        let mem = CreateCompatibleDC(Some(screen));
         let bmp = CreateCompatibleBitmap(screen, w, h);
-        let old = SelectObject(mem, bmp);
-        let ok = BitBlt(mem, 0, 0, w, h, screen, 0, 0, SRCCOPY).is_ok();
+        let old = SelectObject(mem, bmp.into());
+        let ok = BitBlt(mem, 0, 0, w, h, Some(screen), 0, 0, SRCCOPY).is_ok();
         let mut bi = BITMAPINFO::default();
         bi.bmiHeader = BITMAPINFOHEADER {
             biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
@@ -45,7 +45,7 @@ pub fn capture_png() -> Option<Vec<u8>> {
         let mut buf = vec![0u8; (w * h * 4) as usize];
         let lines = GetDIBits(mem, bmp, 0, h as u32, Some(buf.as_mut_ptr() as *mut _), &mut bi, DIB_RGB_COLORS);
         SelectObject(mem, old);
-        let _ = DeleteObject(bmp);
+        let _ = DeleteObject(bmp.into());
         let _ = DeleteDC(mem);
         ReleaseDC(None, screen);
         if !ok || lines == 0 {
