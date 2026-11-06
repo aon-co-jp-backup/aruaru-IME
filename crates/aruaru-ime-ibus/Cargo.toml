@@ -10,7 +10,7 @@ name = "aruaru-ime-ibus"
 path = "src/main.rs"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-zbus = { version = "6", default-features = false, features = ["async-io", "service"] }
+zbus = { version = "6", default-features = false, features = ["default-rt", "service"] }
 async-io = "2"
 futures-lite = "2"
 serde_json = "1"
