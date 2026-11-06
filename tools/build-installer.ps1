@@ -11,7 +11,9 @@ if (-not (Test-Path "$root\data\dict.bin")) { Pop-Location; throw "data\dict.bin
 $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { Pop-Location; throw "Inno Setup 6 (ISCC.exe) not found" }
 New-Item -ItemType Directory -Force "$root\dist" | Out-Null
-& $iscc "$root\installer\aruaru-ime.iss"
+# Use the workspace version in Cargo.toml as the installer version (avoids a stale default in the .iss)
+$ver = ((Get-Content "$root\Cargo.toml" | Where-Object { $_ -match '^version\s*=\s*"([0-9.]+)"' } | Select-Object -First 1) -replace '^version\s*=\s*"([0-9.]+)".*', '$1')
+& $iscc "/DMyAppVersion=$ver" "$root\installer\aruaru-ime.iss"
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "ISCC failed" }
 Get-ChildItem "$root\dist\*.exe" | ForEach-Object { "{0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB) }
 Pop-Location
