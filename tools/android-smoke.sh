@@ -5,12 +5,14 @@
 set -u
 APK="$1"; NAME="$2"
 adb install -r "$APK" || exit 1
-adb shell am start -n jp.aon.aruaruime/.MainActivity || exit 1
+adb shell am start -W -n jp.aon.aruaruime/.MainActivity || exit 1
 ok=0
 for i in $(seq 1 40); do
   sleep 3
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1
   adb pull /sdcard/ui.xml "android-test-$NAME-ui.xml" >/dev/null 2>&1
+  # アプリが前面に出ていない(ホーム画面のまま)なら、起動し直す(エミュレーターが落ち着く前の起動取りこぼし対策)
+  if ! grep -q 'package="jp.aon.aruaruime"' "android-test-$NAME-ui.xml" 2>/dev/null; then adb shell am start -W -n jp.aon.aruaruime/.MainActivity >/dev/null 2>&1; sleep 3; continue; fi
   # キーボードの有効化を案内するダイアログが出ていたら、閉じる
   # 通信エラーの画面なら、再読み込みする
   if grep -q "ERR_NAME_NOT_RESOLVED\|インターネットにつながっていない" "android-test-$NAME-ui.xml" 2>/dev/null; then adb shell am start -n jp.aon.aruaruime/.MainActivity >/dev/null 2>&1; adb shell input keyevent KEYCODE_REFRESH; sleep 5; fi
@@ -29,4 +31,5 @@ grep -q "ダウンロード" "android-test-$NAME-ui-landscape.xml" 2>/dev/null |
 adb logcat -d | grep -i "chromium\|aruaru" | tail -30 > "android-test-$NAME-log.txt"
 # 失敗の原因が分かるように、クラッシュとアプリの異常終了のログも残す
 adb logcat -d | grep -E "AndroidRuntime|FATAL|Process: jp.aon.aruaruime|ActivityManager.*(jp.aon.aruaruime|crash|died)|WebView|chromium.*ERR" | tail -60 >> "android-test-$NAME-log.txt"
+adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" >> "android-test-$NAME-log.txt" 2>&1
 if [ $ok = 1 ]; then echo "ANDROID SMOKE OK ($NAME)"; exit 0; else echo "ANDROID SMOKE FAILED ($NAME)"; exit 1; fi
