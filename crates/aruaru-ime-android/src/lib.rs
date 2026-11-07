@@ -65,18 +65,18 @@ impl Engine {
         match path {
             "/key" => {
                 let msg = json!({"sid": self.sid, "key": req["key"], "before": before});
-                self.finish("/key", msg)
+                self.finish("/aruaru_ime.v1.Ime/Key", msg)
             }
             "/session" => {
                 let mut msg = req.clone();
                 msg["sid"] = json!(self.sid);
-                self.finish("/session", msg)
+                self.finish("/aruaru_ime.v1.Ime/Session", msg)
             }
             "/template" => {
                 // 定型文を選んで確定した(入力欄への挿入は画面側)。サーバーの組み立ては取り消し、使った回数を数える。
                 let text = req["text"].as_str().unwrap_or("");
                 let reading = req["reading"].as_str().unwrap_or("");
-                let _ = self.post("/session", json!({"sid": self.sid, "op": "cancel"}));
+                let _ = self.post("/aruaru_ime.v1.Ime/Session", json!({"sid": self.sid, "op": "cancel"}));
                 self.learn(reading, text);
                 self.last_reading.clear();
                 "{}".to_string()
@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(r["cands"][0], "発送");
         assert!(r["tpl"].as_array().unwrap().iter().any(|t| t.as_str().unwrap().contains("発送いたしました")), "{r}");
         let seen = h.join().unwrap();
-        assert!(seen[0].starts_with("/key ") && seen[0].contains("\"before\":\"前の文\"") && seen[0].contains("\"sid\":\"and-"), "{seen:?}");
+        assert!(seen[0].starts_with("/aruaru_ime.v1.Ime/Key ") && seen[0].contains("\"before\":\"前の文\"") && seen[0].contains("\"sid\":\"and-"), "{seen:?}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
