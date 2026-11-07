@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aruaru-IME — easy-web.tokyo</title>
+<meta name="description" content="画面の文脈から入力モードを予測してライブ変換するAI日本語IME。日英の相互翻訳、郵便番号→住所、人名・地名辞書つき。 An AI IME that predicts the input mode from screen context and converts live. Japanese-English translation, postal-code to address, people and place dictionaries.">
+<style>
+:root{--bg:#fff;--fg:#14181f;--sub:#57606a;--card:#f6f8fa;--line:#d0d7de;--acc:#1f6feb;--warn:#c62828;--ok:#1a7f37}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--sub:#8b949e;--card:#161b22;--line:#30363d;--acc:#4a9eff;--warn:#ff7b72;--ok:#3fb950}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 system-ui,-apple-system,"Segoe UI","Hiragino Sans","Noto Sans JP",sans-serif}
+main{max-width:860px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.9rem;margin:8px 0 4px}
+h2{font-size:1.25rem;margin:36px 0 8px;padding-top:8px;border-top:1px solid var(--line)}
+.tag{color:var(--sub);margin:0 0 16px}
+.en{color:var(--sub);font-size:.95rem;margin:2px 0 10px}
+.warn{border:1px solid var(--warn);border-radius:12px;padding:12px 16px;margin:18px 0}
+.warn b{color:var(--warn)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:10px 8px;border-top:1px solid var(--line);vertical-align:top}
+th{color:var(--sub);font-weight:600;border-top:0}
+a{color:var(--acc)}
+.btn{display:inline-block;min-height:44px;padding:9px 16px;border-radius:10px;background:var(--acc);color:#fff;text-decoration:none;font-weight:600}
+code{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.88em;overflow-wrap:anywhere}
+.hash{font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--sub);overflow-wrap:anywhere}
+ol,ul{padding-left:1.3rem}
+li{margin:6px 0}
+footer{margin-top:40px;color:var(--sub);font-size:.88rem}
+@media (max-width:560px){h1{font-size:1.5rem} th:nth-child(3),td:nth-child(3){display:none}}
+</style>
+</head>
+<body>
+<main>
+<h1>aruaru-IME</h1>
+<p class="tag">画面の文脈から入力モードを予測してライブ変換するAI日本語IME。日英の相互翻訳、郵便番号→住所、人名・地名辞書つき。</p>
+<p class="en">An AI IME that predicts the input mode from screen context and converts live. Japanese-English translation, postal-code to address, people and place dictionaries.</p>
+
+<h2>ダウンロード / Download <small>(v0.2.23)</small></h2>
+<p><a class="btn" href="https://github.com/aon-co-jp/aruaru-IME/releases/tag/v0.2.23">最新のリリースページ / Release page (GitHub)</a></p>
+<table>
+<tr><th>対象 / For</th><th>ファイル / File</th><th>SHA-256</th></tr>
+<tr><td>Android</td><td><a href="https://github.com/aon-co-jp/aruaru-IME/releases/download/v0.2.23/aruaru-ime-android.apk">aruaru-ime-android.apk</a> (6.7 MB)</td><td class="hash">4b84d79915d851d5c9935b36791b1aaf7f64e1a65350f8f2574216dcfcd9dc9a</td></tr>
+<tr><td>Linux (64bit)</td><td><a href="https://github.com/aon-co-jp/aruaru-IME/releases/download/v0.2.23/aruaru-ime-linux-x86_64.tar.gz">aruaru-ime-linux-x86_64.tar.gz</a> (5.1 MB)</td><td class="hash">0185f1409baa5caf3aa1d370456f328f1d1cce9b0ba5cdb8675d7b6888480a26</td></tr>
+<tr><td>macOS</td><td><a href="https://github.com/aon-co-jp/aruaru-IME/releases/download/v0.2.23/aruaru-ime-macos-arm64.tar.gz">aruaru-ime-macos-arm64.tar.gz</a> (3.4 MB)</td><td class="hash">c35a59cc3429fe78686db6c8ccf72479afe337aa941279cde5b09f6b57f59f2c</td></tr>
+<tr><td>macOS</td><td><a href="https://github.com/aon-co-jp/aruaru-IME/releases/download/v0.2.23/aruaru-ime-macos-x86_64.tar.gz">aruaru-ime-macos-x86_64.tar.gz</a> (3.6 MB)</td><td class="hash">7d16e41a8861ec7247b80bbd54b70781c19d0be553c7d5d7dcc7ea0a66a76e88</td></tr>
+<tr><td>Windows</td><td><a href="https://github.com/aon-co-jp/aruaru-IME/releases/download/v0.2.23/aruaru-ime-windows-x86_64-setup.exe">aruaru-ime-windows-x86_64-setup.exe</a> (18.1 MB)</td><td class="hash">1116c14a2e89804e8f274d8166d2ab42138ddbade1f0f29a853f6ab16c5216f2</td></tr>
+</table>
+<p class="en">署名のない開発用のビルドの場合があります。ダウンロードしたら、上の SHA-256 と一致するか確かめてください。 / Some builds are unsigned - please verify the SHA-256 after downloading.</p>
+
+<h2>特長 / Features</h2>
+<ul>
+<li>Mozc辞書+Viterbiによる変換、JMdictによる日英の相互翻訳。<span class="en"> Conversion with the Mozc dictionary and Viterbi, Japanese-English translation via JMdict.</span></li>
+<li>郵便番号(ハイフン有無どちらも)から国名・住所を候補表示。<span class="en"> Postal code (with or without hyphen) to country and address candidates.</span></li>
+<li>人名・有名人・地名・駅名・花の名前の辞書を既定で搭載、毎朝のデータ更新。<span class="en"> Built-in dictionaries of people, places, stations and flowers, refreshed every morning.</span></li>
+<li>Windows / macOS / Linux(fcitx5・ibus) / Android。<span class="en"> Windows / macOS / Linux (fcitx5, ibus) / Android.</span></li>
+</ul>
+
+<h2>ドキュメント / Documentation</h2>
+<p>使い方・設計・既知の制限は、<a href="https://github.com/aon-co-jp/aruaru-IME">リポジトリの README / CLAUDE.md / PORTING.md</a>(日本語・英語)にあります。<span class="en"> Usage, design and known limits are in the repository's README / CLAUDE.md / PORTING.md (Japanese and English).</span></p>
+
+<footer>
+<p>ライセンスはリポジトリを参照 / See the repository for the license ・ <a href="https://github.com/aon-co-jp/aruaru-IME">ソースコード / Source (GitHub)</a> ・ <a href="/">easy-web.tokyo</a></p>
+</footer>
+</main>
+</body>
+</html>
