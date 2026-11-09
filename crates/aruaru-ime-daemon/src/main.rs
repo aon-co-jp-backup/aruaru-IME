@@ -744,11 +744,11 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
             continue;
         }
         // Connect の単純呼び出し(POST /aruaru_ime.v1.Ime/<Method>)を、内部の経路へ写す。
-        // 旧経路(/key 等)は、すでに配布済みのクライアント(TSF DLL・easy-web.tokyo のオンライン画面・RPoem の crossui 生成ページ)のための
-        // 期限つき互換(2026-12-06 まで)。期限後に削除する。/health・/ui は規格外の例外(ヘルスチェック・静的な画面)。
+        // 旧REST経路(/key 等)は2026-11-09に削除(ユーザー指示)。例外は GET /health(ヘルスチェック)と GET /ui(画面のHTML)だけ。
         let (method_s, path) = match connect_route(req.method().as_str(), &path) {
             Some(r) => r,
-            None => (req.method().as_str().to_string(), path),
+            None if req.method().as_str() == "GET" && (path == "/health" || path == "/ui") => ("GET".to_string(), path),
+            None => ("POST".to_string(), "/__unknown".to_string()),
         };
         let (code, out) = match (method_s.as_str(), path.as_str()) {
             ("GET", "/ui") => (200, open_runo_crossui::page_html(&open_runo_crossui::ime_app("", env!("CARGO_PKG_VERSION")), "")),
