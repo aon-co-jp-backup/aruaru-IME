@@ -20,11 +20,11 @@ impl Client {
     }
 
     fn post(&self, path: &str, body: Value) -> Option<Value> {
-        self.agent.post(&format!("{}{}", self.base, path)).send_json(body).ok()?.into_json().ok()
+        self.agent.post(&format!("{}{}", self.base, path)).set("x-tenant", "aruaru-ime").send_json(body).ok()?.into_json().ok()
     }
 
     fn post_timeout(&self, path: &str, body: Value, secs: u64) -> Option<Value> {
-        self.agent.post(&format!("{}{}", self.base, path)).timeout(Duration::from_secs(secs)).send_json(body).ok()?.into_json().ok()
+        self.agent.post(&format!("{}{}", self.base, path)).set("x-tenant", "aruaru-ime").timeout(Duration::from_secs(secs)).send_json(body).ok()?.into_json().ok()
     }
 
     /// aruaru-llm の知識ベース(DATABASE)を全件取得する(IMEの補足表示用に手元へ取り込む)。
