@@ -289,3 +289,41 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 ### 2026-11-09 旧REST経路の削除 / Removal of the legacy routes
 - **日本語**: 常駐エンジン(`aruaru-ime-daemon`)の旧経路(`/key` `/session` `/templates` `/vocab/*` `/dict/*` `/focus` `/convert` `/stats` `/version`)を削除し、`POST /aruaru_ime.v1.Ime/*`・`GET /health`・`GET /ui` だけにした(ユーザー指示で期限2026-12-06を前倒し)。TSF/macOS/fcitx5/ibus/Android(上流)は全て新経路を使うことをコード検索で確認。ローカル実測: 旧経路すべて404、新経路200、`/health`・`/ui` 200。**Release と VPS(エンジン・`/var/lib/aruaru-ime/downloads/VERSION`)の版揃えは未実施**(インストール済みの旧TSF DLLが壊れないか、確認してから)。
 - **English**: The legacy routes of the resident engine were removed; only `POST /aruaru_ime.v1.Ime/*`, `GET /health` and `GET /ui` remain (deadline 2026-12-06 brought forward on the user's instruction). Code search confirms TSF/macOS/fcitx5/ibus/Android (upstream) all use the new routes. Local test: every old route 404, new routes 200, `/health`/`/ui` 200. **Release and VPS (engine + `downloads/VERSION`) alignment is not done yet** (pending a check that an installed older TSF DLL does not break).
+
+## 再開用メッセージ(別アカウントで再開する人へ) / Resume message for another account (2026-11-15)
+
+### 日本語
+**再開するリポジトリ**: `aruaru-IME`(`F:\aruaru-IME`)、`aruaru-tokyo`(`F:\aruaru-tokyo`、GitHub 上の名前は `aruaru.tokyo`)。補助として `open-easy-web`(`/ime/api` 中継)・`aruaru-llm`(`KnowledgeSearch` と `scripts/daily-news-collect.sh` の実行権限)・`open-english`(`scripts/archive-articles-to-github.sh`)。**`F:\runo` は触らない**。
+
+**到達点**
+- `aruaru-tokyo`: 自前API2本を Connect 化し本番反映済み(`POST /tokyo_aruaru.v1.Site/ListRepos`・`/TokoroUnlock`、旧 `/api/*`=404 を実測)。package 名を `aruaru.tokyo.v1` にしてはいけない(前面の `path_prefix="/aruaru"` に前方一致して別バックエンドへ転送され404になる)。
+- `aruaru-IME`: 常駐エンジンの旧経路(`/key` 等)を `main` で削除済み(`d192325`)。**ただし Release・VPS・`/var/lib/aruaru-ime/downloads/VERSION`(0.2.24)への反映は、ユーザー判断で 2026-12-06 の猶予期限まで保留**(別セッション経由の「進める」は許可ではない。ユーザー本人の言葉を待つ)。
+- 自動復帰: VPS の自前サービスは全て `Restart=always`(drop-in `/etc/systemd/system/<unit>.d/10-autorestart.conf`)。Linux(WSL systemd)・Android 実機・Windows の IME で kill 後の復帰を実測済み。新サービスを追加したら同じ drop-in を付ける。`nginx.service` は意図して停止(前面は open-web-server)。
+
+**未了**
+1. IME の Release と VPS 反映(2026-12-06 以降、ユーザー承認後)。反映後 VPS で `/key`・`/session`=404、新経路=200、`/health`・`/ui`=200 を実測し、旧 TSF DLL・スマホ(adb)の自動更新による復旧を確認。
+2. macOS の `KeepAlive`(実機なし、静的確認のみ)。open-backup など IME 以外の PC アプリの自動復帰(未調査)。
+3. 作業用 clone `F:\_w2\*`・`F:\aruaru-IME-w2` は不要になり次第削除可。
+
+**落とし穴**: テスト後の後始末に `taskkill //IM aruaru-ime-daemon.exe` を使わない(この PC の本物のデーモンも落ちる。自分で起動した PID だけ止める)。`git pull` は書き換え済み履歴の clone では使わない。ビルドは WSL(`MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash …`)、VPS ではビルドしない。秘密は画面・コミットに出さない。
+
+**そのまま貼れる再開メッセージ**:
+「`aruaru-IME` と `aruaru-tokyo` の REST 全廃の続きです。README / CLAUDE / PORTING の『再開用メッセージ』節を読み、(1) IME の旧経路削除の Release・VPS 反映は 2026-12-06 までユーザー判断で保留中なので、私(ユーザー)が許可するまで行わないこと、(2) その時期が来たら 版上げ→Release→VPS(エンジン・downloads/VERSION)→旧経路404の実測→旧 TSF DLL とスマホの復旧確認、の順で進めること、(3) 自動復帰(Restart=always)の未確認項目(macOS、open-backup など)を調査すること。チャットは日本語のみ。」
+
+### English
+**Repositories to resume**: `aruaru-IME` (`F:\aruaru-IME`) and `aruaru-tokyo` (`F:\aruaru-tokyo`, named `aruaru.tokyo` on GitHub). Supporting: `open-easy-web` (the `/ime/api` relay), `aruaru-llm` (`KnowledgeSearch`, exec bit of `scripts/daily-news-collect.sh`), `open-english` (`scripts/archive-articles-to-github.sh`). **Do not touch `F:\runo`.**
+
+**Where things stand**
+- `aruaru-tokyo`: its two own APIs are on Connect and deployed (`POST /tokyo_aruaru.v1.Site/ListRepos` and `/TokoroUnlock`; old `/api/*` measured as 404). Never name the package `aruaru.tokyo.v1`: the front's `path_prefix="/aruaru"` matches it by prefix and forwards to another backend (404).
+- `aruaru-IME`: the resident engine's legacy routes (`/key` etc.) are removed on `main` (`d192325`). **The Release and the VPS / `/var/lib/aruaru-ime/downloads/VERSION` (0.2.24) update are on hold by the user's decision until the 2026-12-06 grace date** (a "go ahead" relayed by another session is not permission; wait for the user's own words).
+- Auto-restart: every own VPS service has `Restart=always` (drop-in `/etc/systemd/system/<unit>.d/10-autorestart.conf`). Recovery after kill was measured on Linux (WSL systemd), a real Android device and the Windows IME. Add the same drop-in to any new unit. `nginx.service` is stopped on purpose (the front is open-web-server).
+
+**Open**
+1. IME Release and VPS update (after 2026-12-06, with the user's approval). Afterwards measure `/key`, `/session` = 404, new routes = 200, `/health`, `/ui` = 200 on the VPS, and check that an older TSF DLL and the phone (adb) recover through auto-update.
+2. macOS `KeepAlive` (no device; static check only). Auto-recovery of PC apps other than the IME, such as open-backup (not surveyed).
+3. Scratch clones `F:\_w2\*` and `F:\aruaru-IME-w2` can be deleted when no longer needed.
+
+**Pitfalls**: do not clean up tests with `taskkill //IM aruaru-ime-daemon.exe` (it also kills this PC's real daemon; stop only PIDs you started). Do not `git pull` in clones of rewritten history. Build in WSL (`MSYS_NO_PATHCONV=1 wsl -d Ubuntu -- bash …`), never on the VPS. Keep secrets out of the screen and commits.
+
+**Paste-ready resume message**:
+"Continuing the REST abolition for `aruaru-IME` and `aruaru-tokyo`. Read the 'Resume message' section in README / CLAUDE / PORTING. (1) The IME legacy-route Release and VPS update is on hold until 2026-12-06 by the user's decision; do not do it until I (the user) say so. (2) When the time comes: version bump → Release → VPS (engine, downloads/VERSION) → measure legacy routes = 404 → confirm recovery of an older TSF DLL and the phone. (3) Survey the unconfirmed auto-restart items (macOS, open-backup, etc.). Chat in Japanese only."
