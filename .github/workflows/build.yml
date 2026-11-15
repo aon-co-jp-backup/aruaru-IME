@@ -162,9 +162,9 @@ jobs:
           for i in $(seq 1 30); do curl -fs http://127.0.0.1:4660/health && break; sleep 1; done
           curl -fs http://127.0.0.1:4660/health | grep -qE "dict=1[0-9]{6}" || { echo "dictionary not loaded"; exit 1; }
           post() { curl -fs -X POST -H "content-type: application/json" "http://127.0.0.1:4660/aruaru_ime.v1.Ime$1" -d "$2"; }
-          post /session '{"sid":"i","op":"lang","lang":"ja"}' >/dev/null
+          post /Session '{"sid":"i","op":"lang","lang":"ja"}' >/dev/null
           R=""
-          for c in t a i o u; do R="$(post /key "{\"sid\":\"i\",\"key\":{\"Char\":\"$c\"}}")"; done
+          for c in t a i o u; do R="$(post /Key "{\"sid\":\"i\",\"key\":{\"Char\":\"$c\"}}")"; done
           echo "$R" | cut -c1-200
           echo "$R" | grep -q '対応' || { echo "kanji conversion failed"; exit 1; }
           sh ./uninstall.sh
