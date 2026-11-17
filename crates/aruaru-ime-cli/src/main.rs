@@ -25,14 +25,21 @@ fn main() {
                     .map(|l| format!("@{{Id=0x{:04X};Guid='{{{:?}}}';On={}}}", l.langid(), uuid_fmt(l.profile_guid()), if chosen.contains(l) { "$true" } else { "$false" }))
                     .collect();
                 let script = format!(
-                    "$clsid='{clsid}'; $l=Get-WinUserLanguageList; \
+                    "$ErrorActionPreference='Stop'; $clsid='{clsid}'; $l=Get-WinUserLanguageList; \
+                     if(-not $l -or $l.Count -eq 0){{ Write-Error 'language list is empty; abort'; exit 1 }}; \
+                     $reg=Test-Path ('HKLM:\\SOFTWARE\\Classes\\CLSID\\'+$clsid); \
+                     $before=($l | ForEach-Object {{ $_.InputMethodTips.Count }} | Measure-Object -Sum).Sum; \
                      foreach($e in @({})){{ \
                        $ci=[Globalization.CultureInfo]::GetCultureInfo([int]$e.Id).Name; \
                        $tip=('{{0:X4}}:{{1}}{{2}}' -f $e.Id,$clsid,$e.Guid); \
                        $x=$l | Where-Object LanguageTag -eq $ci; \
-                       if($e.On){{ if(-not $x){{ $l.Add($ci); $x=$l | Where-Object LanguageTag -eq $ci }}; if($x.InputMethodTips -notcontains $tip){{ $x.InputMethodTips.Add($tip) }} }} \
+                       if($e.On){{ if(-not $reg){{ continue }}; if(-not $x){{ $l.Add($ci); $x=$l | Where-Object LanguageTag -eq $ci }}; if($x.InputMethodTips -notcontains $tip){{ $x.InputMethodTips.Add($tip) }} }} \
                        elseif($x -and ($x.InputMethodTips -contains $tip)){{ [void]$x.InputMethodTips.Remove($tip) }} \
-                     }}; Set-WinUserLanguageList $l -Force",
+                     }}; \
+                     $after=($l | ForEach-Object {{ $_.InputMethodTips.Count }} | Measure-Object -Sum).Sum; \
+                     if($after -le 0 -and $before -gt 0){{ Write-Error 'would remove every input method; abort'; exit 1 }}; \
+                     foreach($x in $l){{ if(@($x.InputMethodTips).Count -eq 0){{ $d=(New-WinUserLanguageList $x.LanguageTag)[0]; foreach($t in $d.InputMethodTips){{ [void]$x.InputMethodTips.Add($t) }} }} }}; \
+                     Set-WinUserLanguageList $l -Force",
                     entries.join(",")
                 );
                 let status = std::process::Command::new("powershell").args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]).status();
