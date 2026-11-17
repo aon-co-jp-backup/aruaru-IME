@@ -24,24 +24,40 @@ fn main() {
                     .filter(|l| l.supported())
                     .map(|l| format!("@{{Id=0x{:04X};Guid='{{{:?}}}';On={}}}", l.langid(), uuid_fmt(l.profile_guid()), if chosen.contains(l) { "$true" } else { "$false" }))
                     .collect();
-                let script = format!(
-                    "$ErrorActionPreference='Stop'; $clsid='{clsid}'; $l=Get-WinUserLanguageList; \
-                     if(-not $l -or $l.Count -eq 0){{ Write-Error 'language list is empty; abort'; exit 1 }}; \
-                     $reg=Test-Path ('HKLM:\\SOFTWARE\\Classes\\CLSID\\'+$clsid); \
-                     $before=($l | ForEach-Object {{ $_.InputMethodTips.Count }} | Measure-Object -Sum).Sum; \
-                     foreach($e in @({})){{ \
-                       $ci=[Globalization.CultureInfo]::GetCultureInfo([int]$e.Id).Name; \
-                       $tip=('{{0:X4}}:{{1}}{{2}}' -f $e.Id,$clsid,$e.Guid); \
-                       $x=$l | Where-Object LanguageTag -eq $ci; \
-                       if($e.On){{ if(-not $reg){{ continue }}; if(-not $x){{ $l.Add($ci); $x=$l | Where-Object LanguageTag -eq $ci }}; if($x.InputMethodTips -notcontains $tip){{ $x.InputMethodTips.Add($tip) }} }} \
-                       elseif($x -and ($x.InputMethodTips -contains $tip)){{ [void]$x.InputMethodTips.Remove($tip) }} \
-                     }}; \
-                     $after=($l | ForEach-Object {{ $_.InputMethodTips.Count }} | Measure-Object -Sum).Sum; \
-                     if($after -le 0 -and $before -gt 0){{ Write-Error 'would remove every input method; abort'; exit 1 }}; \
-                     foreach($x in $l){{ if(@($x.InputMethodTips).Count -eq 0){{ $d=(New-WinUserLanguageList $x.LanguageTag)[0]; foreach($t in $d.InputMethodTips){{ [void]$x.InputMethodTips.Add($t) }} }} }}; \
-                     Set-WinUserLanguageList $l -Force",
-                    entries.join(",")
-                );
+                // 言語ごとに1つずつ反映し、そのたびに読み直して確かめる。入力方式が0件になった言語は、
+                // 既定の入力方式を戻して(その言語のaruaruは外す)、他の言語へ影響を広げない。
+                let script = r#"$ErrorActionPreference='Stop'; $clsid='@@CLSID@@'
+$l=Get-WinUserLanguageList
+if(-not $l -or @($l).Count -eq 0){ Write-Error 'language list is empty; abort'; exit 1 }
+$reg=Test-Path ('HKLM:\SOFTWARE\Classes\CLSID\'+$clsid)
+function Heal($tag){
+  $cur=Get-WinUserLanguageList
+  $x=$cur | Where-Object LanguageTag -eq $tag
+  if($x -and @($x.InputMethodTips).Count -eq 0){
+    $d=(New-WinUserLanguageList $tag)[0]
+    foreach($t in $d.InputMethodTips){ [void]$x.InputMethodTips.Add($t) }
+    Set-WinUserLanguageList $cur -Force 3>$null
+  }
+}
+foreach($e in @(@@ENTRIES@@)){
+  $ci=[Globalization.CultureInfo]::GetCultureInfo([int]$e.Id).Name
+  $tip=('{0:X4}:{1}{2}' -f $e.Id,$clsid,$e.Guid)
+  $cur=Get-WinUserLanguageList
+  $x=$cur | Where-Object LanguageTag -eq $ci
+  if($e.On){
+    if(-not $reg){ continue }
+    if(-not $x){ $cur.Add($ci); $x=$cur | Where-Object LanguageTag -eq $ci }
+    if($x.InputMethodTips -contains $tip){ continue }
+    [void]$x.InputMethodTips.Add($tip)
+  } elseif($x -and ($x.InputMethodTips -contains $tip)){
+    if(@($x.InputMethodTips).Count -le 1){ continue }
+    [void]$x.InputMethodTips.Remove($tip)
+  } else { continue }
+  try { Set-WinUserLanguageList $cur -Force 3>$null } catch { }
+  Heal $ci
+}
+foreach($x in (Get-WinUserLanguageList)){ Heal $x.LanguageTag }
+"#.replace("@@CLSID@@", clsid).replace("@@ENTRIES@@", &entries.join(","));
                 let status = std::process::Command::new("powershell").args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]).status();
                 println!("{}", match status { Ok(s) if s.success() => "入力方式の一覧に反映しました(Win+Space で言語を切り替えられます)", _ => "反映できませんでした" });
             }
