@@ -327,3 +327,23 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 
 **Paste-ready resume message**:
 "Continuing the REST abolition for `aruaru-IME` and `aruaru-tokyo`. Read the 'Resume message' section in README / CLAUDE / PORTING. (1) The IME legacy-route Release and VPS update is on hold until 2026-12-06 by the user's decision; do not do it until I (the user) say so. (2) When the time comes: version bump → Release → VPS (engine, downloads/VERSION) → measure legacy routes = 404 → confirm recovery of an older TSF DLL and the phone. (3) Survey the unconfirmed auto-restart items (macOS, open-backup, etc.). Chat in Japanese only."
+
+## 2026-11-17 別アカウントでの再開用メモ(依存更新の完了と未確認項目) / Resume memo for another account (dependency updates done, unverified items)
+
+### 日本語
+- **再開するリポジトリ**: `aruaru-IME`(`F:\aruaru-IME`)、補助として `runo`(`F:\runo`、索引・チェックポイント)、`open-web-server`(`F:\open-web-server`、`origin/main` と差分なし)、`open-cuda`(`F:\open-cuda`、`crates/open-cuda-whisper` がある)。
+- **完了(確認済み)**: 依存の更新は全て済み。`ureq` 3・`zbus` 6・`windows`/`windows-core` 0.62・`jni` 0.22(コミット 889c514)。2026-11-17 に `main` を最新へ追従(`git pull --ff-only`、`bdf626e` 時点)し、`cargo test --workspace` が全成功(core 204件・失敗0・無視3件)、`cargo check -p aruaru-ime-android` も成功。
+- **未確認(実機・環境が要る。完了とは言わないこと)**: (1) 実際の `ibus-daemon` との接続、(2) `regsvr32` でのTSF DLL登録と実入力(管理者権限)、(3) Android 実機・エミュレーターでの jni 0.22 版の動作、(4) 実ネットワーク越しの通し試験(ureq 3)。
+- **未特定**: 「whisper.cpp」の状態確認は、`F:\whisper.cpp` がこのPCに無く未実施。場所をユーザーに聞くか、`open-cuda-whisper` のことかを確認する。
+- **警告**: `zvariant::Value`→`zbus::Variant` などの非推奨警告、`aruaru-ime-core` の未使用変数警告3件が残る(動作に影響なし)。
+- **注意**: 旧経路削除のRelease・VPS反映は2026-12-06までユーザー判断で保留(上の節を参照)。`git pull` は書き換え済み履歴のcloneでは使わない。`taskkill //IM aruaru-ime-daemon.exe` は使わない。チャットは日本語のみ。
+- **そのまま貼れる再開メッセージ**: 「`aruaru-IME` の続きです。README / CLAUDE / PORTING 末尾の『2026-11-17 別アカウントでの再開用メモ』を読み、(1) 未確認4項目(ibus-daemon・regsvr32・Android実機・実ネットワーク)のうち、このPCでできるものから実測して結果を記録、(2) whisper.cpp の場所を私に確認、(3) 2026-12-06まで保留のReleaseは私の指示まで行わない、の順で進めてください。チャットは日本語のみ。」
+
+### English
+- **Repositories to resume**: `aruaru-IME` (`F:\aruaru-IME`); supporting: `runo` (`F:\runo`, index and checkpoints), `open-web-server` (`F:\open-web-server`, no diff from `origin/main`), `open-cuda` (`F:\open-cuda`, contains `crates/open-cuda-whisper`).
+- **Done (verified)**: all dependency updates are in: `ureq` 3, `zbus` 6, `windows`/`windows-core` 0.62, `jni` 0.22 (commit 889c514). On 2026-11-17 `main` was fast-forwarded (`bdf626e`); `cargo test --workspace` passes (core 204 tests, 0 failed, 3 ignored) and `cargo check -p aruaru-ime-android` succeeds.
+- **Unverified (need a device or environment; do not call them done)**: (1) a real `ibus-daemon` connection, (2) TSF DLL registration with `regsvr32` and real typing (needs admin), (3) the jni 0.22 build on a real Android device or emulator, (4) an end-to-end test over a real network (ureq 3).
+- **Unidentified**: the "whisper.cpp" status check was not done because `F:\whisper.cpp` does not exist on this PC; ask the user where it is, or whether `open-cuda-whisper` is meant.
+- **Warnings**: deprecation warnings (`zvariant::Value` → `zbus::Variant`, etc.) and 3 unused-variable warnings in `aruaru-ime-core` remain (no behaviour impact).
+- **Notes**: the legacy-route Release and VPS update stay on hold until 2026-12-06 by the user's decision (see the section above). Never `git pull` in clones of rewritten history. Do not use `taskkill //IM aruaru-ime-daemon.exe`. Chat in Japanese only.
+- **Paste-ready resume message**: "Continuing `aruaru-IME`. Read the section '2026-11-17 別アカウントでの再開用メモ' at the end of README / CLAUDE / PORTING. (1) Of the four unverified items (ibus-daemon, regsvr32, Android device, real network), measure what this PC can do and record the results; (2) ask me where whisper.cpp is; (3) do not perform the Release held until 2026-12-06 until I say so. Chat in Japanese only."
