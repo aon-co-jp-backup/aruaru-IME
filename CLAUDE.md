@@ -316,3 +316,5 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **生成の正常系**: VPS(メモリ3.6GB・空き約0.9GB・4コアが高負荷)へのQwen導入は本番を巻き込むため**見送り**。手元の `F:\aruaru-llm\models\qwen2.5-0.5b-instruct`(導入済み)でローカル確認する方針で、WSLで aruaru-llm をビルド中(未確認)。
 - **スマホ(Android実機)の試験は中止中**(ユーザー指示)。
 - **未了**: PCインストーラーの再実行(アプリを閉じて管理者で。UACは本人)、メモ帳での実入力、生成の正常系のローカル確認、pdf-r2l-rsの他OS成果物(macOSなし)。
+
+- **生成の正常系(手元WSLで確認済み、2026-11-18)**: aruaru-llm(`F:\aruaru-llm`、WSL release、127.0.0.1:4691)に `QwenSelect {"id":"qwen2.5-0.5b-instruct"}` → `GenerateQwen` が成功し、続きの文章が返った(engine=`qwen2-gqa-rope-rmsnorm-swiglu-greedy-decode-v0-open-cuda-llm-cpu`)。`OcrFill` も200で応答。注意: `Generate` はGPT-2経路で、Qwenを使うのは `GenerateQwen` とOCR補完系。VPSには導入していない(資源不足のため)。確認後、手元のサーバーは停止済み。
