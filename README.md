@@ -347,3 +347,8 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **Warnings**: deprecation warnings (`zvariant::Value` → `zbus::Variant`, etc.) and 3 unused-variable warnings in `aruaru-ime-core` remain (no behaviour impact).
 - **Notes**: the legacy-route Release and VPS update stay on hold until 2026-12-06 by the user's decision (see the section above). Never `git pull` in clones of rewritten history. Do not use `taskkill //IM aruaru-ime-daemon.exe`. Chat in Japanese only.
 - **Paste-ready resume message**: "Continuing `aruaru-IME`. Read the section '2026-11-17 別アカウントでの再開用メモ' at the end of README / CLAUDE / PORTING. (1) Of the four unverified items (ibus-daemon, regsvr32, Android device, real network), measure what this PC can do and record the results; (2) ask me where whisper.cpp is; (3) do not perform the Release held until 2026-12-06 until I say so. Chat in Japanese only."
+
+
+## 2026-11-18 別アカウントでの再開用メモ / Resume memo
+**日本語**: aruaru-llm呼び出しはConnect化済み、語彙拡張(JMdict/JMnedict・Wikidata)で175万件超、版揃えテスト(`crates/aruaru-ime-cli/tests/version_sync.rs`)あり。リリースごとにWindows exeを作りReleaseとVPS`downloads/VERSION`を揃える。未了=VPSエンジンの入れ替え、`webpage/index.html`の版表記、PCインストーラー再実行、メモ帳実入力。**スマホ(Android実機)の試験は、ユーザー指示で中止中**。詳細は`PORTING.md`末尾。
+**English**: All aruaru-llm calls are on Connect; vocabulary expanded to 1.75M+ entries; version-sync tests exist. Build the Windows exe per release and align Release and VPS `downloads/VERSION`. Open: swap the VPS engine, version text in `webpage/index.html`, re-run the PC installer, real typing test. **Phone (Android device) testing is stopped by the user.** Details at the end of `PORTING.md`.
