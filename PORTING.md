@@ -626,3 +626,5 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **未了**: PCインストーラーの再実行(アプリを閉じて管理者で。UACは本人)、メモ帳での実入力、生成の正常系のローカル確認、pdf-r2l-rsの他OS成果物(macOSなし)。
 
 - **生成の正常系(手元WSLで確認済み、2026-11-18)**: aruaru-llm(`F:\aruaru-llm`、WSL release、127.0.0.1:4691)に `QwenSelect {"id":"qwen2.5-0.5b-instruct"}` → `GenerateQwen` が成功し、続きの文章が返った(engine=`qwen2-gqa-rope-rmsnorm-swiglu-greedy-decode-v0-open-cuda-llm-cpu`)。`OcrFill` も200で応答。注意: `Generate` はGPT-2経路で、Qwenを使うのは `GenerateQwen` とOCR補完系。VPSには導入していない(資源不足のため)。確認後、手元のサーバーは停止済み。
+
+- **OcrFillの補完を手元WSLで確認(2026-11-19)**: Qwen2.5-0.5Bを選択した状態で、`prefix`「今日は天気がよいので公園へ」・`suspect`「散歩に行きま寸」・`suffix`「。」・`extra`(候補)・`conf:30` を渡すと、`散歩に行きます` を採用(`changed:true`、`margin`≈25、対数尤度 -9.2 対 原文 -34.2)。注意: `extra` や `lm_candidates` で候補を渡さないと `top` が空で変更されない(`items` の項目は `prefix`/`suspect`/`suffix`/`gap`/`extra`/`conf`)。確認後に手元サーバーは停止済み。VPSにはQwen未導入のまま。
