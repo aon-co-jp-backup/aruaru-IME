@@ -616,3 +616,11 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 **English**: (1) All aruaru-llm calls are on Connect; RPoem `open-runo-pdf-ocr` merged as `3b644db`; pdf-r2l-rs v1.3.1 released with exe. (2) Vocabulary expansion (JMdict/JMnedict via `build-extra`, Wikidata P1814 auto-update) gives 1.75M+ entries, deployed to VPS dict and the PC. (3) Version-sync tests added (afd98b8); always build the Windows exe per release and align Release and VPS `downloads/VERSION`.
 **Open**: the VPS engine is older (Android header shows `v=0.2.23`) - swap in the new build and verify `/ime` and the Android screen; `webpage/index.html` still says 0.2.23; re-run the PC installer with apps closed; real typing test; generation success path (no Qwen on VPS); other-OS pdf-r2l-rs artifacts.
 **Resume message**: "Continuing aruaru-IME (aon-co-jp/aruaru-IME, also pdf-r2l-rs, RPoem, aruaru-llm, F:\runo). Read PORTING.md section '2026-11-18 別アカウントでの再開用メモ' and finish the open items."
+
+
+## 2026-11-18 追記(VPSエンジン v0.2.26 反映・紹介ページ更新・生成の確認)
+- **VPSエンジンを v0.2.26 へ差し替え済み**: WSL(Ubuntu-24.04、glibc 2.39)でビルドし、`/opt/aruaru-ime/aruaru-ime-daemon` を入れ替え(旧は `.bak-20261118`)。`/health` は `ok dict=1757640 v=0.2.26 proto=1`、サービス active。`Key`(`sid`+`{"Char":"k"}`等)で候補が返ることを確認(拡張語彙の候補を含む)。
+- **紹介ページ**: `webpage/index.html` のダウンロード欄を v0.2.26 の実ハッシュ・サイズへ更新(`c424819`)、VPSの `/root/easy-web.tokyo/aruaru-IME` も追従し本番表示を確認。
+- **生成の正常系**: VPS(メモリ3.6GB・空き約0.9GB・4コアが高負荷)へのQwen導入は本番を巻き込むため**見送り**。手元の `F:\aruaru-llm\models\qwen2.5-0.5b-instruct`(導入済み)でローカル確認する方針で、WSLで aruaru-llm をビルド中(未確認)。
+- **スマホ(Android実機)の試験は中止中**(ユーザー指示)。
+- **未了**: PCインストーラーの再実行(アプリを閉じて管理者で。UACは本人)、メモ帳での実入力、生成の正常系のローカル確認、pdf-r2l-rsの他OS成果物(macOSなし)。
