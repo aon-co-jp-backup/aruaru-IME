@@ -404,3 +404,43 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 ### そのまま貼れる再開メッセージ / Paste-ready resume message
 「`aruaru-IME` の続きです。README / CLAUDE / PORTING 末尾の『2026-11-19 v0.2.26 の公開とVPSの反映』を読み、(1) 右クリックメニュー・メモ帳の実入力・インストーラーの入れ直しは私が確認するので結果を待つ、(2) 他に未了があれば自動で進める(確認の質問は不要)、の順で進めてください。チャットは日本語のみ。」
 "Continuing `aruaru-IME`. Read the section '2026-11-19 v0.2.26 の公開とVPSの反映' at the end of README / CLAUDE / PORTING. (1) I will check the right-click menu, real typing in Notepad and the installer re-install, so wait for my results; (2) proceed automatically with anything else that is open (no confirmation questions). Chat in Japanese only."
+
+## 2026-11-20 スマホ・タブレット版キーボードの配置変更 / Phone and tablet keyboard layout
+
+**日本語(やさしい説明)**
+- **入力モードを4つから選べます**: ひらがな・カタカナ・アルファベット・記号。左上のボタン(あ/カ/A/記)を押すと、候補欄に4つ並ぶので、使いたいものを押します。
+- **「、」と「,」を右上に常に表示**: ひらがな・カタカナのときは、候補欄の右上にいつも出ています。入力中の文字があれば、それを確定してから入れます。
+- **モードのボタンを左下から左上へ移動**: そのぶん、一番下の「空白 / 変換」を広くしました。
+- **カタカナ**: 打った読みをそのままカタカナで出し、⏎で確定します。漢字にしたいときは「空白 / 変換」を押します。
+- **記号**: 英字の3行が記号(！？「」()・ー…〜 @#$%&* など)に変わり、押すとそのまま入ります。
+- **確認したこと**: 単体試験6件成功。ブラウザでスマホ幅(375px)とタブレット幅(1024px)の見た目と動き。実機スマホ(A401OP、Android)にAPKを入れて、「か、」「コカ,」「！」が正しく入ることを確認。
+- **まだのこと**: タブレット実機と横向きの実機確認(試した設定アプリは縦固定)、新しい版としてのリリース(タグ付け)。
+- 場所: `crates/aruaru-ime-android/src/ui.rs`。見た目を確かめる道具は `cargo run -p aruaru-ime-android --example dump_keyboard > keyboard.html`。
+
+**English (plain words)**
+- **Pick one of four input modes**: hiragana, katakana, alphabet, symbols. Tap the top-left button (あ/カ/A/記); the four choices appear in the candidate bar.
+- **「、」 and 「,」 are always at the top right** in hiragana and katakana mode. If you are typing a word, it is committed first.
+- **The mode button moved from the bottom left to the top left**, so the bottom "space / convert" key is wider.
+- **Katakana**: what you type is shown and committed as katakana with ⏎; press "space / convert" if you want kanji.
+- **Symbols**: the three letter rows turn into symbol keys that type directly.
+- **Checked**: 6 unit tests pass; look and behaviour in a browser at phone width (375 px) and tablet width (1024 px); on a real Android phone (A401OP) 「か、」「コカ,」「！」 were typed correctly.
+- **Not yet**: a real tablet and real landscape check (the test app was portrait-only), and a tagged release.
+
+(AI翻訳、ネイティブ確認前 / AI translations, not yet checked by native speakers)
+
+### 简体中文
+手机和平板键盘:可以选择平假名、片假名、英文字母、符号四种模式(按左上角的按钮)。在平假名和片假名模式下,右上角一直显示「、」和「,」。模式按钮从左下移到左上,下面的「空白/变换」键变宽了。已在真实的安卓手机上确认。
+### 繁體中文
+手機與平板鍵盤:可選擇平假名、片假名、英文字母、符號四種模式(按左上角的按鈕)。在平假名與片假名模式下,右上角一直顯示「、」與「,」。模式按鈕從左下移到左上,下方的「空白/變換」鍵變寬了。已在實際的 Android 手機上確認。
+### 한국어
+휴대폰·태블릿 키보드: 히라가나, 가타카나, 알파벳, 기호 네 가지 모드를 고를 수 있습니다(왼쪽 위 버튼). 히라가나·가타카나 모드에서는 오른쪽 위에 「、」와 「,」가 항상 보입니다. 모드 버튼을 왼쪽 아래에서 왼쪽 위로 옮겨, 아래의 「공백/변환」 키가 넓어졌습니다. 실제 안드로이드 폰에서 확인했습니다.
+### Deutsch
+Tastatur für Handy und Tablet: Man kann zwischen vier Modi wählen – Hiragana, Katakana, Alphabet und Symbole (Taste oben links). Im Hiragana- und Katakana-Modus stehen 「、」 und 「,」 immer oben rechts. Die Modus-Taste ist von unten links nach oben links gewandert, dadurch ist die Leertaste breiter. Auf einem echten Android-Handy geprüft.
+### Français
+Clavier pour téléphone et tablette : on peut choisir entre quatre modes – hiragana, katakana, alphabet et symboles (bouton en haut à gauche). En hiragana et katakana, 「、」 et 「,」 sont toujours affichés en haut à droite. Le bouton de mode est passé d'en bas à gauche à en haut à gauche, la barre d'espace est donc plus large. Vérifié sur un vrai téléphone Android.
+### Español
+Teclado para móvil y tableta: se puede elegir entre cuatro modos – hiragana, katakana, alfabeto y símbolos (botón de arriba a la izquierda). En hiragana y katakana, 「、」 y 「,」 aparecen siempre arriba a la derecha. El botón de modo pasó de abajo a la izquierda a arriba a la izquierda, así que la barra espaciadora es más ancha. Comprobado en un teléfono Android real.
+### Português
+Teclado para celular e tablet: dá para escolher entre quatro modos – hiragana, katakana, alfabeto e símbolos (botão no canto superior esquerdo). Em hiragana e katakana, 「、」 e 「,」 ficam sempre no canto superior direito. O botão de modo foi do canto inferior esquerdo para o superior esquerdo, então a barra de espaço ficou mais larga. Verificado num celular Android real.
+### Русский
+Клавиатура для телефона и планшета: можно выбрать один из четырёх режимов — хирагана, катакана, латиница и символы (кнопка в левом верхнем углу). В режимах хираганы и катаканы в правом верхнем углу всегда видны 「、」 и 「,」. Кнопка режима переехала из левого нижнего угла в левый верхний, поэтому пробел стал шире. Проверено на настоящем Android-телефоне.

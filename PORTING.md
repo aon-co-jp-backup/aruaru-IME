@@ -655,3 +655,24 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 ### そのまま貼れる再開メッセージ / Paste-ready resume message
 「`aruaru-IME` の続きです。README / CLAUDE / PORTING 末尾の『2026-11-19 v0.2.26 の公開とVPSの反映』を読み、(1) 右クリックメニュー・メモ帳の実入力・インストーラーの入れ直しは私が確認するので結果を待つ、(2) 他に未了があれば自動で進める(確認の質問は不要)、の順で進めてください。チャットは日本語のみ。」
 "Continuing `aruaru-IME`. Read the section '2026-11-19 v0.2.26 の公開とVPSの反映' at the end of README / CLAUDE / PORTING. (1) I will check the right-click menu, real typing in Notepad and the installer re-install, so wait for my results; (2) proceed automatically with anything else that is open (no confirmation questions). Chat in Japanese only."
+
+## 2026-11-20 スマホ・タブレット版キーボードの配置変更 / Phone and tablet keyboard layout
+
+**日本語(やさしい説明)**
+- **入力モードを4つから選べます**: ひらがな・カタカナ・アルファベット・記号。左上のボタン(あ/カ/A/記)を押すと、候補欄に4つ並ぶので、使いたいものを押します。
+- **「、」と「,」を右上に常に表示**: ひらがな・カタカナのときは、候補欄の右上にいつも出ています。入力中の文字があれば、それを確定してから入れます。
+- **モードのボタンを左下から左上へ移動**: そのぶん、一番下の「空白 / 変換」を広くしました。
+- **カタカナ**: 打った読みをそのままカタカナで出し、⏎で確定します。漢字にしたいときは「空白 / 変換」を押します。
+- **記号**: 英字の3行が記号(！？「」()・ー…〜 @#$%&* など)に変わり、押すとそのまま入ります。
+- **確認したこと**: 単体試験6件成功。ブラウザでスマホ幅(375px)とタブレット幅(1024px)の見た目と動き。実機スマホ(A401OP、Android)にAPKを入れて、「か、」「コカ,」「！」が正しく入ることを確認。
+- **まだのこと**: タブレット実機と横向きの実機確認(試した設定アプリは縦固定)、新しい版としてのリリース(タグ付け)。
+- 場所: `crates/aruaru-ime-android/src/ui.rs`。見た目を確かめる道具は `cargo run -p aruaru-ime-android --example dump_keyboard > keyboard.html`。
+
+**English (plain words)**
+- **Pick one of four input modes**: hiragana, katakana, alphabet, symbols. Tap the top-left button (あ/カ/A/記); the four choices appear in the candidate bar.
+- **「、」 and 「,」 are always at the top right** in hiragana and katakana mode. If you are typing a word, it is committed first.
+- **The mode button moved from the bottom left to the top left**, so the bottom "space / convert" key is wider.
+- **Katakana**: what you type is shown and committed as katakana with ⏎; press "space / convert" if you want kanji.
+- **Symbols**: the three letter rows turn into symbol keys that type directly.
+- **Checked**: 6 unit tests pass; look and behaviour in a browser at phone width (375 px) and tablet width (1024 px); on a real Android phone (A401OP) 「か、」「コカ,」「！」 were typed correctly.
+- **Not yet**: a real tablet and real landscape check (the test app was portrait-only), and a tagged release.
