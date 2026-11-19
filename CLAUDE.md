@@ -4,6 +4,11 @@
 [`open-raid-z/CLAUDE.md`](https://github.com/aon-co-jp/open-raid-z) を参照(ここへは複製しない)。
 *Working dir is `F:\aruaru-IME` (a sibling of `F:\runo`). Shared rules live in open-raid-z/CLAUDE.md.*
 
+## やさしい説明 / Plain words
+
+**日本語**: このファイルは、開発する人(と Claude)のためのメモです。むずかしい言葉は README の「はじめに」に説明があります。決まりごとは4つだけ覚えれば大丈夫です。(1)文字が打てなくなる事故を起こさない。(2)ネットや AI につながらなくても動かす。(3)パスワードなどの秘密は画面やコミットに出さない。(4)「できた」と言う前に、本物のパソコンで試す。
+**English**: This file is a memo for people (and Claude) who build the app. Hard words are explained in the "What is this?" part of the README. You only need to remember four rules. (1) Never make a bug that stops people from typing. (2) Keep working even when the internet or AI is not available. (3) Never show secrets such as passwords on screen or in commits. (4) Test on a real computer before saying "it is done".
+
 ## 方針 / Policy
 
 - **漢字に変換することが前提**。日本語入力の主経路は辞書+連接コストの Viterbi(約 2 ミリ秒)。打つそばから最有力の変換結果を出す(ライブ変換、既定オン)。

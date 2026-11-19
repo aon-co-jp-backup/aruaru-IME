@@ -1,5 +1,10 @@
 # aruaru-IME PORTING / 移植・再開メモ  (Porting & resume notes)
 
+## やさしい説明 / Plain words
+
+**日本語**: このファイルは「別のパソコンや別の人が、続きから作業する」ための手順書です。順番は、(1)道具を入れる、(2)ソースを取って動かして試す、(3)最後にある「再開用メッセージ」を Claude に貼る、です。わからない言葉は README の「はじめに」を見てください。
+**English**: This file is a guide for "continuing the work on another computer or by another person". The order is: (1) install the tools, (2) get the source, run it and test it, (3) paste the "resume message" at the bottom to Claude. If a word is new to you, see "What is this?" in the README.
+
 ## 引っ越し手順 / Moving to another machine (2026-10-13)
 
 このリポジトリだけで開発を続けられます(`F:\runo` 側の索引リポジトリは、一覧への入口にすぎません)。

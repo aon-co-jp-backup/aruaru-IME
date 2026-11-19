@@ -3,8 +3,26 @@
 画面の文脈から「いま何を打とうとしているか」を予測して変換する AI IME。漢字に変換することを前提に、打つそばから変換結果を出します(ライブ変換)。
 An AI-assisted IME that predicts what you are typing from the screen and the surrounding text, and shows the converted result (kanji) as you type.
 
-> **状態: v0.1.0 アルファ(Windows のみ)**。日本語入力は実機のアプリ(メモ帳・VS Code・Claude など)で動作しますが、インストーラーは**まだ実機で通し試験していません**。macOS / Linux / Android 版は未着手です。日常の入力には、まだ使わないでください。
-> **Status: v0.1.0 alpha (Windows only).** Japanese input works in real apps, but the installer has **not been end-to-end tested yet**, and the macOS / Linux / Android builds are not started.
+> **状態: v0.2.26 公開済み(Windows・Android・Linux・macOS)**。Windows ではメモ帳・VS Code などで日本語入力が動きます。右クリックメニューの見た目、メモ帳での実入力、インストーラーの入れ直しは、人の目での確認がまだです。
+> **Status: v0.2.26 is released (Windows, Android, Linux, macOS).** Japanese typing works in apps such as Notepad and VS Code on Windows. A person still needs to check how the right-click menu looks, real typing in Notepad, and a re-install with the installer.
+
+## はじめに(やさしい説明)/ What is this? (plain words)
+
+**日本語**: aruaru-IME は「文字を打つ道具(IME)」です。ローマ字で「nihongo」と打つと、すぐ「日本語」と漢字に変えてくれます。画面に書いてある内容も見て、「いま何を打ちたいか」を当てようとします。うまく当たらなくても、ふつうの文字が打てなくなることはありません。インターネットや AI につながらなくても動きます。
+- **IME**: キーボードで日本語を打つための道具。
+- **ライブ変換**: 打っている途中で、もう漢字にして見せること。
+- **Release(リリース)**: 完成したアプリを、ダウンロードできるようにして公開すること。
+- **SHA-256**: ファイルが壊れていない・すり替えられていないか調べるための「指紋」。
+- **UAC**: Windows が「このインストールを許しますか?」と聞く画面。人が押す必要があります。
+- **VPS**: インターネット上に借りている、いつもつけっぱなしのパソコン。
+
+**English**: aruaru-IME is a tool for typing. When you type "nihongo" with letters, it turns it into Japanese characters right away. It also looks at what is on your screen and guesses what you want to write. If the guess is wrong, you can still type normally. It works even when the internet or AI is not available.
+- **IME**: a tool that lets you type Japanese on a keyboard.
+- **Live conversion**: showing the Japanese characters while you are still typing.
+- **Release**: making a finished app ready for everyone to download.
+- **SHA-256**: a "fingerprint" of a file. It helps check that the file is not broken or swapped.
+- **UAC**: the Windows window that asks "Do you allow this install?" A person has to press the button.
+- **VPS**: a computer we rent on the internet that stays switched on all the time.
 
 ## できること / Features
 
