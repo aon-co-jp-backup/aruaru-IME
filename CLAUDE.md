@@ -320,3 +320,25 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **生成の正常系(手元WSLで確認済み、2026-11-18)**: aruaru-llm(`F:\aruaru-llm`、WSL release、127.0.0.1:4691)に `QwenSelect {"id":"qwen2.5-0.5b-instruct"}` → `GenerateQwen` が成功し、続きの文章が返った(engine=`qwen2-gqa-rope-rmsnorm-swiglu-greedy-decode-v0-open-cuda-llm-cpu`)。`OcrFill` も200で応答。注意: `Generate` はGPT-2経路で、Qwenを使うのは `GenerateQwen` とOCR補完系。VPSには導入していない(資源不足のため)。確認後、手元のサーバーは停止済み。
 
 - **OcrFillの補完を手元WSLで確認(2026-11-19)**: Qwen2.5-0.5Bを選択した状態で、`prefix`「今日は天気がよいので公園へ」・`suspect`「散歩に行きま寸」・`suffix`「。」・`extra`(候補)・`conf:30` を渡すと、`散歩に行きます` を採用(`changed:true`、`margin`≈25、対数尤度 -9.2 対 原文 -34.2)。注意: `extra` や `lm_candidates` で候補を渡さないと `top` が空で変更されない(`items` の項目は `prefix`/`suspect`/`suffix`/`gap`/`extra`/`conf`)。確認後に手元サーバーは停止済み。VPSにはQwen未導入のまま。
+
+## 2026-11-19 v0.2.26 の公開とVPSの反映 / v0.2.26 released and the VPS is in sync
+
+### 日本語(やさしい説明つき)
+- **何をしたか**: aruaru-IME の新しい版 **v0.2.26** を、みんなが入手できる場所(GitHub の Release)に公開しました。Windows・Android・Linux・macOS(2種類)の全部で、自動のビルドとテストが成功しています。
+- **VPS(サーバー)**: ダウンロード用の5ファイルと `VERSION` を 0.2.26 にそろえ、元のファイルと同じ中身かを SHA-256(ファイルの指紋)で確かめました。サーバー側で動く変換エンジンも、2026-11-18 から v0.2.26 で動いています(`/health` が `v=0.2.26` を返すことを確認)。
+- **前の予定との関係**: 以前の「旧経路の削除の公開は 2026-12-06 まで保留」は、2026-11-18 にユーザーが「公開する」と決めたため、**もう保留ではありません**。旧経路は v0.2.25 から消えていて、v0.2.26 はそれを引き継いでいます。
+- **まだ確かめていないこと(正直に)**: (1) タスクバー右下のアイコンを右クリックしたときの「ジャンル登録」メニューの見た目、(2) メモ帳などでの実際の入力(変換)、(3) インストーラーの入れ直しの通し試験(管理者の許可=UAC が必要で、AI は承認できません)。この3つは本人が操作して確かめてください。
+- **用語のミニ辞典**: Release=公開された完成品の置き場。SHA-256=ファイルが壊れていないか見分ける指紋。UAC=「このアプリを許可しますか」の確認画面。
+- **決まり**: 新しい REST は作らず Connect だけを使う。パスワードやトークンは画面にも記録にも出さない。実機で確かめてから「完了」と言う。
+
+### English (plain words, for everyone)
+- **What was done**: the new version of aruaru-IME, **v0.2.26**, is now published as a GitHub Release so anyone can download it. The automatic build and tests passed on every platform: Windows, Android, Linux and macOS (two kinds).
+- **The VPS (the server)**: the five download files and `VERSION` now say 0.2.26, and each file was checked against its SHA-256 (a fingerprint that shows a file is not damaged). The conversion engine that runs on the server has also been v0.2.26 since 2026-11-18 (`/health` answers `v=0.2.26`).
+- **About the earlier plan**: the old note "hold the release that removes the legacy routes until 2026-12-06" **no longer applies**, because the user decided on 2026-11-18 to publish. The legacy routes were already gone in v0.2.25, and v0.2.26 keeps that.
+- **What is still unchecked (honestly)**: (1) how the "register by genre" menu looks when you right-click the tray icon at the bottom right, (2) real typing and conversion in Notepad and similar apps, (3) a full re-install test of the installer (it needs administrator approval, UAC, which an AI cannot give). Please check these three yourself.
+- **Mini glossary**: Release = the place where finished versions are published. SHA-256 = a fingerprint that tells whether a file is intact. UAC = the "Do you allow this app?" confirmation window.
+- **Rules**: do not build new REST (use Connect only), never show or record passwords or tokens, and say "done" only after checking on a real system.
+
+### そのまま貼れる再開メッセージ / Paste-ready resume message
+「`aruaru-IME` の続きです。README / CLAUDE / PORTING 末尾の『2026-11-19 v0.2.26 の公開とVPSの反映』を読み、(1) 右クリックメニュー・メモ帳の実入力・インストーラーの入れ直しは私が確認するので結果を待つ、(2) 他に未了があれば自動で進める(確認の質問は不要)、の順で進めてください。チャットは日本語のみ。」
+"Continuing `aruaru-IME`. Read the section '2026-11-19 v0.2.26 の公開とVPSの反映' at the end of README / CLAUDE / PORTING. (1) I will check the right-click menu, real typing in Notepad and the installer re-install, so wait for my results; (2) proceed automatically with anything else that is open (no confirmation questions). Chat in Japanese only."
