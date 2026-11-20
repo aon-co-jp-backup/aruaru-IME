@@ -683,12 +683,26 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **公開しました**: スマホ・タブレット版キーボードの新しい配置(4モード選択・右上の「、」「,」・左上のモードボタン)を、**v0.2.27** として GitHub の Release に公開しました。
 - **自動の試験**: Windows・Android(スマホとタブレットのエミュレーター)・Linux・macOS(2種類)の作成と試験が全部成功しました。
 - **Windows の exe**: 手元で Inno Setup により作り、版が 0.2.27 であることを確かめて Release に添付しました(SHA-256 は `dd2f84fa…6766`)。
-- **VPS**: ダウンロード用の5ファイルと `VERSION` を 0.2.27 にそろえ、SHA-256 で同じ中身か確かめました(元のファイルは `/root/dl-bak-20261120`)。`easy-web.tokyo/ime/download` は v0.2.27 と表示し、配っている exe の SHA-256 は Release と同じです。サーバーの変換エンジンは今回変更が無いため差し替えていません(v0.2.26 のまま)。
+- **VPS**: ダウンロード用の5ファイルと `VERSION` を 0.2.27 にそろえ、SHA-256 で同じ中身か確かめました(元のファイルは `/root/dl-bak-20261120`)。`easy-web.tokyo/ime/download` は v0.2.27 と表示し、配っている exe の SHA-256 は Release と同じです。サーバーの変換エンジンも同じ日に v0.2.27 へ差し替えました(下の「VPS エンジンの v0.2.27 反映」)。
 - **まだのこと(正直に)**: タブレット実機と横向きの実機確認、Windows インストーラーの入れ直しの通し試験(管理者の許可=UAC が必要で、AI は承認できません)。
 
 **English (plain words)**
 - **Released**: the new phone/tablet keyboard layout (four selectable modes, 「、」 and 「,」 at the top right, the mode button at the top left) is published on GitHub as **v0.2.27**.
 - **Automatic tests**: builds and tests passed on Windows, Android (phone and tablet emulators), Linux and macOS (two kinds).
 - **Windows exe**: built locally with Inno Setup, checked to be version 0.2.27, and attached to the Release (SHA-256 `dd2f84fa…6766`).
-- **VPS**: the five download files and `VERSION` now say 0.2.27, each checked by SHA-256 (old files in `/root/dl-bak-20261120`). `easy-web.tokyo/ime/download` shows v0.2.27 and serves the same exe as the Release. The server's conversion engine did not change, so it was not swapped (still v0.2.26).
+- **VPS**: the five download files and `VERSION` now say 0.2.27, each checked by SHA-256 (old files in `/root/dl-bak-20261120`). `easy-web.tokyo/ime/download` shows v0.2.27 and serves the same exe as the Release. The server's conversion engine was also swapped to v0.2.27 on the same day (see "VPS engine updated to v0.2.27" below).
 - **Not yet (honestly)**: a real tablet and real landscape check, and a full re-install test of the Windows installer (it needs administrator approval, UAC, which an AI cannot give).
+
+## 2026-11-20 VPS エンジンの v0.2.27 反映 / VPS engine updated to v0.2.27
+
+**日本語(やさしい説明)**
+- **やったこと**: サーバー(VPS)で動く変換エンジン(`aruaru-ime-server.service`、`/opt/aruaru-ime/aruaru-ime-daemon`)を v0.2.27 に入れ替えました。VPS の作業用コピー `/root/repository/aruaru-IME` も最新にしました(`git pull --ff-only`、未コミットの変更なし)。
+- **作り方**: VPS と同じ glibc 2.39 の WSL(`Ubuntu-24.04`)でビルドしました(普段の `Ubuntu` は glibc 2.43 で、VPS では動かない恐れがあるため使いません)。
+- **安全のための手順**: 本番の前に、別のポート(4669)と使い捨てのデータフォルダーで試しに起動し、「konnnitiha」が「今日は」に変換されることを確かめてから入れ替えました。元のエンジンは `aruaru-ime-daemon.bak-20261120` に残し、起動に失敗したら自動で戻す仕組みにしました(今回は戻す必要なし)。
+- **確かめたこと**: `/health` が `v=0.2.27`、サービスは動作中でエラーのログは0件。公開URL `easy-web.tokyo/ime/api/aruaru_ime.v1.Ime/Key` が全部200で正しく変換、古い `/ime/api/key` は404のまま。実機スマホ(A401OP)のキーボードからも「今日は」に変換されました。
+
+**English (plain words)**
+- **What was done**: the conversion engine on the VPS (`aruaru-ime-server.service`, `/opt/aruaru-ime/aruaru-ime-daemon`) now runs v0.2.27. The VPS working copy `/root/repository/aruaru-IME` was also brought up to date (`git pull --ff-only`; no local changes).
+- **How it was built**: in the WSL distro `Ubuntu-24.04`, which has the same glibc 2.39 as the VPS (the usual `Ubuntu` has glibc 2.43, whose builds may not run on the VPS).
+- **Safety steps**: before the swap, the new engine was test-started on another port (4669) with a throwaway data folder, and "konnnitiha" converted to 「今日は」. The old engine is kept as `aruaru-ime-daemon.bak-20261120`, with an automatic rollback if the start failed (not needed).
+- **Checked**: `/health` says `v=0.2.27`, the service is active with zero error logs, the public `easy-web.tokyo/ime/api/aruaru_ime.v1.Ime/Key` answers 200 with correct conversions, the old `/ime/api/key` still returns 404, and the keyboard on a real phone (A401OP) converted to 「今日は」.
