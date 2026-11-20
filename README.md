@@ -414,7 +414,7 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **カタカナ**: 打った読みをそのままカタカナで出し、⏎で確定します。漢字にしたいときは「空白 / 変換」を押します。
 - **記号**: 英字の3行が記号(！？「」()・ー…〜 @#$%&* など)に変わり、押すとそのまま入ります。
 - **確認したこと**: 単体試験6件成功。ブラウザでスマホ幅(375px)とタブレット幅(1024px)の見た目と動き。実機スマホ(A401OP、Android)にAPKを入れて、「か、」「コカ,」「！」が正しく入ることを確認。
-- **まだのこと**: タブレット実機と横向きの実機確認(試した設定アプリは縦固定)、新しい版としてのリリース(タグ付け)。
+- **まだのこと**: タブレット実機と横向きの実機確認(試した設定アプリは縦固定)、新しい版としてのリリース(→ v0.2.27 で公開済み)。
 - 場所: `crates/aruaru-ime-android/src/ui.rs`。見た目を確かめる道具は `cargo run -p aruaru-ime-android --example dump_keyboard > keyboard.html`。
 
 **English (plain words)**
@@ -424,7 +424,7 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **Katakana**: what you type is shown and committed as katakana with ⏎; press "space / convert" if you want kanji.
 - **Symbols**: the three letter rows turn into symbol keys that type directly.
 - **Checked**: 6 unit tests pass; look and behaviour in a browser at phone width (375 px) and tablet width (1024 px); on a real Android phone (A401OP) 「か、」「コカ,」「！」 were typed correctly.
-- **Not yet**: a real tablet and real landscape check (the test app was portrait-only), and a tagged release.
+- **Not yet**: a real tablet and real landscape check (the test app was portrait-only), and a tagged release (done: v0.2.27).
 
 (AI翻訳、ネイティブ確認前 / AI translations, not yet checked by native speakers)
 
@@ -444,3 +444,38 @@ Teclado para móvil y tableta: se puede elegir entre cuatro modos – hiragana, 
 Teclado para celular e tablet: dá para escolher entre quatro modos – hiragana, katakana, alfabeto e símbolos (botão no canto superior esquerdo). Em hiragana e katakana, 「、」 e 「,」 ficam sempre no canto superior direito. O botão de modo foi do canto inferior esquerdo para o superior esquerdo, então a barra de espaço ficou mais larga. Verificado num celular Android real.
 ### Русский
 Клавиатура для телефона и планшета: можно выбрать один из четырёх режимов — хирагана, катакана, латиница и символы (кнопка в левом верхнем углу). В режимах хираганы и катаканы в правом верхнем углу всегда видны 「、」 и 「,」. Кнопка режима переехала из левого нижнего угла в левый верхний, поэтому пробел стал шире. Проверено на настоящем Android-телефоне.
+
+## 2026-11-20 v0.2.27 の公開 / v0.2.27 released
+
+**日本語(やさしい説明)**
+- **公開しました**: スマホ・タブレット版キーボードの新しい配置(4モード選択・右上の「、」「,」・左上のモードボタン)を、**v0.2.27** として GitHub の Release に公開しました。
+- **自動の試験**: Windows・Android(スマホとタブレットのエミュレーター)・Linux・macOS(2種類)の作成と試験が全部成功しました。
+- **Windows の exe**: 手元で Inno Setup により作り、版が 0.2.27 であることを確かめて Release に添付しました(SHA-256 は `dd2f84fa…6766`)。
+- **VPS**: ダウンロード用の5ファイルと `VERSION` を 0.2.27 にそろえ、SHA-256 で同じ中身か確かめました(元のファイルは `/root/dl-bak-20261120`)。`easy-web.tokyo/ime/download` は v0.2.27 と表示し、配っている exe の SHA-256 は Release と同じです。サーバーの変換エンジンは今回変更が無いため差し替えていません(v0.2.26 のまま)。
+- **まだのこと(正直に)**: タブレット実機と横向きの実機確認、Windows インストーラーの入れ直しの通し試験(管理者の許可=UAC が必要で、AI は承認できません)。
+
+**English (plain words)**
+- **Released**: the new phone/tablet keyboard layout (four selectable modes, 「、」 and 「,」 at the top right, the mode button at the top left) is published on GitHub as **v0.2.27**.
+- **Automatic tests**: builds and tests passed on Windows, Android (phone and tablet emulators), Linux and macOS (two kinds).
+- **Windows exe**: built locally with Inno Setup, checked to be version 0.2.27, and attached to the Release (SHA-256 `dd2f84fa…6766`).
+- **VPS**: the five download files and `VERSION` now say 0.2.27, each checked by SHA-256 (old files in `/root/dl-bak-20261120`). `easy-web.tokyo/ime/download` shows v0.2.27 and serves the same exe as the Release. The server's conversion engine did not change, so it was not swapped (still v0.2.26).
+- **Not yet (honestly)**: a real tablet and real landscape check, and a full re-install test of the Windows installer (it needs administrator approval, UAC, which an AI cannot give).
+
+(AI翻訳、ネイティブ確認前 / AI translations, not yet checked by native speakers)
+
+### 简体中文
+已将手机和平板键盘的新布局作为 v0.2.27 发布。所有平台的自动测试均已通过,服务器上的下载文件也已更新为 0.2.27。
+### 繁體中文
+已將手機與平板鍵盤的新配置以 v0.2.27 發布。所有平台的自動測試皆已通過,伺服器上的下載檔案也已更新為 0.2.27。
+### 한국어
+휴대폰·태블릿 키보드의 새 배치를 v0.2.27로 공개했습니다. 모든 플랫폼의 자동 테스트가 통과했고, 서버의 다운로드 파일도 0.2.27로 맞췄습니다.
+### Deutsch
+Das neue Tastaturlayout für Handy und Tablet ist als v0.2.27 veröffentlicht. Alle automatischen Tests auf allen Plattformen sind bestanden, und die Download-Dateien auf dem Server sind auf 0.2.27 aktualisiert.
+### Français
+La nouvelle disposition du clavier pour téléphone et tablette est publiée en v0.2.27. Tous les tests automatiques sont passés sur toutes les plateformes, et les fichiers de téléchargement du serveur sont passés en 0.2.27.
+### Español
+La nueva distribución del teclado para móvil y tableta se publicó como v0.2.27. Todas las pruebas automáticas pasaron en todas las plataformas y los archivos de descarga del servidor ya están en 0.2.27.
+### Português
+O novo layout do teclado para celular e tablet foi publicado como v0.2.27. Todos os testes automáticos passaram em todas as plataformas, e os arquivos de download do servidor já estão em 0.2.27.
+### Русский
+Новая раскладка клавиатуры для телефона и планшета выпущена как v0.2.27. Все автоматические тесты на всех платформах пройдены, файлы для скачивания на сервере обновлены до 0.2.27.

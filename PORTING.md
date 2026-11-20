@@ -665,7 +665,7 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **カタカナ**: 打った読みをそのままカタカナで出し、⏎で確定します。漢字にしたいときは「空白 / 変換」を押します。
 - **記号**: 英字の3行が記号(！？「」()・ー…〜 @#$%&* など)に変わり、押すとそのまま入ります。
 - **確認したこと**: 単体試験6件成功。ブラウザでスマホ幅(375px)とタブレット幅(1024px)の見た目と動き。実機スマホ(A401OP、Android)にAPKを入れて、「か、」「コカ,」「！」が正しく入ることを確認。
-- **まだのこと**: タブレット実機と横向きの実機確認(試した設定アプリは縦固定)、新しい版としてのリリース(タグ付け)。
+- **まだのこと**: タブレット実機と横向きの実機確認(試した設定アプリは縦固定)、新しい版としてのリリース(→ v0.2.27 で公開済み)。
 - 場所: `crates/aruaru-ime-android/src/ui.rs`。見た目を確かめる道具は `cargo run -p aruaru-ime-android --example dump_keyboard > keyboard.html`。
 
 **English (plain words)**
@@ -675,4 +675,20 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **Katakana**: what you type is shown and committed as katakana with ⏎; press "space / convert" if you want kanji.
 - **Symbols**: the three letter rows turn into symbol keys that type directly.
 - **Checked**: 6 unit tests pass; look and behaviour in a browser at phone width (375 px) and tablet width (1024 px); on a real Android phone (A401OP) 「か、」「コカ,」「！」 were typed correctly.
-- **Not yet**: a real tablet and real landscape check (the test app was portrait-only), and a tagged release.
+- **Not yet**: a real tablet and real landscape check (the test app was portrait-only), and a tagged release (done: v0.2.27).
+
+## 2026-11-20 v0.2.27 の公開 / v0.2.27 released
+
+**日本語(やさしい説明)**
+- **公開しました**: スマホ・タブレット版キーボードの新しい配置(4モード選択・右上の「、」「,」・左上のモードボタン)を、**v0.2.27** として GitHub の Release に公開しました。
+- **自動の試験**: Windows・Android(スマホとタブレットのエミュレーター)・Linux・macOS(2種類)の作成と試験が全部成功しました。
+- **Windows の exe**: 手元で Inno Setup により作り、版が 0.2.27 であることを確かめて Release に添付しました(SHA-256 は `dd2f84fa…6766`)。
+- **VPS**: ダウンロード用の5ファイルと `VERSION` を 0.2.27 にそろえ、SHA-256 で同じ中身か確かめました(元のファイルは `/root/dl-bak-20261120`)。`easy-web.tokyo/ime/download` は v0.2.27 と表示し、配っている exe の SHA-256 は Release と同じです。サーバーの変換エンジンは今回変更が無いため差し替えていません(v0.2.26 のまま)。
+- **まだのこと(正直に)**: タブレット実機と横向きの実機確認、Windows インストーラーの入れ直しの通し試験(管理者の許可=UAC が必要で、AI は承認できません)。
+
+**English (plain words)**
+- **Released**: the new phone/tablet keyboard layout (four selectable modes, 「、」 and 「,」 at the top right, the mode button at the top left) is published on GitHub as **v0.2.27**.
+- **Automatic tests**: builds and tests passed on Windows, Android (phone and tablet emulators), Linux and macOS (two kinds).
+- **Windows exe**: built locally with Inno Setup, checked to be version 0.2.27, and attached to the Release (SHA-256 `dd2f84fa…6766`).
+- **VPS**: the five download files and `VERSION` now say 0.2.27, each checked by SHA-256 (old files in `/root/dl-bak-20261120`). `easy-web.tokyo/ime/download` shows v0.2.27 and serves the same exe as the Release. The server's conversion engine did not change, so it was not swapped (still v0.2.26).
+- **Not yet (honestly)**: a real tablet and real landscape check, and a full re-install test of the Windows installer (it needs administrator approval, UAC, which an AI cannot give).
