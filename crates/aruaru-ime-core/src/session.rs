@@ -1344,7 +1344,7 @@ mod tests {
         for (w, want) in [("masahiro", "正浩"), ("hiroshi", "浩")] {
             let st = type_str(&mut s, w);
             let i = st.cands.iter().position(|c| c == want).unwrap();
-            assert!(i <= 3, "{w}: {want} が {i} 番目");
+            assert!(i <= 2, "{w}: {want} が {i} 番目");
             s.key(Key::Esc);
         }
         // 辞書に無い組み合わせの名前も、名前の部品から作って必ず候補に出す

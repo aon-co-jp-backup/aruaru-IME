@@ -534,3 +534,16 @@ Las escrituras habituales de nombres de pila (まさひろ→正浩, ひろし�
 As grafias comuns de nomes próprios (まさひろ→正浩, ひろし→浩) agora aparecem logo após o primeiro candidato (entre os três primeiros). Nomes que não estão no dicionário são formados com partes comuns de nomes (まさ+ひろ, たか+のぶ) e sempre aparecem (ex.: たかのぶ→隆信). Os 207 testes passam; verificado com o instalador neste PC e no servidor. Reinstalar logo após desinstalar exige reiniciar o Windows; ficou agendado para o próximo login.
 ### Русский
 Частые написания личных имён (まさひろ→正浩, ひろし→浩) теперь стоят сразу после первого варианта (в первой тройке). Имена, которых нет в словаре, собираются из частых частей имён (まさ+ひろ, たか+のぶ) и всегда появляются (например, たかのぶ→隆信). Все 207 тестов проходят; проверено установщиком на этом ПК и на сервере. Переустановка сразу после удаления требует перезагрузки Windows; она запланирована на следующий вход в систему.
+
+## 2026-11-20 追記: 人名の一覧を拡充 / More given names
+(日本語・英語以外はAI翻訳、ネイティブ確認前 / non-JA/EN parts are AI translations, not native-checked)
+- **日本語**: よく使う名前の一覧を約60件から約110件に増やしました(あきひろ・みのる・ひろみ・たけし など)。よく使う名前の読みでは、長い地名の予測(ひろし→広島県)を名前の前に割り込ませないようにし、「ひろし→浩」は2番目になりました。試験207件成功、VPS のエンジンを差し替え(元は `aruaru-ime-daemon.bak-20261120d`)、公開 API で確認、エラー0件。Windows・スマホのアプリへの反映は次のリリースで入ります(スマホのキーボードは VPS で変換するので、すでに反映済み)。
+- **English**: the common-name list grew from about 60 to about 110 readings (あきひろ, みのる, ひろみ, たけし, ...). For common name readings, long place-name predictions (ひろし→広島県) no longer jump ahead of the names, so 浩 is now 2nd for ひろし. 207 tests pass; the VPS engine was swapped (old one kept as `aruaru-ime-daemon.bak-20261120d`) and checked through the public API with no errors. The phone keyboard converts on the VPS, so it already has this; the Windows app gets it with the next release.
+- **简体中文**: 常用人名列表从约60个增加到约110个;常用人名的读音不再被长地名预测(ひろし→広島県)插队,"ひろし→浩"现在排第2。
+- **繁體中文**: 常用人名清單從約60個增加到約110個;常用人名的讀音不再被長地名預測(ひろし→広島県)插隊,「ひろし→浩」現在排第2。
+- **한국어**: 자주 쓰는 이름 목록을 약 60개에서 약 110개로 늘렸습니다. 이름 읽기에서 긴 지명 예측(ひろし→広島県)이 끼어들지 않아 "ひろし→浩"가 2번째가 되었습니다.
+- **Deutsch**: Die Liste häufiger Vornamen wuchs von etwa 60 auf etwa 110 Lesungen; lange Ortsnamen-Vorschläge (ひろし→広島県) drängen sich nicht mehr vor die Namen, 浩 steht jetzt an 2. Stelle.
+- **Français**: la liste des prénoms courants passe d'environ 60 à environ 110 lectures ; les longues prédictions de noms de lieux (ひろし→広島県) ne passent plus devant les prénoms, 浩 est désormais 2ᵉ.
+- **Español**: la lista de nombres habituales pasó de unos 60 a unas 110 lecturas; las predicciones largas de lugares (ひろし→広島県) ya no se adelantan a los nombres, y 浩 queda 2.º.
+- **Português**: a lista de nomes comuns passou de cerca de 60 para cerca de 110 leituras; previsões longas de lugares (ひろし→広島県) não passam mais à frente dos nomes, e 浩 agora é o 2.º.
+- **Русский**: список частых имён вырос примерно с 60 до 110 чтений; длинные подсказки географических названий (ひろし→広島県) больше не встают перед именами, 浩 теперь на 2-м месте.

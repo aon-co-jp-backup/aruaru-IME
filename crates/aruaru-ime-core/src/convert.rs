@@ -159,7 +159,8 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     }
     // 同じ読みの語が複数あるとき(対応/大王/滞欧)、読みの先頭が一致する「別の長い固有名詞・作品名」(太王四神記)は、
     // 最有力の語の次、残りの同音語の前に出す。最有力の語から派生しただけの語(対応付け)は対象にしない。
-    if dict_cands.len() >= 3 && romaji::to_hiragana_partial(buffer).0.chars().count() >= 3 {
+    // よく使う人名の読み(ひろし)では、長い固有名詞(広島県)を名前の前に割り込ませない
+    if dict_cands.len() >= 3 && romaji::to_hiragana_partial(buffer).0.chars().count() >= 3 && crate::names::common(&hira).is_empty() {
         let is_kanji = |ch: char| ('一'..='龥').contains(&ch);
         if let Some(i) = predicted.iter().position(|p| p.chars().count() >= 3 && p.chars().all(is_kanji) && !dict_cands.contains(p) && !dict_cands.iter().take(2).any(|d| p.starts_with(d.as_str()))) {
             let promoted = predicted.remove(i);
