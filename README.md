@@ -555,3 +555,42 @@ Arreglos para tabletas y modo horizontal: ① en tabletas o en horizontal, a vec
 Correções para tablets e modo paisagem: ① em tablets ou na horizontal, às vezes o teclado não aparecia; ② no celular na horizontal, o teclado era alto demais e cobria o campo de texto; ③ na vertical, a última fileira ficava um pouco cortada. Agora o teclado ocupa no máximo 55% da altura da tela e as fileiras se ajustam. Verificado no emulador de tablet (horizontal/vertical) e num celular real (horizontal/vertical).
 ### Русский
 Исправлены проблемы на планшетах и в горизонтальной ориентации: ① на планшете или в горизонтальном положении клавиатура иногда не появлялась; ② на телефоне в горизонтальном положении клавиатура была слишком высокой и закрывала поле ввода; ③ в вертикальном положении нижний ряд немного обрезался. Теперь высота клавиатуры — не больше 55 % высоты экрана, а ряды клавиш подстраиваются. Проверено на эмуляторе планшета (горизонтально/вертикально) и на настоящем телефоне (горизонтально/вертикально).
+
+## 2026-11-20 変換候補が少なすぎた不具合(まさひろ→正浩、ひろし→浩) / Too few conversion candidates (masahiro → 正浩, hiroshi → 浩)
+
+**日本語(やさしい説明)**
+- **不具合**: 「まさひろ」を「正浩」に、「ひろし」を「浩」に変換できなかった。辞書には入っていたが、(1)スマホ・タブレットのキーボードが候補を**先頭12個しか並べていなかった**、(2)エンジンが辞書から出す候補を**30個で打ち切っていた**(まさひろは約130語ある)ため、15番目の「正浩」「浩」が画面に出なかった。
+- **直したこと**:
+  - キーボードは候補を**すべて**横に並べ、「空白 / 変換」を押すたびに**次々と次の候補**を選び、選んだ候補まで自動でスクロールする(`crates/aruaru-ime-android/src/ui.rs`)。
+  - エンジンが辞書から出す候補の上限を 30 → **200** に増やした(`convert.rs` の `MAX_DICT_CANDIDATES`)。まさひろは約200個、ひろしは約210個の候補になる。
+  - 試験 `names_with_many_homophones_are_all_reachable` を追加: 正浩・浩が候補にあり、変換を押し続けると着いて確定できること、まさひろの候補が100個以上あること。エンジンの試験205件すべて成功。
+- **確かめたこと**: 実機スマホ(A401OP)で「masahiro」→ 変換を押し続けて「正浩」を確定。VPS のエンジンを差し替え(別ポートで試してから、元は `aruaru-ime-daemon.bak-20261120b`)、公開 API で「ひろし」の候補が211個・「浩」を含むことを確認、エラーのログ0件。Windows 版は候補窓がページ送りなので、もともと全部たどれる(上限の引き上げは次のリリースで入る)。
+- **これからの予定**: 新しい版(v0.2.28)として公開(スマホのアプリはこの公開で届く)。よく使う人名(正浩・浩など)を上の方に出す順位づけの改善。タブレット実機での確認。Windows インストーラーの入れ直し試験(UAC はご本人の操作)。
+
+**English (plain words)**
+- **Bug**: 「まさひろ」 could not become 「正浩」 and 「ひろし」 could not become 「浩」. Both are in the dictionary, but (1) the phone/tablet keyboard **showed only the first 12 candidates**, and (2) the engine **cut the dictionary candidates at 30** (まさひろ has about 130 spellings), so 正浩 and 浩, both 15th, never appeared.
+- **Fixes**:
+  - The keyboard now lists **all** candidates in a scrolling row; each press of "space / convert" selects **the next candidate, one after another**, and the row scrolls to it (`crates/aruaru-ime-android/src/ui.rs`).
+  - The engine's cap on dictionary candidates went from 30 to **200** (`MAX_DICT_CANDIDATES` in `convert.rs`): about 200 candidates for まさひろ and 210 for ひろし.
+  - New test `names_with_many_homophones_are_all_reachable`: 正浩 and 浩 are candidates, pressing convert repeatedly reaches and commits them, and まさひろ has 100+ candidates. All 205 engine tests pass.
+- **Checked**: on a real phone (A401OP), "masahiro" → pressing convert repeatedly → 「正浩」 committed. The VPS engine was swapped (tried on another port first; the old one is `aruaru-ime-daemon.bak-20261120b`); the public API returns 211 candidates for ひろし including 浩, with no error logs. The Windows candidate window already pages through every candidate (the higher cap arrives with the next release).
+- **Planned**: publish as a new version (v0.2.28), which is how the phone app gets the fix; rank common given names (正浩, 浩, ...) higher; check on a real tablet; the Windows installer re-install test (the owner presses "Yes" on UAC).
+
+(AI翻訳、ネイティブ確認前 / AI translations, not yet checked by native speakers)
+
+### 简体中文
+修正了"まさひろ→正浩""ひろし→浩"无法转换的问题。原因是手机键盘只显示前12个候选词,而引擎只取前30个。现在显示全部候选词,每按一次"变换"就依次选下一个。已在真实手机和服务器上确认。
+### 繁體中文
+修正了「まさひろ→正浩」「ひろし→浩」無法轉換的問題。原因是手機鍵盤只顯示前12個候選字,而引擎只取前30個。現在顯示全部候選字,每按一次「變換」就依序選下一個。已在實際手機與伺服器上確認。
+### 한국어
+"まさひろ→正浩", "ひろし→浩" 변환이 안 되던 문제를 고쳤습니다. 휴대폰 키보드가 후보를 12개만 보여 주고, 엔진이 30개에서 잘랐기 때문입니다. 이제 모든 후보를 보여 주고, "변환"을 누를 때마다 다음 후보를 차례로 고릅니다. 실제 휴대폰과 서버에서 확인했습니다.
+### Deutsch
+Behoben: 「まさひろ→正浩」 und 「ひろし→浩」 ließen sich nicht umwandeln. Die Handy-Tastatur zeigte nur 12 Vorschläge, und die Engine schnitt nach 30 ab. Jetzt werden alle Vorschläge gezeigt, und jedes Drücken von „Umwandeln“ wählt den nächsten. Auf einem echten Handy und auf dem Server geprüft.
+### Français
+Corrigé : 「まさひろ→正浩」 et 「ひろし→浩」 ne se convertissaient pas. Le clavier du téléphone n'affichait que 12 suggestions et le moteur s'arrêtait à 30. Désormais toutes les suggestions s'affichent, et chaque appui sur « Convertir » choisit la suivante. Vérifié sur un vrai téléphone et sur le serveur.
+### Español
+Arreglado: 「まさひろ→正浩」 y 「ひろし→浩」 no se convertían. El teclado del móvil mostraba solo 12 candidatos y el motor cortaba en 30. Ahora se muestran todos, y cada pulsación de «Convertir» elige el siguiente. Comprobado en un móvil real y en el servidor.
+### Português
+Corrigido: 「まさひろ→正浩」 e 「ひろし→浩」 não eram convertidos. O teclado do celular mostrava só 12 candidatos e o motor parava em 30. Agora todos aparecem, e cada toque em «Converter» escolhe o próximo. Verificado num celular real e no servidor.
+### Русский
+Исправлено: 「まさひろ→正浩」 и 「ひろし→浩」 не преобразовывались. Клавиатура телефона показывала только 12 вариантов, а движок обрезал список на 30. Теперь показываются все варианты, и каждое нажатие «Преобразовать» выбирает следующий. Проверено на настоящем телефоне и на сервере.

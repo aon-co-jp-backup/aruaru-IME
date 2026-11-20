@@ -77,6 +77,9 @@ pub fn wants_suggest(ctx: &Context) -> bool {
     ["google", "amazon", "検索", "カートに入れる", "yahoo"].iter().any(|k| s.contains(k))
 }
 
+/// 辞書から出す候補の上限。30 では まさひろ(約130語)の多くが出なかった。
+pub const MAX_DICT_CANDIDATES: usize = 200;
+
 pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Option<&Dict>) -> Conversion {
     let pred = mode::predict(buffer, ctx);
     let mut c: Vec<Candidate> = vec![];
@@ -115,7 +118,8 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
     let mut dict_cands: Vec<String> = vec![];
     if matches!(pred.mode, Mode::Hiragana | Mode::Katakana) && romaji::is_romaji_parsable(buffer) {
         if let Some(d) = dict {
-            dict_cands = d.candidates_pref(&hira, 30, ctx.prefer_kanji);
+            // 人名(まさひろ → 正浩、ひろし → 浩)のように同じ読みの語が多いものも、全部たどれるよう多めに出す
+            dict_cands = d.candidates_pref(&hira, MAX_DICT_CANDIDATES, ctx.prefer_kanji);
             // 読みをそのままカタカナにしただけの候補(タンゴ)が先頭で、上位に漢字の候補(単語)があるときは、漢字を先頭にする。
             // 日本語入力では、漢字に変換することが前提のため。漢字の対応が無いカタカナ語(コンピュータ)は、そのまま先頭。
             if !ctx.prefer_kanji && dict_cands.first().is_some_and(|f| *f == kata) {

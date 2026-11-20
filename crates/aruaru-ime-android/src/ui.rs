@@ -117,8 +117,10 @@ function show(r){
   cands.innerHTML="";
   if(!r)return;
   if(kanaOnly()&&reading){const d=document.createElement("div");d.className="sel";d.dataset.k="1";d.textContent=kata(reading);cands.appendChild(d)}
-  (r.cands||[]).slice(0,12).forEach((x,i)=>{if(kanaOnly()&&kata(x)===kata(reading))return;const d=document.createElement("div");d.textContent=kata(x);d.dataset.i=i;if(r.sel===i)d.className="sel";cands.appendChild(d)});
+  (r.cands||[]).forEach((x,i)=>{if(kanaOnly()&&kata(x)===kata(reading))return;const d=document.createElement("div");d.textContent=kata(x);d.dataset.i=i;if(r.sel===i)d.className="sel";cands.appendChild(d)});
   (r.tpl||[]).forEach(t=>{const d=document.createElement("div");d.className="tpl";d.dataset.t=t;d.textContent="📄 "+(t.length>16?t.slice(0,16)+"…":t);cands.appendChild(d)});
+  // 候補はすべて並べる(横にスクロール)。「変換」を押して選んだ候補が見えるように、そこまでスクロールする。
+  const on=cands.querySelector(".sel");if(on)on.scrollIntoView({block:"nearest",inline:"nearest"}); else cands.scrollLeft=0;
 }
 function apply(r,k){
   if(!r){ if(k&&k.Char)A.commit(jp(k.Char)); return; }

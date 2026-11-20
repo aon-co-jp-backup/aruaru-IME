@@ -426,3 +426,23 @@ English: Features that use AI/LLMs follow the file above: short context, caps an
 - **Where**: `AruaruImeService.java` (`onEvaluateFullscreenMode`, `onEvaluateInputViewShown`, `onShowInputRequested`, `keyboardHeightPx`, `fitHeight`) and the CSS in `crates/aruaru-ime-android/src/ui.rs`.
 - **Notes**: the Android 37 tablet image is very heavy on this PC; Chrome and System UI often show "not responding" (tap "Wait"). An emulator with `hw.keyboard=yes` counts as having a hardware keyboard.
 - **Not yet**: a new tagged release; a check on a real tablet.
+
+## 2026-11-20 変換候補が少なすぎた不具合(まさひろ→正浩、ひろし→浩) / Too few conversion candidates (masahiro → 正浩, hiroshi → 浩)
+
+**日本語(やさしい説明)**
+- **不具合**: 「まさひろ」を「正浩」に、「ひろし」を「浩」に変換できなかった。辞書には入っていたが、(1)スマホ・タブレットのキーボードが候補を**先頭12個しか並べていなかった**、(2)エンジンが辞書から出す候補を**30個で打ち切っていた**(まさひろは約130語ある)ため、15番目の「正浩」「浩」が画面に出なかった。
+- **直したこと**:
+  - キーボードは候補を**すべて**横に並べ、「空白 / 変換」を押すたびに**次々と次の候補**を選び、選んだ候補まで自動でスクロールする(`crates/aruaru-ime-android/src/ui.rs`)。
+  - エンジンが辞書から出す候補の上限を 30 → **200** に増やした(`convert.rs` の `MAX_DICT_CANDIDATES`)。まさひろは約200個、ひろしは約210個の候補になる。
+  - 試験 `names_with_many_homophones_are_all_reachable` を追加: 正浩・浩が候補にあり、変換を押し続けると着いて確定できること、まさひろの候補が100個以上あること。エンジンの試験205件すべて成功。
+- **確かめたこと**: 実機スマホ(A401OP)で「masahiro」→ 変換を押し続けて「正浩」を確定。VPS のエンジンを差し替え(別ポートで試してから、元は `aruaru-ime-daemon.bak-20261120b`)、公開 API で「ひろし」の候補が211個・「浩」を含むことを確認、エラーのログ0件。Windows 版は候補窓がページ送りなので、もともと全部たどれる(上限の引き上げは次のリリースで入る)。
+- **これからの予定**: 新しい版(v0.2.28)として公開(スマホのアプリはこの公開で届く)。よく使う人名(正浩・浩など)を上の方に出す順位づけの改善。タブレット実機での確認。Windows インストーラーの入れ直し試験(UAC はご本人の操作)。
+
+**English (plain words)**
+- **Bug**: 「まさひろ」 could not become 「正浩」 and 「ひろし」 could not become 「浩」. Both are in the dictionary, but (1) the phone/tablet keyboard **showed only the first 12 candidates**, and (2) the engine **cut the dictionary candidates at 30** (まさひろ has about 130 spellings), so 正浩 and 浩, both 15th, never appeared.
+- **Fixes**:
+  - The keyboard now lists **all** candidates in a scrolling row; each press of "space / convert" selects **the next candidate, one after another**, and the row scrolls to it (`crates/aruaru-ime-android/src/ui.rs`).
+  - The engine's cap on dictionary candidates went from 30 to **200** (`MAX_DICT_CANDIDATES` in `convert.rs`): about 200 candidates for まさひろ and 210 for ひろし.
+  - New test `names_with_many_homophones_are_all_reachable`: 正浩 and 浩 are candidates, pressing convert repeatedly reaches and commits them, and まさひろ has 100+ candidates. All 205 engine tests pass.
+- **Checked**: on a real phone (A401OP), "masahiro" → pressing convert repeatedly → 「正浩」 committed. The VPS engine was swapped (tried on another port first; the old one is `aruaru-ime-daemon.bak-20261120b`); the public API returns 211 candidates for ひろし including 浩, with no error logs. The Windows candidate window already pages through every candidate (the higher cap arrives with the next release).
+- **Planned**: publish as a new version (v0.2.28), which is how the phone app gets the fix; rank common given names (正浩, 浩, ...) higher; check on a real tablet; the Windows installer re-install test (the owner presses "Yes" on UAC).

@@ -1317,6 +1317,31 @@ mod tests {
     }
 
     #[test]
+    fn names_with_many_homophones_are_all_reachable() {
+        // まさひろ → 正浩、ひろし → 浩 が候補に出ない不具合(上位30件・画面は12件で切っていた)
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
+        let Ok(d) = crate::kanji::Dict::load(&path) else { return };
+        let mut s = Session::new(Box::new(LocalConverter { dict: Some(d) }));
+        for (w, want) in [("masahiro", "正浩"), ("hirosi", "浩"), ("hiroshi", "浩")] {
+            let st = type_str(&mut s, w);
+            assert!(st.cands.iter().any(|c| c == want), "{w}: {:?}", st.cands);
+            // 変換(Space)を押し続けると、次々と候補が選ばれ、やがて目的の語に着く
+            let mut reached = false;
+            for _ in 0..st.cands.len() {
+                if s.key(Key::Space).preedit == want {
+                    reached = true;
+                    break;
+                }
+            }
+            assert!(reached, "{w}: Space で {want} に着かない");
+            assert_eq!(s.key(Key::Enter).commit.as_deref(), Some(want), "{w}: 選んだ候補で確定する");
+        }
+        let st = type_str(&mut s, "masahiro");
+        assert!(st.cands.len() >= 100, "まさひろ の候補が少なすぎる: {}", st.cands.len());
+        assert!(st.cands.iter().any(|c| c == "匡弘"), "辞書の下のほうの表記も出す");
+    }
+
+    #[test]
     fn live_conversion_with_real_dictionary() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/dict.bin");
         let Ok(d) = crate::kanji::Dict::load(&path) else { return };
