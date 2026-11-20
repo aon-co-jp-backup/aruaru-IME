@@ -46,3 +46,57 @@
 ## 2026-11-20 変換候補の方針 / Candidate policy
 - **日本語**: 候補は画面で切り捨てない。同じ読みの語が多いもの(人名など)も、変換を押し続ければ必ず全部たどれるようにする。エンジンの辞書候補の上限は `MAX_DICT_CANDIDATES`(200)。画面側(スマホ・タブレット)は全件を横スクロールで並べ、Windows は候補窓のページ送りで全件をたどる。新しい表示先を作るときも、この「全部たどれる」を試験で確かめる。
 - **English**: candidates are never cut off on screen. Readings with many spellings (given names, etc.) must be fully reachable by pressing convert repeatedly. The engine's dictionary cap is `MAX_DICT_CANDIDATES` (200). Phones/tablets list every candidate in a scrolling row; Windows pages through every candidate in its window. Any new front-end must test that every candidate is reachable.
+
+## 2026-11-20 v0.2.28 の公開と現状・予定 / v0.2.28 released: status and plans
+
+### 日本語
+**v0.2.28 で直したこと**: 「まさひろ→正浩」「ひろし→浩」のように、同じ読みの語が多い言葉も、「変換」を押し続ければ全部の候補をたどれるようになりました(スマホのキーボードは前は12個までしか出さず、エンジンは30個で打ち切っていました)。タブレットや横向きでキーボードが出なかったり、入力欄が隠れたりする不具合も直しました。
+**今できること**: Windows・macOS・Linux・Android(スマホ・タブレット)で、ローマ字から日本語へのライブ変換、ひらがな・カタカナ・英字・記号の切り替え、学習、定型文。変換エンジンはサーバー(easy-web.tokyo)でも動いています。
+**これからの予定**: よく使う人名を候補の上の方に出す順位づけ、本物のタブレットでの確認、Windows インストーラーの入れ直し試験(管理者の許可「はい」はご本人が押します)。
+
+### English
+**Fixed in v0.2.28**: words with many spellings for one reading, such as 「まさひろ」→「正浩」 and 「ひろし」→「浩」, can now be reached by pressing convert repeatedly (the phone keyboard used to show only 12 candidates, and the engine stopped at 30). The keyboard also appears reliably on tablets and in landscape, without hiding the text field.
+**What works now**: live romaji-to-Japanese conversion on Windows, macOS, Linux and Android (phones and tablets), switching between hiragana, katakana, Latin letters and symbols, learning, and templates. The engine also runs on the server (easy-web.tokyo).
+**Planned**: ranking common given names higher, a check on a real tablet, and a full Windows installer re-install test (the owner presses "Yes" on the administrator prompt).
+
+### 简体中文
+**v0.2.28 的修复**:像"まさひろ→正浩""ひろし→浩"这样同一读音有很多写法的词,现在只要连续按"变换",就能依次看到所有候选词(以前手机键盘最多只显示12个,引擎在30个就停止)。平板和横屏时键盘不出现、挡住输入框的问题也已修好。
+**现在能做的**:在 Windows、macOS、Linux、Android(手机和平板)上把罗马字实时转换成日语,切换平假名、片假名、英文字母和符号,学习用词和常用语。转换引擎也在服务器(easy-web.tokyo)上运行。
+**接下来的计划**:把常用人名排得更靠前、在真实平板上确认、完整测试 Windows 安装程序的重新安装(管理员确认需要本人点击"是")。
+
+### 繁體中文
+**v0.2.28 的修正**:像「まさひろ→正浩」「ひろし→浩」這種同一讀音有許多寫法的詞,現在只要連續按「變換」,就能依序看到所有候選字(以前手機鍵盤最多只顯示12個,引擎到30個就停止)。平板與橫向時鍵盤不出現、擋住輸入框的問題也已修好。
+**現在能做的**:在 Windows、macOS、Linux、Android(手機與平板)上將羅馬字即時轉換成日文,切換平假名、片假名、英文字母與符號,學習用詞與常用語。轉換引擎也在伺服器(easy-web.tokyo)上執行。
+**接下來的計畫**:將常用人名排得更前面、在實際平板上確認、完整測試 Windows 安裝程式的重新安裝(管理員確認需由本人按「是」)。
+
+### 한국어
+**v0.2.28에서 고친 점**: "まさひろ→正浩", "ひろし→浩"처럼 읽는 법은 같고 표기가 많은 단어도, 이제 "변환"을 계속 누르면 모든 후보를 차례로 볼 수 있습니다(예전에는 휴대폰 키보드가 12개까지만 보여 주고, 엔진은 30개에서 멈췄습니다). 태블릿이나 가로 화면에서 키보드가 안 나오거나 입력란을 가리던 문제도 고쳤습니다.
+**지금 할 수 있는 것**: Windows, macOS, Linux, Android(휴대폰·태블릿)에서 로마자를 일본어로 실시간 변환하고, 히라가나·가타카나·영문자·기호를 전환하며, 학습과 상용구를 씁니다. 변환 엔진은 서버(easy-web.tokyo)에서도 동작합니다.
+**앞으로의 계획**: 자주 쓰는 사람 이름을 위쪽에 보여 주는 순위 개선, 실제 태블릿에서 확인, Windows 설치 프로그램 재설치 전체 시험(관리자 확인의 "예"는 본인이 누릅니다).
+
+### Deutsch
+**Behoben in v0.2.28**: Wörter mit vielen Schreibweisen für eine Lesung, etwa 「まさひろ」→「正浩」 und 「ひろし」→「浩」, lassen sich jetzt erreichen, indem man „Umwandeln“ mehrmals drückt (die Handy-Tastatur zeigte bisher nur 12 Vorschläge, und die Engine hörte bei 30 auf). Auf Tablets und im Querformat erscheint die Tastatur jetzt zuverlässig und verdeckt das Eingabefeld nicht mehr.
+**Was jetzt funktioniert**: Live-Umwandlung von Romaji in Japanisch unter Windows, macOS, Linux und Android (Handy und Tablet), Wechsel zwischen Hiragana, Katakana, lateinischen Buchstaben und Symbolen, Lernen und Textbausteine. Die Engine läuft auch auf dem Server (easy-web.tokyo).
+**Geplant**: häufige Vornamen weiter oben anzeigen, Prüfung auf einem echten Tablet, ein vollständiger Neuinstallations-Test des Windows-Installers (das „Ja“ bei der Administrator-Abfrage drückt der Besitzer selbst).
+
+### Français
+**Corrigé dans la v0.2.28** : les mots ayant de nombreuses graphies pour une même lecture, comme 「まさひろ」→「正浩」 et 「ひろし」→「浩」, sont désormais accessibles en appuyant plusieurs fois sur « Convertir » (le clavier du téléphone n'affichait que 12 suggestions et le moteur s'arrêtait à 30). Le clavier apparaît aussi correctement sur tablette et en mode paysage, sans cacher le champ de saisie.
+**Ce qui fonctionne aujourd'hui** : conversion en direct du romaji vers le japonais sur Windows, macOS, Linux et Android (téléphones et tablettes), passage entre hiragana, katakana, lettres latines et symboles, apprentissage et modèles de texte. Le moteur tourne aussi sur le serveur (easy-web.tokyo).
+**Prévu** : mieux classer les prénoms courants, vérifier sur une vraie tablette, et un test complet de réinstallation du programme d'installation Windows (c'est le propriétaire qui clique sur « Oui » à la demande d'administrateur).
+
+### Español
+**Corregido en v0.2.28**: las palabras con muchas escrituras para una misma lectura, como 「まさひろ」→「正浩」 y 「ひろし」→「浩」, ahora se alcanzan pulsando «Convertir» varias veces (antes el teclado del móvil mostraba solo 12 candidatos y el motor se detenía en 30). El teclado también aparece bien en tabletas y en horizontal, sin tapar el campo de texto.
+**Lo que funciona ahora**: conversión en vivo de romaji a japonés en Windows, macOS, Linux y Android (móviles y tabletas), cambio entre hiragana, katakana, letras latinas y símbolos, aprendizaje y plantillas. El motor también funciona en el servidor (easy-web.tokyo).
+**Previsto**: mostrar más arriba los nombres de pila habituales, comprobarlo en una tableta real y una prueba completa de reinstalación del instalador de Windows (el «Sí» del aviso de administrador lo pulsa el propietario).
+
+### Português
+**Corrigido na v0.2.28**: palavras com muitas grafias para a mesma leitura, como 「まさひろ」→「正浩」 e 「ひろし」→「浩」, agora são alcançadas tocando em «Converter» várias vezes (antes o teclado do celular mostrava só 12 candidatos e o motor parava em 30). O teclado também aparece corretamente em tablets e na horizontal, sem cobrir o campo de texto.
+**O que funciona agora**: conversão ao vivo de romaji para japonês no Windows, macOS, Linux e Android (celulares e tablets), troca entre hiragana, katakana, letras latinas e símbolos, aprendizado e modelos de texto. O motor também roda no servidor (easy-web.tokyo).
+**Previsto**: mostrar nomes próprios comuns mais acima, verificar num tablet real e um teste completo de reinstalação do instalador do Windows (o «Sim» do aviso de administrador é tocado pelo próprio dono).
+
+### Русский
+**Исправлено в v0.2.28**: слова с множеством написаний для одного чтения, например 「まさひろ」→「正浩」 и 「ひろし」→「浩」, теперь можно найти, нажимая «Преобразовать» несколько раз (раньше клавиатура телефона показывала только 12 вариантов, а движок останавливался на 30). На планшетах и в горизонтальном положении клавиатура теперь появляется надёжно и не закрывает поле ввода.
+**Что работает сейчас**: преобразование ромадзи в японский текст на лету в Windows, macOS, Linux и Android (телефоны и планшеты), переключение между хираганой, катаканой, латиницей и символами, обучение и шаблоны текста. Движок также работает на сервере (easy-web.tokyo).
+**В планах**: поднимать частые личные имена выше в списке, проверка на настоящем планшете и полный тест переустановки Windows-установщика (кнопку «Да» в запросе администратора нажимает сам владелец).
+
+(日本語・英語以外はAI翻訳で、ネイティブの確認前です / Languages other than Japanese and English are AI translations, not yet checked by native speakers)
