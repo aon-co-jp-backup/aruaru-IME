@@ -512,3 +512,46 @@ El motor de conversión del servidor también se actualizó a v0.2.27. Antes se 
 O motor de conversão do servidor também foi atualizado para v0.2.27. Antes foi testado em outra porta; a versão anterior foi guardada e pode ser restaurada a qualquer momento. A conversão funciona num celular real.
 ### Русский
 Движок преобразования на сервере тоже обновлён до v0.2.27. Сначала его проверили на другом порту; старая версия сохранена, и её можно вернуть в любой момент. Преобразование работает на настоящем телефоне.
+
+## 2026-11-20 タブレット・横向きの不具合修正 / Tablet and landscape fixes
+
+**日本語(やさしい説明)**
+- **見つけた不具合(エミュレーターと実機で確認)**:
+  1. **タブレットや横向きで、キーボードが出ないことがあった**。Android の標準の動き(横向きは「全画面入力」、物理キーボードがあると画面のキーボードを隠す)のせいで、表示の要求が断られていた。Gboard では出るのに aruaru-IME だけ出なかった。
+  2. **スマホの横向きで、キーボードが高すぎて入力欄が隠れた**(縦向きのときの高さのまま)。
+  3. **縦向きでも一番下の列が少し切れていた**(中身の合計が 300dp を超えていた)。
+- **直したこと**: 全画面入力をやめ、物理キーボードがあっても画面のキーボードを出す(aruaru-IME は物理キーからの日本語変換を持たないため)。高さは「300dp まで、ただし画面の高さの 55% まで」とし、出すたびに計算し直す。キーの列は高さに合わせて伸び縮みする(低い画面では文字と余白を小さく、説明の行は隠す)。
+- **確かめたこと**: タブレットのエミュレーター(2560×1600)の横・縦で表示と入力(「か、」「カ,」)。実機スマホ(A401OP)の横向きで入力欄が見え、「こんにちは」→「今日は」の変換、縦向きに戻しても正しい。ブラウザで 393×300・860×216 の見た目。単体試験6件成功。
+- **場所**: `android/app/src/main/java/jp/aon/aruaruime/AruaruImeService.java`(`onEvaluateFullscreenMode`・`onEvaluateInputViewShown`・`onShowInputRequested`・`keyboardHeightPx`・`fitHeight`)、`crates/aruaru-ime-android/src/ui.rs`(CSS)。
+- **メモ**: このPCの Android 37 タブレット像はとても重く、Chrome やシステム画面が「応答なし」になりやすい(「待つ」で進む)。エミュレーターの `hw.keyboard=yes` だと物理キーボードありの扱いになる。
+- **まだ**: 新しい版(タグ)としての公開。本物のタブレット実機での確認。
+
+**English (plain words)**
+- **Bugs found (emulator and real phone)**:
+  1. **On tablets and in landscape the keyboard sometimes did not appear.** Android's defaults (fullscreen input in landscape, hiding the on-screen keyboard when a hardware keyboard is present) refused the show request. Gboard appeared; aruaru-IME did not.
+  2. **On a phone in landscape the keyboard was too tall and hid the text field** (it kept the portrait height).
+  3. **In portrait the bottom row was slightly cut off** (the content was taller than 300 dp).
+- **Fixes**: no fullscreen mode; the on-screen keyboard is shown even with a hardware keyboard (aruaru-IME has no Japanese conversion for hardware keys). Height is "up to 300 dp, but at most 55% of the screen height", recomputed every time it is shown. The key rows stretch to fit (on short screens: smaller text and padding, and the status line is hidden).
+- **Checked**: tablet emulator (2560x1600) in landscape and portrait (typing 「か、」 and 「カ,」); real phone (A401OP) in landscape with the field visible and 「こんにちは」 → 「今日は」, and back in portrait; the browser at 393x300 and 860x216; 6 unit tests pass.
+- **Where**: `AruaruImeService.java` (`onEvaluateFullscreenMode`, `onEvaluateInputViewShown`, `onShowInputRequested`, `keyboardHeightPx`, `fitHeight`) and the CSS in `crates/aruaru-ime-android/src/ui.rs`.
+- **Notes**: the Android 37 tablet image is very heavy on this PC; Chrome and System UI often show "not responding" (tap "Wait"). An emulator with `hw.keyboard=yes` counts as having a hardware keyboard.
+- **Not yet**: a new tagged release; a check on a real tablet.
+
+(AI翻訳、ネイティブ確認前 / AI translations, not yet checked by native speakers)
+
+### 简体中文
+修正了平板和横屏时的问题:①平板或横屏时键盘有时不显示;②手机横屏时键盘太高,挡住输入框;③竖屏时最下面一行被切掉一点。现在键盘高度最多为屏幕高度的 55%,按键行会随高度伸缩。已在平板模拟器(横/竖)和真实手机(横/竖)上确认。
+### 繁體中文
+修正了平板與橫向時的問題:①平板或橫向時鍵盤有時不顯示;②手機橫向時鍵盤太高,擋住輸入框;③直向時最下面一列被切掉一點。現在鍵盤高度最多為螢幕高度的 55%,按鍵列會隨高度伸縮。已在平板模擬器(橫/直)與實際手機(橫/直)上確認。
+### 한국어
+태블릿과 가로 화면의 문제를 고쳤습니다: ① 태블릿이나 가로 화면에서 키보드가 안 나올 때가 있었음, ② 휴대폰 가로 화면에서 키보드가 너무 높아 입력란을 가렸음, ③ 세로 화면에서 맨 아래 줄이 조금 잘렸음. 이제 키보드 높이는 화면 높이의 최대 55%이고, 키 줄이 높이에 맞춰 늘고 줄어듭니다. 태블릿 에뮬레이터(가로/세로)와 실제 휴대폰(가로/세로)에서 확인했습니다.
+### Deutsch
+Probleme auf Tablets und im Querformat behoben: ① Auf Tablets oder im Querformat erschien die Tastatur manchmal nicht; ② auf dem Handy im Querformat war die Tastatur zu hoch und verdeckte das Eingabefeld; ③ im Hochformat war die unterste Reihe leicht abgeschnitten. Die Tastatur ist jetzt höchstens 55 % der Bildschirmhöhe hoch, und die Tastenreihen passen sich an. Geprüft im Tablet-Emulator (quer/hoch) und auf einem echten Handy (quer/hoch).
+### Français
+Corrections pour tablettes et mode paysage : ① sur tablette ou en paysage, le clavier n'apparaissait parfois pas ; ② sur téléphone en paysage, le clavier était trop haut et cachait le champ de saisie ; ③ en portrait, la dernière rangée était un peu coupée. Le clavier fait désormais au plus 55 % de la hauteur de l'écran et les rangées s'adaptent. Vérifié sur l'émulateur de tablette (paysage/portrait) et sur un vrai téléphone (paysage/portrait).
+### Español
+Arreglos para tabletas y modo horizontal: ① en tabletas o en horizontal, a veces el teclado no aparecía; ② en el móvil en horizontal, el teclado era demasiado alto y tapaba el campo de texto; ③ en vertical, la última fila se cortaba un poco. Ahora el teclado ocupa como máximo el 55 % de la altura de la pantalla y las filas se ajustan. Comprobado en el emulador de tableta (horizontal/vertical) y en un móvil real (horizontal/vertical).
+### Português
+Correções para tablets e modo paisagem: ① em tablets ou na horizontal, às vezes o teclado não aparecia; ② no celular na horizontal, o teclado era alto demais e cobria o campo de texto; ③ na vertical, a última fileira ficava um pouco cortada. Agora o teclado ocupa no máximo 55% da altura da tela e as fileiras se ajustam. Verificado no emulador de tablet (horizontal/vertical) e num celular real (horizontal/vertical).
+### Русский
+Исправлены проблемы на планшетах и в горизонтальной ориентации: ① на планшете или в горизонтальном положении клавиатура иногда не появлялась; ② на телефоне в горизонтальном положении клавиатура была слишком высокой и закрывала поле ввода; ③ в вертикальном положении нижний ряд немного обрезался. Теперь высота клавиатуры — не больше 55 % высоты экрана, а ряды клавиш подстраиваются. Проверено на эмуляторе планшета (горизонтально/вертикально) и на настоящем телефоне (горизонтально/вертикально).

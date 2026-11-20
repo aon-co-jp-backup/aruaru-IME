@@ -402,3 +402,27 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 ## 2026-11-20 低VRAM・VRAM無し端末(VPS・PC・タブレット・スマホ)でのAI/LLMのノウハウ / Low-VRAM AI know-how
 日本語: AI・LLMを使う機能(推論・要約・補完・OCR等)は、[aruaru-llm/docs/LOW-VRAM-KNOWHOW.md](https://github.com/aon-co-jp/aruaru-llm/blob/main/docs/LOW-VRAM-KNOWHOW.md) に従う: 短い文脈・上限・タイムアウト、VPSで重い推論を直接回さない、メモリが足りなければ小さいモデルへ自動で下げる。広い桁(FP64以上)は本番で使わず、試験の正解にだけ使う。
 English: Features that use AI/LLMs follow the file above: short context, caps and timeouts, no heavy inference directly on the VPS, auto-downgrade to a smaller model when memory is short. Wide floats (FP64 and above) are for test oracles only, not production.
+
+## 2026-11-20 タブレット・横向きの不具合修正 / Tablet and landscape fixes
+
+**日本語(やさしい説明)**
+- **見つけた不具合(エミュレーターと実機で確認)**:
+  1. **タブレットや横向きで、キーボードが出ないことがあった**。Android の標準の動き(横向きは「全画面入力」、物理キーボードがあると画面のキーボードを隠す)のせいで、表示の要求が断られていた。Gboard では出るのに aruaru-IME だけ出なかった。
+  2. **スマホの横向きで、キーボードが高すぎて入力欄が隠れた**(縦向きのときの高さのまま)。
+  3. **縦向きでも一番下の列が少し切れていた**(中身の合計が 300dp を超えていた)。
+- **直したこと**: 全画面入力をやめ、物理キーボードがあっても画面のキーボードを出す(aruaru-IME は物理キーからの日本語変換を持たないため)。高さは「300dp まで、ただし画面の高さの 55% まで」とし、出すたびに計算し直す。キーの列は高さに合わせて伸び縮みする(低い画面では文字と余白を小さく、説明の行は隠す)。
+- **確かめたこと**: タブレットのエミュレーター(2560×1600)の横・縦で表示と入力(「か、」「カ,」)。実機スマホ(A401OP)の横向きで入力欄が見え、「こんにちは」→「今日は」の変換、縦向きに戻しても正しい。ブラウザで 393×300・860×216 の見た目。単体試験6件成功。
+- **場所**: `android/app/src/main/java/jp/aon/aruaruime/AruaruImeService.java`(`onEvaluateFullscreenMode`・`onEvaluateInputViewShown`・`onShowInputRequested`・`keyboardHeightPx`・`fitHeight`)、`crates/aruaru-ime-android/src/ui.rs`(CSS)。
+- **メモ**: このPCの Android 37 タブレット像はとても重く、Chrome やシステム画面が「応答なし」になりやすい(「待つ」で進む)。エミュレーターの `hw.keyboard=yes` だと物理キーボードありの扱いになる。
+- **まだ**: 新しい版(タグ)としての公開。本物のタブレット実機での確認。
+
+**English (plain words)**
+- **Bugs found (emulator and real phone)**:
+  1. **On tablets and in landscape the keyboard sometimes did not appear.** Android's defaults (fullscreen input in landscape, hiding the on-screen keyboard when a hardware keyboard is present) refused the show request. Gboard appeared; aruaru-IME did not.
+  2. **On a phone in landscape the keyboard was too tall and hid the text field** (it kept the portrait height).
+  3. **In portrait the bottom row was slightly cut off** (the content was taller than 300 dp).
+- **Fixes**: no fullscreen mode; the on-screen keyboard is shown even with a hardware keyboard (aruaru-IME has no Japanese conversion for hardware keys). Height is "up to 300 dp, but at most 55% of the screen height", recomputed every time it is shown. The key rows stretch to fit (on short screens: smaller text and padding, and the status line is hidden).
+- **Checked**: tablet emulator (2560x1600) in landscape and portrait (typing 「か、」 and 「カ,」); real phone (A401OP) in landscape with the field visible and 「こんにちは」 → 「今日は」, and back in portrait; the browser at 393x300 and 860x216; 6 unit tests pass.
+- **Where**: `AruaruImeService.java` (`onEvaluateFullscreenMode`, `onEvaluateInputViewShown`, `onShowInputRequested`, `keyboardHeightPx`, `fitHeight`) and the CSS in `crates/aruaru-ime-android/src/ui.rs`.
+- **Notes**: the Android 37 tablet image is very heavy on this PC; Chrome and System UI often show "not responding" (tap "Wait"). An emulator with `hw.keyboard=yes` counts as having a hardware keyboard.
+- **Not yet**: a new tagged release; a check on a real tablet.

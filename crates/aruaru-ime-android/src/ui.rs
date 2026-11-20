@@ -82,18 +82,20 @@ pub fn keyboard_root() -> VNode {
 }
 
 pub const CSS: &str = "html,body{margin:0;background:#1b1d22;color:#fff;font-family:system-ui,sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}\
-#app{display:flex;flex-direction:column;padding:2px 2px 4px}\
+html,body,#open-runo-root{height:100%}\
+#app{display:flex;flex-direction:column;padding:2px 2px 4px;height:100%;box-sizing:border-box}\
 #bar{display:flex;align-items:center;min-height:52px;gap:2px}\
 #c{flex:1 1 0;min-width:0;display:flex;gap:2px;overflow-x:auto;white-space:nowrap;align-items:center;scrollbar-width:none}#c::-webkit-scrollbar{display:none}\
 #c div{padding:8px 14px;font-size:20px;border-radius:6px;flex:0 0 auto}#c .tpl{color:#ffd479}#c .sel{background:#3b4150}\
 #c .md{background:#2c2f36;min-width:28px;text-align:center;padding:8px 10px}#c .md.on{background:#4a9eff}\
 #p{display:flex;flex:0 0 auto}#p.off{display:none}\
 #bar .mk{flex:0 0 52px;height:44px;font-size:20px}#p .pk{flex:0 0 44px;width:44px;height:44px;font-size:22px}\
-.row{display:flex;height:48px;margin-top:2px}.row.last{height:52px}.row.sym{display:none}\
+#bar{flex:0 0 auto}.row{display:flex;flex:1 1 0;min-height:0;max-height:56px;margin-top:2px}.row.last{flex-grow:1.1}.row.sym{display:none}\
 #app.sym .row.sym{display:flex}#app.sym .row.abc{display:none}\
 .k{flex:1 1 0;margin:1px;border:0;border-radius:6px;background:#2c2f36;color:#fff;font-size:18px;padding:0}.k:active{background:#4a9eff}\
 .act{background:#3b4150}.w13{flex:1.3 1 0}.w4{flex:4 1 0}\
-#st{color:#888;font-size:11px;text-align:center;padding-top:2px}";
+#st{color:#888;font-size:11px;text-align:center;padding-top:2px}\
+@media (max-height:280px){#app{padding:1px 2px 2px}#bar{min-height:34px}#bar .mk,#p .pk{height:32px;font-size:18px}#c div{padding:2px 10px;font-size:17px}.row{margin-top:1px}.k{font-size:16px}#st{display:none}}";
 
 /// 画面の動き。`window.AndroidIme`(Java)は、commit / composing / finish / backspace / enter / api を持つ。
 pub const SCRIPT: &str = r##"(()=>{

@@ -36,8 +36,47 @@ public class AruaruImeService extends InputMethodService {
         web.setBackgroundColor(0xFF1B1D22);
         web.addJavascriptInterface(new Bridge(), "AndroidIme");
         web.loadDataWithBaseURL("https://localhost/", Native.page(), "text/html", "UTF-8", null);
-        web.setLayoutParams(new android.view.ViewGroup.LayoutParams(-1, (int) (300 * getResources().getDisplayMetrics().density)));
+        web.setLayoutParams(new android.view.ViewGroup.LayoutParams(-1, keyboardHeightPx()));
         return web;
+    }
+
+    /** キーボードの高さ: 300dp まで、ただし画面の高さの 55% まで(スマホの横向きで入力欄が隠れないように)。
+     *  向きを変えたあとに出すときも正しい高さになるよう、onStartInputView でも毎回計算し直す。 */
+    private int keyboardHeightPx() {
+        android.content.res.Configuration c = getResources().getConfiguration();
+        float density = getResources().getDisplayMetrics().density;
+        float dp = Math.min(300f, c.screenHeightDp * 0.55f);
+        return (int) (dp * density);
+    }
+
+    private void fitHeight() {
+        if (web == null) return;
+        android.view.ViewGroup.LayoutParams lp = web.getLayoutParams();
+        int h = keyboardHeightPx();
+        if (lp != null && lp.height != h) {
+            lp.height = h;
+            web.setLayoutParams(lp);
+        }
+    }
+
+    /** 横向き・タブレットでも全画面入力モードにしない。
+     *  既定(横向きなら全画面)のままだと、自動表示の要求が断られてキーボードが出ない(エミュレーターで確認)。 */
+    @Override
+    public boolean onEvaluateFullscreenMode() {
+        return false;
+    }
+
+    /** 物理キーボード(タブレットのキーボードカバー・Chromebook 等)がつながっていても、画面のキーボードを出す。
+     *  aruaru-IME は物理キーからの日本語変換を持たないので、隠すと変換できなくなる(Gboard も同様に表示する)。 */
+    @Override
+    public boolean onEvaluateInputViewShown() {
+        super.onEvaluateInputViewShown();
+        return true;
+    }
+
+    @Override
+    public boolean onShowInputRequested(int flags, boolean configChange) {
+        return true;
     }
 
     /** ページ(JS)から呼ばれる。 */
@@ -108,6 +147,7 @@ public class AruaruImeService extends InputMethodService {
                 || var == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
                 || (cls == InputType.TYPE_CLASS_NUMBER && var == InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         net.execute(() -> Native.setField(pkg, secret));
+        fitHeight();
         if (web != null) web.evaluateJavascript("window.__flush&&window.__flush()", null);
     }
 
