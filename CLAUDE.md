@@ -398,3 +398,7 @@ aruaru-llm の REST 全廃(ブランチ `connect-migration`)に合わせ、呼�
 - **How it was built**: in the WSL distro `Ubuntu-24.04`, which has the same glibc 2.39 as the VPS (the usual `Ubuntu` has glibc 2.43, whose builds may not run on the VPS).
 - **Safety steps**: before the swap, the new engine was test-started on another port (4669) with a throwaway data folder, and "konnnitiha" converted to 「今日は」. The old engine is kept as `aruaru-ime-daemon.bak-20261120`, with an automatic rollback if the start failed (not needed).
 - **Checked**: `/health` says `v=0.2.27`, the service is active with zero error logs, the public `easy-web.tokyo/ime/api/aruaru_ime.v1.Ime/Key` answers 200 with correct conversions, the old `/ime/api/key` still returns 404, and the keyboard on a real phone (A401OP) converted to 「今日は」.
+
+## 2026-11-20 低VRAM・VRAM無し端末(VPS・PC・タブレット・スマホ)でのAI/LLMのノウハウ / Low-VRAM AI know-how
+日本語: AI・LLMを使う機能(推論・要約・補完・OCR等)は、[aruaru-llm/docs/LOW-VRAM-KNOWHOW.md](https://github.com/aon-co-jp/aruaru-llm/blob/main/docs/LOW-VRAM-KNOWHOW.md) に従う: 短い文脈・上限・タイムアウト、VPSで重い推論を直接回さない、メモリが足りなければ小さいモデルへ自動で下げる。広い桁(FP64以上)は本番で使わず、試験の正解にだけ使う。
+English: Features that use AI/LLMs follow the file above: short context, caps and timeouts, no heavy inference directly on the VPS, auto-downgrade to a smaller model when memory is short. Wide floats (FP64 and above) are for test oracles only, not production.
