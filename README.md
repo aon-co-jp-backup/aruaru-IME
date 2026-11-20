@@ -648,3 +648,37 @@ Corrigido: 「まさひろ→正浩」 e 「ひろし→浩」 não eram convert
 **В планах**: поднимать частые личные имена выше в списке, проверка на настоящем планшете и полный тест переустановки Windows-установщика (кнопку «Да» в запросе администратора нажимает сам владелец).
 
 (日本語・英語以外はAI翻訳で、ネイティブの確認前です / Languages other than Japanese and English are AI translations, not yet checked by native speakers)
+
+## 2026-11-20 人名の候補の改善(v0.2.29) / Better given-name candidates (v0.2.29)
+(日本語・英語以外はAI翻訳で、ネイティブの確認前です / Languages other than Japanese and English are AI translations, not yet checked by native speakers)
+
+### 日本語
+- **よく使う名前を上の方に**: 「まさひろ→正浩」「ひろし→浩」のような、よく使う名前の表記を、いちばん上の候補のすぐ次(上位3つ)に出します。前は15番目あたりでした(`crates/aruaru-ime-core/src/names.rs`)。
+- **辞書に無い名前も必ず出す**: 辞書に無い組み合わせの名前も、名前によく使う読みの部品(まさ+ひろ、たか+のぶ)をつないで表記を作り、候補に必ず入れます。例: 「たかのぶ→隆信」。
+- **確かめたこと**: 試験207件すべて成功。このPCに v0.2.29 のインストーラーで入れ直し(UACはご本人が許可)、正浩2番目・浩3番目・隆信2番目を確認。VPS のエンジンも差し替え(元は `aruaru-ime-daemon.bak-20261120c`)、公開 API で同じ結果、エラー0件。スマホのキーボードは VPS で変換するので、もう届いています。
+- **インストール試験で分かったこと**: アンインストールは成功。その直後の再インストールは、Windows が「再起動が必要」と判断して止まりました(使用中の IME の DLL は再起動しないと消えないため)。次のサインインで自動で入れる予約をしました。
+- **これから**: 名前の一覧を増やす、Windows の再起動後の自動インストールの確認、v0.2.29 の公開(Release)。
+
+### English
+- **Common names come first**: common spellings of given names, such as 「まさひろ」→「正浩」 and 「ひろし」→「浩」, now appear right after the top candidate (top 3). Before, they were around 15th (`crates/aruaru-ime-core/src/names.rs`).
+- **Names not in the dictionary always appear**: for a name the dictionary lacks, the engine joins common name parts (まさ+ひろ, たか+のぶ) and always adds the result. Example: 「たかのぶ」→「隆信」.
+- **Checked**: all 207 tests pass. Re-installed with the v0.2.29 installer on this PC (the owner approved UAC): 正浩 2nd, 浩 3rd, 隆信 2nd. The VPS engine was swapped too (old one kept as `aruaru-ime-daemon.bak-20261120c`); the public API gives the same result with no errors. The phone keyboard converts on the VPS, so it already has the fix.
+- **Installer test finding**: uninstall works. A re-install right after it stopped because Windows wants a restart (an IME DLL in use can only be removed after a restart). The install is scheduled to run at the next sign-in.
+- **Next**: a longer name list, checking the after-restart install, and publishing v0.2.29 as a Release.
+
+### 简体中文
+常用人名的写法(まさひろ→正浩、ひろし→浩)现在排在第一个候选之后的前三位。词典里没有的名字,也会用常见的名字部件(まさ+ひろ、たか+のぶ)组合出来,一定出现在候选里(例:たかのぶ→隆信)。207项测试全部通过,已在本机安装程序和服务器上确认。卸载后立即重新安装需要重启 Windows,已预约在下次登录时自动安装。
+### 繁體中文
+常用人名的寫法(まさひろ→正浩、ひろし→浩)現在排在第一個候選之後的前三位。字典裡沒有的名字,也會用常見的名字部件(まさ+ひろ、たか+のぶ)組合出來,一定出現在候選中(例:たかのぶ→隆信)。207項測試全部通過,已在本機安裝程式與伺服器上確認。解除安裝後立即重新安裝需要重新啟動 Windows,已預約在下次登入時自動安裝。
+### 한국어
+자주 쓰는 이름 표기(まさひろ→正浩, ひろし→浩)가 이제 첫 후보 바로 다음(상위 3개)에 나옵니다. 사전에 없는 이름도 자주 쓰는 이름 부품(まさ+ひろ, たか+のぶ)을 이어 표기를 만들어 반드시 후보에 넣습니다(예: たかのぶ→隆信). 시험 207건 모두 통과, 이 PC의 설치 프로그램과 서버에서 확인했습니다. 제거 직후 재설치는 Windows 재시작이 필요해, 다음 로그인 때 자동 설치하도록 예약했습니다.
+### Deutsch
+Häufige Schreibweisen von Vornamen (まさひろ→正浩, ひろし→浩) stehen jetzt direkt nach dem ersten Vorschlag (unter den ersten drei). Namen, die nicht im Wörterbuch stehen, werden aus üblichen Namensteilen (まさ+ひろ, たか+のぶ) gebildet und erscheinen immer (z. B. たかのぶ→隆信). Alle 207 Tests bestehen; mit dem Installer auf diesem PC und auf dem Server geprüft. Eine Neuinstallation direkt nach der Deinstallation braucht einen Windows-Neustart; sie ist für die nächste Anmeldung geplant.
+### Français
+Les graphies courantes des prénoms (まさひろ→正浩, ひろし→浩) apparaissent maintenant juste après la première suggestion (parmi les trois premières). Les prénoms absents du dictionnaire sont formés à partir d'éléments de prénom courants (まさ+ひろ, たか+のぶ) et apparaissent toujours (ex. たかのぶ→隆信). Les 207 tests réussissent ; vérifié avec l'installateur sur ce PC et sur le serveur. Une réinstallation juste après la désinstallation demande un redémarrage de Windows ; elle est programmée à la prochaine connexion.
+### Español
+Las escrituras habituales de nombres de pila (まさひろ→正浩, ひろし→浩) aparecen ahora justo después del primer candidato (entre los tres primeros). Los nombres que no están en el diccionario se forman con partes de nombre habituales (まさ+ひろ, たか+のぶ) y siempre aparecen (p. ej. たかのぶ→隆信). Pasan las 207 pruebas; comprobado con el instalador en este PC y en el servidor. Reinstalar justo después de desinstalar requiere reiniciar Windows; quedó programado para el próximo inicio de sesión.
+### Português
+As grafias comuns de nomes próprios (まさひろ→正浩, ひろし→浩) agora aparecem logo após o primeiro candidato (entre os três primeiros). Nomes que não estão no dicionário são formados com partes comuns de nomes (まさ+ひろ, たか+のぶ) e sempre aparecem (ex.: たかのぶ→隆信). Os 207 testes passam; verificado com o instalador neste PC e no servidor. Reinstalar logo após desinstalar exige reiniciar o Windows; ficou agendado para o próximo login.
+### Русский
+Частые написания личных имён (まさひろ→正浩, ひろし→浩) теперь стоят сразу после первого варианта (в первой тройке). Имена, которых нет в словаре, собираются из частых частей имён (まさ+ひろ, たか+のぶ) и всегда появляются (например, たかのぶ→隆信). Все 207 тестов проходят; проверено установщиком на этом ПК и на сервере. Переустановка сразу после удаления требует перезагрузки Windows; она запланирована на следующий вход в систему.

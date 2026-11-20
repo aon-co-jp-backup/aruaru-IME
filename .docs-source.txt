@@ -1,3 +1,3 @@
 source: aon-co-jp/aruaru-IME
-commit: a9e2b1872db0a32343297751a792e610893e291a
-updated: 2026-11-20T11:24:53Z
+commit: 5c5e51b236357ff381f62f430174b148695c165b
+updated: 2026-11-20T13:13:51Z
