@@ -1339,6 +1339,17 @@ mod tests {
         let st = type_str(&mut s, "masahiro");
         assert!(st.cands.len() >= 100, "まさひろ の候補が少なすぎる: {}", st.cands.len());
         assert!(st.cands.iter().any(|c| c == "匡弘"), "辞書の下のほうの表記も出す");
+        s.key(Key::Esc);
+        // よく使う表記は上の方(先頭から4番目まで)に出る
+        for (w, want) in [("masahiro", "正浩"), ("hiroshi", "浩")] {
+            let st = type_str(&mut s, w);
+            let i = st.cands.iter().position(|c| c == want).unwrap();
+            assert!(i <= 3, "{w}: {want} が {i} 番目");
+            s.key(Key::Esc);
+        }
+        // 辞書に無い組み合わせの名前も、名前の部品から作って必ず候補に出す
+        let st = type_str(&mut s, "takanobu");
+        assert!(st.cands.iter().any(|c| c == "隆信"), "{:?}", st.cands);
     }
 
     #[test]

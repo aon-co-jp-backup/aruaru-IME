@@ -16,6 +16,7 @@ pub mod extra;
 pub mod kanji;
 pub mod kyujitai;
 pub mod mode;
+pub mod names;
 pub mod romaji;
 pub mod session;
 pub mod translit;

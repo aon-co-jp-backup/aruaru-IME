@@ -130,6 +130,10 @@ pub fn convert(buffer: &str, ctx: &Context, client: Option<&Client>, dict: Optio
                 }
             }
         }
+        // 人名: よく使う表記(正浩・浩)を最有力の次へ。辞書に無い名前も、名前の部品の組み合わせで必ず候補に出す
+        if hira.chars().all(|c| ('ぁ'..='ゖ').contains(&c)) {
+            crate::names::merge(&hira, &mut dict_cands, 40);
+        }
     }
     // `nn` の直後が母音のとき、「ん」+「な行」と読んだ変換(junni → 順に)のほかに、「ん」+母音と読んだ変換(→ 順位)も2番目に出す
     if let (Some(d), Some(alt)) = (dict, romaji::to_hiragana_alt(buffer)) {
