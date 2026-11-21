@@ -147,3 +147,16 @@ As grafias comuns de nomes próprios (まさひろ→正浩, ひろし→浩) ag
 - **Español**: la lista de nombres habituales pasó de unos 60 a unas 110 lecturas; las predicciones largas de lugares (ひろし→広島県) ya no se adelantan a los nombres, y 浩 queda 2.º.
 - **Português**: a lista de nomes comuns passou de cerca de 60 para cerca de 110 leituras; previsões longas de lugares (ひろし→広島県) não passam mais à frente dos nomes, e 浩 agora é o 2.º.
 - **Русский**: список частых имён вырос примерно с 60 до 110 чтений; длинные подсказки географических названий (ひろし→広島県) больше не встают перед именами, 浩 теперь на 2-м месте.
+
+## 2026-11-21 v0.2.30 公開 / v0.2.30 released
+- **日本語**: よく使う人名の一覧(約110件)と「ひろし→浩」で地名が割り込まない修正を、Windows・macOS・Linux・Androidの配布物に入れました。Release・VPSの配布ファイル・紹介ページはv0.2.30です。
+- **English**: The expanded given-name list (about 110 readings) and the fix that stops place names cutting in (e.g. ひろし→浩) now ship in the Windows, macOS, Linux and Android builds. The Release, VPS downloads and intro page are at v0.2.30.
+- **简体中文**: 常用人名列表(约110个)以及"ひろし→浩"不再被地名插队的修复,已加入 Windows、macOS、Linux、Android 安装包。
+- **繁體中文**: 常用人名清單(約110個)以及「ひろし→浩」不再被地名插隊的修正,已加入 Windows、macOS、Linux、Android 安裝檔。
+- **한국어**: 자주 쓰는 이름 목록(약 110개)과 "ひろし→浩"에서 지명이 끼어들지 않게 한 수정을 Windows·macOS·Linux·Android 배포판에 넣었습니다.
+- **Deutsch**: Die erweiterte Vornamenliste (etwa 110 Lesungen) und die Korrektur, dass sich Ortsnamen nicht mehr vordrängen (z. B. ひろし→浩), sind jetzt in den Builds für Windows, macOS, Linux und Android.
+- **Français**: La liste élargie de prénoms (environ 110 lectures) et la correction empêchant les noms de lieux de s'intercaler (ex. ひろし→浩) sont désormais livrées pour Windows, macOS, Linux et Android.
+- **Español**: La lista ampliada de nombres de pila (unas 110 lecturas) y la corrección para que los topónimos no se cuelen (p. ej. ひろし→浩) ya vienen en las versiones de Windows, macOS, Linux y Android.
+- **Português**: A lista ampliada de nomes próprios (cerca de 110 leituras) e a correção para que nomes de lugares não se intrometam (ex.: ひろし→浩) já vêm nas versões para Windows, macOS, Linux e Android.
+- **Русский**: Расширенный список личных имён (около 110 чтений) и исправление, при котором названия мест больше не вклиниваются (например, ひろし→浩), теперь входят в сборки для Windows, macOS, Linux и Android.
+(日本語・英語以外はAI翻訳 / non-JA/EN lines are AI translations)
