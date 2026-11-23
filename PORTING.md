@@ -871,3 +871,8 @@ As grafias comuns de nomes próprios (まさひろ→正浩, ひろし→浩) ag
 - **今回やっていないこと**: 再インストール・アンインストールは管理者昇格(UAC)が要り、この環境では承認できないため実行していない(迂回もしていない)。メモ帳等での実入力(変換)の目視確認も未実施(画面操作の許可を取っていない)。システム設定は変更していない。
 - **所有者の操作(昇格が必要)**: 管理者のPowerShellで `Start-Process F:\aruaru-IME\dist\aruaru-ime-windows-x86_64-setup.exe -ArgumentList '/VERYSILENT' -Wait` で入れ直し→メモ帳でaruaru-IMEを選んで入力→`C:\Program Files\aruaru-IME\unins000.exe /VERYSILENT` でアンインストール、の順に確認する。アンインストール後は `aruaru_ime_tsf.dll` が残らないか(前回は残った記録あり)も見る。
 - **未確認**: アンインストールの通し(DLLの残り)、メモ帳での実入力、アンインストール情報の登録名(HKLM/HKCU/WOW6432では`aruaru-IME`の表示名を見つけられなかった。`unins000.exe`は存在)。
+
+
+## 2026-11-23 追記: url 2.5.9 へ更新 / Update: url 2.5.9
+**日本語**: RUSTSEC-2026-0592(`Url::origin()` のスタックあふれ)対応で `url` を 2.5.8→2.5.9 に更新(207件成功(cargo test --workspace))。VPS のクローンも追従済み。稼働バイナリは未入れ替え。再開時は未コミットの作業中変更の有無を `git status` で確認。
+**English**: Updated `url` 2.5.8 to 2.5.9 for RUSTSEC-2026-0592 (stack overflow in `Url::origin()`); 207 tests pass (cargo test --workspace). The VPS clone is fast-forwarded; running binaries were not swapped. On resume, check `git status` for uncommitted work.
