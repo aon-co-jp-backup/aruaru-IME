@@ -864,3 +864,10 @@ As grafias comuns de nomes próprios (まさひろ→正浩, ひろし→浩) ag
 - **Português**: A lista ampliada de nomes próprios (cerca de 110 leituras) e a correção para que nomes de lugares não se intrometam (ex.: ひろし→浩) já vêm nas versões para Windows, macOS, Linux e Android.
 - **Русский**: Расширенный список личных имён (около 110 чтений) и исправление, при котором названия мест больше не вклиниваются (например, ひろし→浩), теперь входят в сборки для Windows, macOS, Linux и Android.
 (日本語・英語以外はAI翻訳 / non-JA/EN lines are AI translations)
+
+## 2026-11-23 追記: v0.2.30 インストーラーの確認(日本語)
+- **ハッシュ**: `dist/aruaru-ime-windows-x86_64-setup.exe` のSHA256は同梱の`.sha256`と一致(`5d929eb1…aa5c`)。
+- **インストール済みの状態(確認済み)**: `C:\Program Files\aruaru-IME` に本体・常駐エンジン・TSF DLL・辞書・`unins000.exe` があり、`aruaru-ime-daemon` が起動中。`GET http://127.0.0.1:4660/health` は `ok dict=1225528 v=0.2.30 proto=1`、`Ime/Version` は `0.2.30`。2026-11-21 15:12 の自動インストール(`installer-e2e.log`、exit=0、CLSID・Runキー登録あり)の結果と一致する。
+- **今回やっていないこと**: 再インストール・アンインストールは管理者昇格(UAC)が要り、この環境では承認できないため実行していない(迂回もしていない)。メモ帳等での実入力(変換)の目視確認も未実施(画面操作の許可を取っていない)。システム設定は変更していない。
+- **所有者の操作(昇格が必要)**: 管理者のPowerShellで `Start-Process F:\aruaru-IME\dist\aruaru-ime-windows-x86_64-setup.exe -ArgumentList '/VERYSILENT' -Wait` で入れ直し→メモ帳でaruaru-IMEを選んで入力→`C:\Program Files\aruaru-IME\unins000.exe /VERYSILENT` でアンインストール、の順に確認する。アンインストール後は `aruaru_ime_tsf.dll` が残らないか(前回は残った記録あり)も見る。
+- **未確認**: アンインストールの通し(DLLの残り)、メモ帳での実入力、アンインストール情報の登録名(HKLM/HKCU/WOW6432では`aruaru-IME`の表示名を見つけられなかった。`unins000.exe`は存在)。
