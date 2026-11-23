@@ -560,3 +560,8 @@ As grafias comuns de nomes próprios (まさひろ→正浩, ひろし→浩) ag
 - **Português**: A lista ampliada de nomes próprios (cerca de 110 leituras) e a correção para que nomes de lugares não se intrometam (ex.: ひろし→浩) já vêm nas versões para Windows, macOS, Linux e Android.
 - **Русский**: Расширенный список личных имён (около 110 чтений) и исправление, при котором названия мест больше не вклиниваются (например, ひろし→浩), теперь входят в сборки для Windows, macOS, Linux и Android.
 (日本語・英語以外はAI翻訳 / non-JA/EN lines are AI translations)
+
+
+## 2026-11-23 追記: url 2.5.9 へ更新 / Update: url 2.5.9
+**日本語**: RUSTSEC-2026-0592(`Url::origin()` のスタックあふれ)対応で `url` を 2.5.8→2.5.9 に更新(207件成功(cargo test --workspace))。VPS のクローンも追従済み。稼働バイナリは未入れ替え。再開時は未コミットの作業中変更の有無を `git status` で確認。
+**English**: Updated `url` 2.5.8 to 2.5.9 for RUSTSEC-2026-0592 (stack overflow in `Url::origin()`); 207 tests pass (cargo test --workspace). The VPS clone is fast-forwarded; running binaries were not swapped. On resume, check `git status` for uncommitted work.
