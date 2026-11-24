@@ -1,3 +1,5 @@
+> Latest translations / 翻訳の最新版: [0-LATEST-TRANSLATIONS.md](0-LATEST-TRANSLATIONS.md)
+
 # aruaru-IME
 
 画面の文脈から「いま何を打とうとしているか」を予測して変換する AI IME。漢字に変換することを前提に、打つそばから変換結果を出します(ライブ変換)。
