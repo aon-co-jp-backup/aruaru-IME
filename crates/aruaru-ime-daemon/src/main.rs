@@ -743,7 +743,7 @@ fn serve(client: Client, dict: Arc<Option<Dict>>, state: Arc<Mutex<State>>, glos
             let _ = req.respond(r);
             continue;
         }
-        // Connect の単純呼び出し(POST /aruaru_ime.v1.Ime/<Method>)を、内部の経路へ写す。
+        // Connect の単純呼び出し(POST /aruaru_ime.Ime/<Method>)を、内部の経路へ写す。
         // 旧REST経路(/key 等)は2026-11-09に削除(ユーザー指示)。例外は GET /health(ヘルスチェック)と GET /ui(画面のHTML)だけ。
         let (method_s, path) = match connect_route(req.method().as_str(), &path) {
             Some(r) => r,
@@ -962,9 +962,9 @@ fn spawn_data_update() {
     });
 }
 
-/// `POST /aruaru_ime.v1.Ime/<Method>` を内部の (メソッド, 経路) へ写す。Connect 以外・未知のメソッドは None。
+/// `POST /aruaru_ime.Ime/<Method>` を内部の (メソッド, 経路) へ写す。Connect 以外・未知のメソッドは None。
 fn connect_route(method: &str, path: &str) -> Option<(String, String)> {
-    let name = path.strip_prefix("/aruaru_ime.v1.Ime/")?;
+    let name = path.strip_prefix("/aruaru_ime.Ime/")?;
     let inner = match name {
         "Key" => ("POST", "/key"),
         "Templates" => ("POST", "/templates"),
@@ -986,4 +986,14 @@ fn connect_route(method: &str, path: &str) -> Option<(String, String)> {
         return Some(("POST".into(), "/__unknown".into()));
     }
     Some((inner.0.into(), inner.1.into()))
+}
+
+#[cfg(test)]
+mod versionless_tests {
+    use super::connect_route;
+    #[test]
+    fn only_versionless_route_is_accepted() {
+        assert!(connect_route("POST", "/aruaru_ime.Ime/Key").is_some());
+        assert!(connect_route("POST", "/aruaru_ime.v1.Ime/Key").is_none());
+    }
 }
