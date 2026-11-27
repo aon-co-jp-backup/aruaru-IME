@@ -28,7 +28,7 @@ pub const ARUARU_LLM: Spec = Spec {
     name: "aruaru-llm",
     repo: "aon-co-jp/aruaru-llm",
     exe: "aruaru-llm",
-    health_url: "http://127.0.0.1:4600/aruaru_llm.v1.Llm/Runtime",
+    health_url: "http://127.0.0.1:4600/aruaru_llm.Llm/Runtime",
     asset_win: "windows-x86_64.zip",
     asset_linux: "linux-x86_64.tar.gz",
     inno_app_id: "{3E7A1C4F-9B2D-4A6E-8F31-5D9C2E7B0A44}",
@@ -277,11 +277,11 @@ pub fn ensure(spec: &Spec, root: &Path, installed_by: &str, allow_download: bool
 /// aruaru-llm に Qwen を導入・選択させる(強制同梱: 無ければ取得する)。
 pub fn ensure_qwen(base_url: &str, model_id: &str) -> Result<(), String> {
     let agent = crate::http::AgentBuilder::new().timeout(Duration::from_secs(3600)).build();
-    let sel = |agent: &crate::http::Agent| agent.post(&format!("{base_url}/aruaru_llm.v1.Llm/QwenSelect")).send_json(serde_json::json!({"id": model_id}));
+    let sel = |agent: &crate::http::Agent| agent.post(&format!("{base_url}/aruaru_llm.Llm/QwenSelect")).send_json(serde_json::json!({"id": model_id}));
     if sel(&agent).is_ok() {
         return Ok(());
     }
-    agent.post(&format!("{base_url}/aruaru_llm.v1.Llm/QwenInstall")).send_json(serde_json::json!({"id": model_id})).map_err(|e| format!("qwen install: {e}"))?;
+    agent.post(&format!("{base_url}/aruaru_llm.Llm/QwenInstall")).send_json(serde_json::json!({"id": model_id})).map_err(|e| format!("qwen install: {e}"))?;
     sel(&agent).map(|_| ()).map_err(|e| format!("qwen select: {e}"))
 }
 
