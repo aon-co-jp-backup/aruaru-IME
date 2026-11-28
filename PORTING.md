@@ -904,3 +904,7 @@ As grafias comuns de nomes próprios (まさひろ→正浩, ひろし→浩) ag
 ### 再開用メッセージ / Resume message
 **日本語**: 前の続きです。`F:\runo\PORTING.md` 末尾の「2026-11-27」の各節を読んでから、`.v1` 即削除の残り(maid-cafe-tokyo の Android 同梱 `libopenenglishserver.so` の再ビルド、version-control 定期実行の確認、Ledger の実書き込みの再確認)を確認なしで進めてください。決まり: 本物で確認してから完了、秘密は書かない、新しいRESTは作らない、VPS用ビルドは `Ubuntu-24.04`+`check-glibc.sh`、返答は日本語のみ。
 **English**: Continuing from before. Read the "2026-11-27" sections at the end of `F:\runo\PORTING.md`, then finish the remaining `.v1` items (rebuild the Android-bundled `libopenenglishserver.so` in maid-cafe-tokyo, confirm the version-control scheduled run, re-check a real Ledger write) without asking. Rules: verify on real systems before "done", never write secrets, no new REST, VPS builds in `Ubuntu-24.04` plus `check-glibc.sh`.
+
+## 2026-11-28 cookie 0.18.3 (RUSTSEC-2026-0594)
+**日本語**: Cargo.lock の cookie を 0.18.3 に更新(API変更なし)。cargo check 成功。VPSは再ビルド未実施。
+**English**: Bumped cookie to 0.18.3 in Cargo.lock (no API change). cargo check passes. VPS not rebuilt.
